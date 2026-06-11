@@ -22,6 +22,8 @@ export interface Observer {
 export interface PlanetPosition {
   name: string;
   symbol: string;
+  /** Ecliptic longitude in degrees (0–360), tropical */
+  tropicalLon: number;
   /** Ecliptic longitude in degrees (0–360), sidereal */
   siderealLon: number;
   /** Zodiac sign */
@@ -191,9 +193,9 @@ export async function calculateChart(date: Date, observer: Observer): Promise<Ep
         tropicalLon = ecl.elon;
       }
       
-      // Convert to sidereal
+      // Keep tropical, also compute sidereal
       const siderealLon = tropicalToSidereal(tropicalLon, ayanamsa);
-      const { sign, degree, minutes } = lonToSignDeg(siderealLon);
+      const { sign, degree, minutes } = lonToSignDeg(tropicalLon);
       
       // Get topocentric Alt/Az (parallax corrected)
       const equatorial = Astronomy.Equator(body, date, astroObs, true, true);
@@ -221,6 +223,7 @@ export async function calculateChart(date: Date, observer: Observer): Promise<Ep
       planets.push({
         name,
         symbol: PLANET_SYMBOLS[name] ?? "★",
+        tropicalLon,
         siderealLon,
         sign,
         degreeInSign: degree,
@@ -240,15 +243,17 @@ export async function calculateChart(date: Date, observer: Observer): Promise<Ep
   try {
     const d = (date.getTime() / 86400000) - 10957.5; // days from J2000
     const rahuTropical = ((125.0445479 - 0.0529539297 * d) % 360 + 360) % 360;
+    const ketuTropical = (rahuTropical + 180) % 360;
     const rahuSidereal = tropicalToSidereal(rahuTropical, ayanamsa);
     const ketuSidereal = (rahuSidereal + 180) % 360;
     
-    const rahuInfo = lonToSignDeg(rahuSidereal);
-    const ketuInfo = lonToSignDeg(ketuSidereal);
+    const rahuInfo = lonToSignDeg(rahuTropical);
+    const ketuInfo = lonToSignDeg(ketuTropical);
     
     planets.push({
       name: "Rahu",
       symbol: "☊",
+      tropicalLon: rahuTropical,
       siderealLon: rahuSidereal,
       sign: rahuInfo.sign,
       degreeInSign: rahuInfo.degree,
@@ -262,6 +267,7 @@ export async function calculateChart(date: Date, observer: Observer): Promise<Ep
     planets.push({
       name: "Ketu",
       symbol: "☋",
+      tropicalLon: ketuTropical,
       siderealLon: ketuSidereal,
       sign: ketuInfo.sign,
       degreeInSign: ketuInfo.degree,
@@ -283,7 +289,8 @@ export async function calculateChart(date: Date, observer: Observer): Promise<Ep
 export function formatChartForReading(result: EphemerisResult): string {
   const lines = result.planets.map(p => {
     const rx = p.retrograde ? " Rx" : "";
-    return `${p.name}${rx}: ${p.degreeInSign}° ${p.minutes}' ${p.sign}, ${p.house}th house`;
+    const trop = lonToSignDeg(p.tropicalLon);
+    return `${p.name}${rx}: ${trop.degree}° ${trop.minutes}' ${trop.sign}, ${p.house}th house`;
   });
 
   // Add angles: Ascendant, Descendant, MC, IC

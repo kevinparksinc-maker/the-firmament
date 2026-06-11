@@ -1,5 +1,5 @@
 /**
- * ARCANA STATE — Home Page
+ * THE FIRMAMENT — Home Page
  * Design: Hermetic Void — Dark Occultism meets Manuscript Illumination
  */
 
@@ -8,6 +8,7 @@ import { Streamdown } from 'streamdown';
 import { trpc } from '@/lib/trpc';
 import {
   runAstroReading,
+  buildReadingText,
   detectSadeSati,
   detectMoonPhase,
   PLANET_GLYPHS,
@@ -18,8 +19,10 @@ import {
 } from '@/lib/astroEngine';
 import { ScreenshotUploader } from '@/components/ScreenshotUploader';
 import { SavedChartManager } from '@/components/SavedChartManager';
+import { TransitDataForm } from '@/components/TransitDataForm';
 import { BirthDataForm } from '@/components/BirthDataForm';
 import { SnowGlobe } from '@/components/SnowGlobe';
+import { NatalPlacements } from '@/components/NatalPlacements';
 import { ChartWheel } from '@/components/ChartWheel';
 import { mergeOcrText } from '@/lib/mergeOcrText';
 import { detectFixedStarConjunctions, formatStarConjunctions } from '@/lib/fixedStars';
@@ -252,6 +255,7 @@ export default function Home() {
   const [engineResult, setEngineResult] = useState<ReadingResult | null>(null);
   const [readingMode, setReadingMode] = useState<ReadingMode>('full');
 
+  const [structuredPlanets, setStructuredPlanets] = useState<Record<string, { sign: string; degree: number; house: number }> | null>(null);
   const [natalResetKey, setNatalResetKey] = useState(0);
   const [transitResetKey, setTransitResetKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -262,6 +266,7 @@ export default function Home() {
   const outputRef = useRef<HTMLDivElement>(null);
 
   const interpretMutation = trpc.ai.interpretChart.useMutation();
+  const synthesizeMutation = trpc.synthesize.synthesize.useMutation();
 
   const handleNatalExtracted = useCallback((text: string) => {
     setNatalInput(prev => mergeOcrText(prev, text));
@@ -300,29 +305,48 @@ export default function Home() {
         setReadingMode(mode);
 
         setLoadingMsg('READING THE STARS');
-        const aiResult = await interpretMutation.mutateAsync({
-          placements: natalInput,
-          transitPlacements: transitInput,
-          context: contextInput,
-          mode: 'full',
-          fixedStarConjunctions: starText,
-        });
 
-        setEngineResult(r);
-        setAiReading(aiResult.reading);
+        // Use synthesize if we have structured planets (from birth form)
+        if (structuredPlanets) {
+          const aiResult = await synthesizeMutation.mutateAsync({
+            chartData: structuredPlanets,
+            userQuestion: contextInput || 'Give me a full natal and transit reading.',
+            engineContext: r ? buildReadingText(r) : undefined,
+          });
+          setEngineResult(r);
+          setAiReading(aiResult.reading);
+        } else {
+          const aiResult = await interpretMutation.mutateAsync({
+            placements: natalInput,
+            transitPlacements: transitInput,
+            context: contextInput,
+            mode: 'full',
+            fixedStarConjunctions: starText,
+          });
+          setEngineResult(r);
+          setAiReading(aiResult.reading);
+        }
       } else {
         const mode = hasNatal ? 'natal' : 'transit';
         setReadingMode(hasNatal ? 'natal-only' : 'transit-only');
         setLoadingMsg(hasNatal ? 'READING YOUR CHART' : 'READING THE SKY');
 
-        const aiResult = await interpretMutation.mutateAsync({
-          placements: hasNatal ? natalInput : transitInput,
-          context: contextInput,
-          mode,
-          fixedStarConjunctions: hasNatal ? starText : undefined,
-        });
-
-        setAiReading(aiResult.reading);
+        // Use synthesize if we have structured planets (from birth form)
+        if (structuredPlanets && hasNatal) {
+          const aiResult = await synthesizeMutation.mutateAsync({
+            chartData: structuredPlanets,
+            userQuestion: contextInput || 'Give me a full natal reading - who am I, what drives me, what is my dharmic path?',
+          });
+          setAiReading(aiResult.reading);
+        } else {
+          const aiResult = await interpretMutation.mutateAsync({
+            placements: hasNatal ? natalInput : transitInput,
+            context: contextInput,
+            mode,
+            fixedStarConjunctions: hasNatal ? starText : undefined,
+          });
+          setAiReading(aiResult.reading);
+        }
       }
 
       setTimeout(() => {
@@ -343,13 +367,13 @@ export default function Home() {
       <header style={{ textAlign: 'center', marginBottom: '52px', paddingBottom: '32px', borderBottom: '1px solid var(--rim)', position: 'relative' }}>
         <div style={{ position: 'absolute', bottom: '-1px', left: '50%', transform: 'translateX(-50%)', width: '120px', height: '1px', background: 'linear-gradient(90deg, transparent, var(--ember), transparent)' }} />
         <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', letterSpacing: '5px', color: 'var(--ember)', textTransform: 'uppercase', marginBottom: '14px', opacity: 0.8 }}>
-          Fixed Stars · Ancient Sky · Sidereal Framework
+          Fixed Stars · Ancient Sky · Tropical Planets · Fixed Dome
         </div>
         <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(28px, 5vw, 52px)', fontWeight: 900, letterSpacing: '2px', color: '#fff', textShadow: '0 0 40px rgba(100,160,220,0.3)', lineHeight: 1.1, marginBottom: '10px' }}>
-          ARCANA STATE
+          THE FIRMAMENT
         </h1>
         <div style={{ fontStyle: 'italic', color: 'var(--silver-dim)', fontSize: '15px', letterSpacing: '0.5px' }}>
-          Fixed Stars · Ancient Sky · Mind · Soul · Spirit
+          Nakshatra · Fixed Stars · Decan · Sabian · Pattern Engine
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '32px', marginTop: '24px', flexWrap: 'wrap' }}>
           {[{ label: 'MIND', color: 'var(--mind-col)', delay: '0s' }, { label: 'SOUL', color: 'var(--soul-col)', delay: '1s' }, { label: 'SPIRIT', color: 'var(--spirit-col)', delay: '2s' }].map(({ label, color, delay }) => (
@@ -379,9 +403,26 @@ export default function Home() {
           setObserverLat(lat);
           setObserverLng(lng);
           setChartWheelData({ houseCusps, angles });
+          // Build structured planet map for synthesize endpoint
+          const structured: Record<string, { sign: string; degree: number; house: number }> = {};
+          for (const p of planets) {
+            if (p.name) {
+              structured[p.name.toLowerCase()] = {
+                sign: p.sign,
+                degree: p.degreeInSign ?? p.degree ?? 0,
+                house: p.house ?? 1,
+              };
+            }
+          }
+          setStructuredPlanets(structured);
         }}
         disabled={loading}
       />
+
+      {/* Natal Placements Panel — shows after birth data calculated */}
+      {snowGlobePlanets.length > 0 && (
+        <NatalPlacements planets={snowGlobePlanets} />
+      )}
 
       {/* Input grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '20px' }} className="input-grid">
@@ -396,6 +437,14 @@ export default function Home() {
         </Panel>
 
         <Panel title="Current Transits" onClear={transitInput ? () => { setTransitInput(''); setTransitResetKey(k => k + 1); } : undefined}>
+          <TransitDataForm
+            onTransitCalculated={(readingText, _planets, lat, lng) => {
+              setTransitInput(readingText);
+              setObserverLat(lat);
+              setObserverLng(lng);
+            }}
+            disabled={loading}
+          />
           <ScreenshotUploader type="transit" onTextExtracted={handleTransitExtracted} disabled={loading} resetKey={transitResetKey} />
           <textarea value={transitInput} onChange={e => setTransitInput(e.target.value)} placeholder={TRANSIT_PLACEHOLDER}
             style={{ ...textareaStyle, marginTop: '10px' }}

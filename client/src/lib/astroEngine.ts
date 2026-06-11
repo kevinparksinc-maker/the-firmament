@@ -520,3 +520,22 @@ export function ordinalExport(n: number): string {
 }
 
 export { ordinal, planetTone, signFlavor };
+
+export function buildReadingText(result: any): string {
+  return [
+    "✦ MIND ✦",
+    result.mind.state,
+    result.mind.body,
+    "",
+    "✦ SOUL ✦",
+    result.soul.state,
+    result.soul.body,
+    "",
+    "✦ SPIRIT ✦",
+    result.spirit.state,
+    result.spirit.body,
+    "",
+    "✦ ACTIVATIONS ✦",
+    ...(result.activations || []).slice(0, 5).map((a: any) => a.summary)
+  ].join("\n").trim();
+}
