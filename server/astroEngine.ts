@@ -1,5 +1,6 @@
+import { scorePillarFull, summarizePillarRich } from "./summarizePillarRich";
 // ARCANA STATE — Astrology Engine
-// Sidereal framework · Traditional Vedic planetary rulers · No outer planet weight
+// Sidereal framework · Traditional Vedic planetary rulers · Outer planets weighted
 
 export const SIGN_ORDER = [
   'Aries','Taurus','Gemini','Cancer','Leo','Virgo',
@@ -8,7 +9,8 @@ export const SIGN_ORDER = [
 
 export const PLANET_GLYPHS: Record<string, string> = {
   Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂',
-  Jupiter:'♃', Saturn:'♄', Rahu:'☊', Ketu:'☋', Asc:'↑'
+  Jupiter:'♃', Saturn:'♄', Rahu:'☊', Ketu:'☋', Asc:'↑',
+  Uranus:'⛢', Neptune:'♆', Pluto:'♇'
 };
 
 export const SIGN_RULERS: Record<string, string> = {
@@ -27,7 +29,8 @@ export const DEBILITATIONS: Record<string, string> = {
 };
 
 export const PRIORITY: Record<string, number> = {
-  Saturn:5, Jupiter:4, Rahu:3.5, Ketu:3.5, Mars:3, Sun:2, Venus:2, Mercury:2, Moon:1.5
+  Saturn:5, Jupiter:4, Pluto:4.5, Neptune:3.8, Uranus:3.5,
+  Rahu:3.5, Ketu:3.5, Mars:3, Sun:2, Venus:2, Mercury:2, Moon:1.5
 };
 
 export const HOUSE_TOPICS: Record<number, string> = {
@@ -90,6 +93,21 @@ export const PLANET_CORE: Record<string, Record<string, string>> = {
     mind:'detachment, fragmentation, abstraction, psychic static',
     soul:'disinterest, release, past-life familiarity, severance',
     spirit:'liberation, negation, moksha impulse'
+  },
+  Uranus: {
+    mind:'pattern disruption, sudden insight, refusal of inherited frameworks',
+    soul:'restlessness that cannot settle until the authentic self is expressed — the hunger to break what no longer fits',
+    spirit:'awakening, liberation through disruption, the lightning that cracks the old structure open'
+  },
+  Neptune: {
+    mind:'dissolution of boundaries, impressionability, thinking in images and felt senses rather than logic',
+    soul:'longing for the infinite, the grief of not quite belonging to ordinary reality, compassion that has no edges',
+    spirit:'mystical receptivity, union with something larger than self, the tide that erases the line between here and everywhere'
+  },
+  Pluto: {
+    mind:'compulsive excavation, the mind that cannot stop going deeper, psychological penetration',
+    soul:'the part of the self that has already been through the fire — desire for total transformation, not surface change',
+    spirit:'death and rebirth as a living process, power that has been earned through loss, the seed that only germinates in the dark'
   }
 };
 
@@ -176,17 +194,12 @@ export function parseInput(text: string, kind: 'natal' | 'transit'): { parsed: R
 
   for (const line of lines) {
     rawLines.push(line);
-    // Support formats:
-    // "Sun: 3° Scorpio, 12th house"  (whole degrees)
-    // "Sun: 03° 27' Scorpio 12"       (degrees + arcminutes, astrology app format)
-    // "Sun Scorpio 03° 27' 12"        (column-style from app tables)
     const match = line.match(
       /^(Transit\s+)?([A-Za-z]+(?:\s+[A-Za-z]+)?)(?:\s+Rx)?\s*:?\s*(\d{1,3}(?:\.\d+)?)\s*°\s*(?:(\d{1,2})')?\s*([A-Za-z]+)(?:\s*,?\s*(\d{1,2})(?:st|nd|rd|th)?\s*house)?(.*)$/i
     );
     if (!match) continue;
 
     const planet = normalizePlanet(match[2]);
-    // Convert degrees + arcminutes to decimal degrees
     const deg = parseFloat(match[3]);
     const mins = match[4] ? parseFloat(match[4]) / 60 : 0;
     const degree = deg + mins;
@@ -399,6 +412,15 @@ export function scorePillar(
     } else if (p === 'Jupiter') {
       score += hard ? 3 : conj ? 10 : 7;
       reasons.push(`Transit Jupiter is opening natal ${act.natalPlanet} by ${act.aspect}.`);
+    } else if (p === 'Pluto') {
+      score += hard ? -11 : conj ? -10 : -6;
+      reasons.push(`Transit Pluto is forcing deep transformation around natal ${act.natalPlanet} by ${act.aspect}.`);
+    } else if (p === 'Neptune') {
+      score += hard ? -7 : conj ? -5 : -3;
+      reasons.push(`Transit Neptune is dissolving clarity around natal ${act.natalPlanet} by ${act.aspect}.`);
+    } else if (p === 'Uranus') {
+      score += hard ? -8 : conj ? -4 : 3;
+      reasons.push(`Transit Uranus is disrupting and awakening natal ${act.natalPlanet} by ${act.aspect}.`);
     } else if (p === 'Rahu') {
       score += conj ? 4 : hard ? -4 : 1;
       reasons.push(`Transit Rahu is amplifying natal ${act.natalPlanet} by ${act.aspect}.`);
@@ -481,28 +503,26 @@ export function runAstroReading(
   const hasNatal = Object.keys(natal).length >= 3;
   const hasTransits = Object.keys(transits).length >= 3;
 
-  // Need at least one to proceed
   if (!hasNatal && !hasTransits) {
     return { result: null, error: 'Please enter at least your natal chart OR current transits to generate a reading.', mode: 'full' };
   }
 
   const mode: ReadingMode = hasNatal && hasTransits ? 'full' : hasNatal ? 'natal-only' : 'transit-only';
 
-  // For transit-only: treat transits as the reference chart
   const effectiveNatal = hasNatal ? natal : transits;
   const effectiveTransits = hasTransits ? transits : {};
 
   const activations = hasNatal && hasTransits ? detectTransits(natal, transits) : [];
 
-  const mindResult = scorePillar('mind', effectiveNatal, effectiveTransits, activations);
-  const soulResult = scorePillar('soul', effectiveNatal, effectiveTransits, activations);
-  const spiritResult = scorePillar('spirit', effectiveNatal, effectiveTransits, activations);
+  const mindResult = scorePillarFull('mind', effectiveNatal, effectiveTransits, activations);
+  const soulResult = scorePillarFull('soul', effectiveNatal, effectiveTransits, activations);
+  const spiritResult = scorePillarFull('spirit', effectiveNatal, effectiveTransits, activations);
 
   return {
     result: {
-      mind: summarizePillar('mind', mindResult, effectiveNatal, activations),
-      soul: summarizePillar('soul', soulResult, effectiveNatal, activations),
-      spirit: summarizePillar('spirit', spiritResult, effectiveNatal, activations),
+      mind: summarizePillarRich('mind', mindResult, effectiveNatal, activations),
+      soul: summarizePillarRich('soul', soulResult, effectiveNatal, activations),
+      spirit: summarizePillarRich('spirit', spiritResult, effectiveNatal, activations),
       activations,
       natal: effectiveNatal,
       transits: effectiveTransits,

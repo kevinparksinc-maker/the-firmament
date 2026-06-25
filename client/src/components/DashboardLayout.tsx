@@ -38,8 +38,7 @@ const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
 
 export default function DashboardLayout({
-  children,
-}: {
+  children, }: {
   children: React.ReactNode;
 }) {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -103,9 +102,7 @@ type DashboardLayoutContentProps = {
 };
 
 function DashboardLayoutContent({
-  children,
-  setSidebarWidth,
-}: DashboardLayoutContentProps) {
+  children, setSidebarWidth, }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();

@@ -33,11 +33,7 @@ function useChart() {
 }
 
 function ChartContainer({
-  id,
-  className,
-  children,
-  config,
-  ...props
+  id, className, children, config, ...props
 }: React.ComponentProps<"div"> & {
   config: ChartConfig;
   children: React.ComponentProps<
@@ -103,20 +99,7 @@ ${colorConfig
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
 function ChartTooltipContent({
-  active,
-  payload,
-  className,
-  indicator = "dot",
-  hideLabel = false,
-  hideIndicator = false,
-  label,
-  labelFormatter,
-  labelClassName,
-  formatter,
-  color,
-  nameKey,
-  labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
+  active, payload, className, indicator = "dot", hideLabel = false, hideIndicator = false, label, labelFormatter, labelClassName, formatter, color, nameKey, labelKey, }: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
   React.ComponentProps<"div"> & {
     hideLabel?: boolean;
     hideIndicator?: boolean;
@@ -251,12 +234,7 @@ function ChartTooltipContent({
 const ChartLegend = RechartsPrimitive.Legend;
 
 function ChartLegendContent({
-  className,
-  hideIcon = false,
-  payload,
-  verticalAlign = "bottom",
-  nameKey,
-}: React.ComponentProps<"div"> &
+  className, hideIcon = false, payload, verticalAlign = "bottom", nameKey, }: React.ComponentProps<"div"> &
   Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
     hideIcon?: boolean;
     nameKey?: string;
@@ -307,11 +285,7 @@ function ChartLegendContent({
 }
 
 // Helper to extract item config from a payload.
-function getPayloadConfigFromPayload(
-  config: ChartConfig,
-  payload: unknown,
-  key: string
-) {
+function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key: string) {
   if (typeof payload !== "object" || payload === null) {
     return undefined;
   }

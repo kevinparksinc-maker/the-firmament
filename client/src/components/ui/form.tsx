@@ -88,8 +88,7 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function FormLabel({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof LabelPrimitive.Root>) {
   const { error, formItemId } = useFormField();
 

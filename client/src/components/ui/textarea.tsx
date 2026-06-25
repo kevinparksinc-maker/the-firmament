@@ -4,11 +4,7 @@ import { cn } from "@/lib/utils";
 import * as React from "react";
 
 function Textarea({
-  className,
-  onKeyDown,
-  onCompositionStart,
-  onCompositionEnd,
-  ...props
+  className, onKeyDown, onCompositionStart, onCompositionEnd, ...props
 }: React.ComponentProps<"textarea">) {
   // Get dialog composition context if available (will be no-op if not inside Dialog)
   const dialogComposition = useDialogComposition();

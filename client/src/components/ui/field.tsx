@@ -20,9 +20,7 @@ function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
 }
 
 function FieldLegend({
-  className,
-  variant = "legend",
-  ...props
+  className, variant = "legend", ...props
 }: React.ComponentProps<"legend"> & { variant?: "legend" | "label" }) {
   return (
     <legend
@@ -77,9 +75,7 @@ const fieldVariants = cva(
 );
 
 function Field({
-  className,
-  orientation = "vertical",
-  ...props
+  className, orientation = "vertical", ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof fieldVariants>) {
   return (
     <div
@@ -106,8 +102,7 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function FieldLabel({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof Label>) {
   return (
     <Label
@@ -152,9 +147,7 @@ function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
 }
 
 function FieldSeparator({
-  children,
-  className,
-  ...props
+  children, className, ...props
 }: React.ComponentProps<"div"> & {
   children?: React.ReactNode;
 }) {
@@ -182,10 +175,7 @@ function FieldSeparator({
 }
 
 function FieldError({
-  className,
-  children,
-  errors,
-  ...props
+  className, children, errors, ...props
 }: React.ComponentProps<"div"> & {
   errors?: Array<{ message?: string } | undefined>;
 }) {

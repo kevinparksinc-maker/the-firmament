@@ -111,15 +111,7 @@ export type AIChatBoxProps = {
  * ```
  */
 export function AIChatBox({
-  messages,
-  onSendMessage,
-  isLoading = false,
-  placeholder = "Type your message...",
-  className,
-  height = "600px",
-  emptyStateMessage = "Start a conversation with AI",
-  suggestedPrompts,
-}: AIChatBoxProps) {
+  messages, onSendMessage, isLoading = false, placeholder = "Type your message...", className, height = "600px", emptyStateMessage = "Start a conversation with AI", suggestedPrompts, }: AIChatBoxProps) {
   const [input, setInput] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

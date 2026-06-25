@@ -5,9 +5,7 @@ import { MinusIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function InputOTP({
-  className,
-  containerClassName,
-  ...props
+  className, containerClassName, ...props
 }: React.ComponentProps<typeof OTPInput> & {
   containerClassName?: string;
 }) {
@@ -35,9 +33,7 @@ function InputOTPGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function InputOTPSlot({
-  index,
-  className,
-  ...props
+  index, className, ...props
 }: React.ComponentProps<"div"> & {
   index: number;
 }) {

@@ -23,6 +23,7 @@ import { TransitDataForm } from '@/components/TransitDataForm';
 import { BirthDataForm } from '@/components/BirthDataForm';
 import { SnowGlobe } from '@/components/SnowGlobe';
 import { NatalPlacements } from '@/components/NatalPlacements';
+import FirmamentEngine from '@/components/FirmamentEngine';
 import { ChartWheel } from '@/components/ChartWheel';
 import { mergeOcrText } from '@/lib/mergeOcrText';
 import { detectFixedStarConjunctions, formatStarConjunctions } from '@/lib/fixedStars';
@@ -165,7 +166,7 @@ function AIReadingDisplay({ reading, mode }: { reading: string; mode: ReadingMod
 
 // ─── Legacy Engine Output (for full transit+natal with activations) ────────────
 
-function EngineReadingDisplay({ result, readingDate, mode }: { result: ReadingResult; readingDate: string; mode: ReadingMode }) {
+function EngineReadingDisplay({ result, readingDate, mode, aiReading }: { result: ReadingResult; readingDate: string; mode: ReadingMode; aiReading?: string | null }) {
   const { mind, soul, spirit, activations, natal, transits, context } = result;
   const mercury = natal.Mercury;
   const moon = natal.Moon;
@@ -221,6 +222,13 @@ function EngineReadingDisplay({ result, readingDate, mode }: { result: ReadingRe
       <ReadingSection title="Sun & Dharma / Spirit Arc" glyph="☉" delay={0.3}>
         <p style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.65 }}>{spiritText || 'Sun not found in natal input.'}</p>
       </ReadingSection>
+      {aiReading && aiReading.includes("## YOUR QUESTION") && (
+        <ReadingSection title="Your Question" glyph="✦" defaultOpen={true} delay={0.05}>
+          <p style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+            {aiReading.split("## YOUR QUESTION")[1]?.trim()}
+          </p>
+        </ReadingSection>
+      )}
       <ReadingSection title="Key Transit Activations" glyph="✦" delay={0.4}>
         {activations.length > 0
           ? activations.slice(0, 8).map((a, i) => (
@@ -259,14 +267,17 @@ export default function Home() {
   const [natalResetKey, setNatalResetKey] = useState(0);
   const [transitResetKey, setTransitResetKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<Array<{role: 'user'|'assistant', content: string}>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chartLocked, setChartLocked] = useState(false);
   const [snowGlobePlanets, setSnowGlobePlanets] = useState<any[]>([]);
   const [observerLat, setObserverLat] = useState(40.7);
   const [observerLng, setObserverLng] = useState(-74.0);
   const [chartWheelData, setChartWheelData] = useState<{ houseCusps: any[]; angles: any } | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
-  const interpretMutation = trpc.ai.interpretChart.useMutation();
-  const synthesizeMutation = trpc.synthesize.synthesize.useMutation();
+
 
   const handleNatalExtracted = useCallback((text: string) => {
     setNatalInput(prev => mergeOcrText(prev, text));
@@ -276,85 +287,90 @@ export default function Home() {
     setTransitInput(prev => mergeOcrText(prev, text));
   }, []);
 
+  const generateReading = trpc.ai.interpretChart.useMutation();
+  const askHorary = trpc.horary.ask.useMutation();
+  const followUp = trpc.horary.followUp.useMutation();
+
+  async function sendChat() {
+    if (!chatInput.trim() || chatLoading) return;
+    const userMsg = chatInput.trim();
+    setChatInput('');
+    setChatLoading(true);
+    const newHistory = [...chatHistory, { role: 'user' as const, content: userMsg }];
+    setChatHistory(newHistory);
+    try {
+      const result = await followUp.mutateAsync({
+        question: userMsg,
+        natalPlacements: natalInput || undefined,
+        transitPlacements: transitInput || undefined,
+        history: chatHistory.slice(-6),
+      });
+      setChatHistory([...newHistory, { role: 'assistant', content: result.answer }]);
+    } catch (e: any) {
+      setChatHistory([...newHistory, { role: 'assistant', content: 'Error: ' + (e?.message || 'Something went wrong') }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }
+
   async function runReading() {
     setError(null);
-    setAiReading(null);
-    setEngineResult(null);
-    setLoading(true);
-
     const hasNatal = natalInput.trim().length > 10;
     const hasTransit = transitInput.trim().length > 10;
-
     if (!hasNatal && !hasTransit) {
       setError('Please enter your natal chart or current transits to get a reading.');
-      setLoading(false);
       return;
     }
 
+    setLoading(true);
+    setAiReading(null);
+    setEngineResult(null);
+
+    const mode = hasNatal && hasTransit ? 'full' : hasNatal ? 'natal' : 'transit';
+    setReadingMode(mode === 'natal' ? 'natal-only' : mode === 'transit' ? 'transit-only' : 'full');
+
+    const loadingMessages = ['READING THE HEAVENS','CONSULTING THE FIXED STARS','CALCULATING ASPECTS','SYNTHESIZING THE CHART','WEAVING THE READING'];
+    let msgIndex = 0;
+    const msgInterval = setInterval(() => {
+      msgIndex = (msgIndex + 1) % loadingMessages.length;
+      setLoadingMsg(loadingMessages[msgIndex]);
+    }, 3000);
+
     try {
-      // Detect fixed star conjunctions from natal chart
-      const { parsed: natalParsed } = hasNatal
-        ? (await import('@/lib/astroEngine')).parseInput(natalInput, 'natal')
-        : { parsed: {} };
-      const starConjunctions = detectFixedStarConjunctions(natalParsed);
-      const starText = formatStarConjunctions(starConjunctions);
-
-      if (hasNatal && hasTransit) {
-        setLoadingMsg('CALCULATING ACTIVATIONS');
-        const { result: r, mode } = runAstroReading(natalInput, transitInput, contextInput);
-        setReadingMode(mode);
-
-        setLoadingMsg('READING THE STARS');
-
-        // Use synthesize if we have structured planets (from birth form)
-        if (structuredPlanets) {
-          const aiResult = await synthesizeMutation.mutateAsync({
-            chartData: structuredPlanets,
-            userQuestion: contextInput || 'Give me a full natal and transit reading.',
-            engineContext: r ? buildReadingText(r) : undefined,
-          });
-          setEngineResult(r);
-          setAiReading(aiResult.reading);
-        } else {
-          const aiResult = await interpretMutation.mutateAsync({
-            placements: natalInput,
-            transitPlacements: transitInput,
-            context: contextInput,
-            mode: 'full',
-            fixedStarConjunctions: starText,
-          });
-          setEngineResult(r);
-          setAiReading(aiResult.reading);
-        }
-      } else {
-        const mode = hasNatal ? 'natal' : 'transit';
-        setReadingMode(hasNatal ? 'natal-only' : 'transit-only');
-        setLoadingMsg(hasNatal ? 'READING YOUR CHART' : 'READING THE SKY');
-
-        // Use synthesize if we have structured planets (from birth form)
-        if (structuredPlanets && hasNatal) {
-          const aiResult = await synthesizeMutation.mutateAsync({
-            chartData: structuredPlanets,
-            userQuestion: contextInput || 'Give me a full natal reading - who am I, what drives me, what is my dharmic path?',
-          });
-          setAiReading(aiResult.reading);
-        } else {
-          const aiResult = await interpretMutation.mutateAsync({
-            placements: hasNatal ? natalInput : transitInput,
-            context: contextInput,
-            mode,
-            fixedStarConjunctions: hasNatal ? starText : undefined,
-          });
-          setAiReading(aiResult.reading);
-        }
+      if (hasNatal) {
+        const engineRes = runAstroReading(natalInput, transitInput);
+        if (engineRes.result) setEngineResult(engineRes.result);
       }
 
+      const starText = hasNatal ? formatStarConjunctions(detectFixedStarConjunctions(natalInput)) : '';
+
+      const result = await generateReading.mutateAsync({
+        placements: hasNatal ? natalInput : transitInput,
+        context: contextInput || undefined,
+        mode,
+        transitPlacements: hasTransit ? transitInput : undefined,
+        fixedStarConjunctions: starText || undefined,
+      });
+
+      setAiReading(result.reading);
+
+      // If user asked a question, get a direct horary answer
+      if (contextInput.trim().length > 3) {
+        const horaryResult = await askHorary.mutateAsync({
+          question: contextInput,
+          natalPlacements: hasNatal ? natalInput : undefined,
+          transitPlacements: hasTransit ? transitInput : undefined,
+        });
+        setAiReading(prev => prev + "\n\n---\n\n## YOUR QUESTION\n\n" + horaryResult.answer);
+      }
       setTimeout(() => {
         outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
-    } catch (err) {
-      setError('Something went wrong generating your reading. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'Something went wrong generating the reading. Please try again.');
     } finally {
+      clearInterval(msgInterval);
+      setLoadingMsg('READING THE HEAVENS');
       setLoading(false);
     }
   }
@@ -491,24 +507,44 @@ export default function Home() {
       {/* Output */}
       {hasOutput && !loading && (
         <div ref={outputRef}>
-          {/* If we have both engine + AI, show engine pillars first, then AI narrative */}
           {engineResult && aiReading && (
-            <>
-              <EngineReadingDisplay result={engineResult} readingDate={readingDate} mode={readingMode} />
-              <div style={{ marginTop: '32px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ flex: 1, height: '1px', background: 'var(--rim)' }} />
-                <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', letterSpacing: '3px', color: 'var(--ember)', opacity: 0.7 }}>DEEP READING</div>
-                <div style={{ flex: 1, height: '1px', background: 'var(--rim)' }} />
-              </div>
-              <AIReadingDisplay reading={aiReading} mode={readingMode} />
-            </>
+            <EngineReadingDisplay result={engineResult} readingDate={readingDate} mode={readingMode} aiReading={aiReading} />
           )}
-          {/* Natal-only or transit-only: pure AI reading */}
           {aiReading && !engineResult && (
             <AIReadingDisplay reading={aiReading} mode={readingMode} />
           )}
         </div>
       )}
+
+      {/* Conversation Layer */}
+      {chartLocked && (
+        <div style={{ marginTop: '32px', border: '1px solid var(--rim)', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--rim)', fontFamily: "'Cinzel', serif", fontSize: '10px', letterSpacing: '4px', color: 'var(--ember)' }}>
+            ✦ CONTINUE THE READING
+          </div>
+          <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {chatHistory.slice(1).map((msg, i) => (
+              <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%', padding: '12px 16px', background: msg.role === 'user' ? 'rgba(200,146,58,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${msg.role === 'user' ? 'var(--ember-dim)' : 'var(--rim)'}`, borderRadius: '4px', color: 'var(--silver)', fontSize: '14px', lineHeight: 1.6, fontFamily: "'Crimson Pro', serif", whiteSpace: 'pre-wrap' }}>
+                {msg.content}
+              </div>
+            ))}
+            {chatLoading && <div style={{ color: 'var(--ember)', fontFamily: "'Cinzel', serif", fontSize: '11px', letterSpacing: '3px' }}>CONSULTING THE STARS...</div>}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', padding: '16px', borderTop: '1px solid var(--rim)' }}>
+            <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
+              placeholder="Ask another question..."
+              style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--rim)', borderRadius: '3px', color: 'var(--silver)', fontFamily: "'Crimson Pro', serif", fontSize: '15px', padding: '10px 14px', outline: 'none' }} />
+            <button onClick={sendChat} disabled={chatLoading}
+              style={{ padding: '10px 20px', background: 'transparent', border: '1px solid var(--ember-dim)', borderRadius: '3px', color: 'var(--ember)', fontFamily: "'Cinzel', serif", fontSize: '11px', letterSpacing: '3px', cursor: chatLoading ? 'not-allowed' : 'pointer' }}>
+              ASK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Firmament Engine — full layered placement readings */}
+      <FirmamentEngine natalInput={natalInput} transitInput={transitInput} context={contextInput} />
 
       {/* Chart Wheel */}
       {chartWheelData && snowGlobePlanets.length > 0 && (

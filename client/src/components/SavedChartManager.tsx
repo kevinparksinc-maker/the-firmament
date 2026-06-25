@@ -131,7 +131,7 @@ export function SavedChartManager({ currentPlacements, onLoadChart }: SavedChart
                 zIndex: 1000,
               }}
             >
-              {charts.map((chart) => (
+              {charts.map((chart: any) => (
                 <div
                   key={chart.id}
                   style={{

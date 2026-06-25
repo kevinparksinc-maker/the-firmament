@@ -36,11 +36,7 @@ const DOME_HEIGHT = 6216;
 const DOME_RADIUS = 12432;
 
 // Map topocentric Alt/Az to 3D point on parabolic dome
-function altAzToDomePoint(
-  altitude: number,
-  azimuth: number,
-  observerLat: number
-): THREE.Vector3 {
+function altAzToDomePoint(altitude: number, azimuth: number, observerLat: number): THREE.Vector3 {
   // Observer's position on the flat plane (distance from North Pole)
   // 1° latitude = 69.17 miles
   const observerR = (90 - observerLat) * 69.17;

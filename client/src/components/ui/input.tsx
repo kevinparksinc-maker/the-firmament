@@ -4,12 +4,7 @@ import { cn } from "@/lib/utils";
 import * as React from "react";
 
 function Input({
-  className,
-  type,
-  onKeyDown,
-  onCompositionStart,
-  onCompositionEnd,
-  ...props
+  className, type, onKeyDown, onCompositionStart, onCompositionEnd, ...props
 }: React.ComponentProps<"input">) {
   // Get dialog composition context if available (will be no-op if not inside Dialog)
   const dialogComposition = useDialogComposition();

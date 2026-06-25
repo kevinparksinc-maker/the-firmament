@@ -2,28 +2,18 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
+import { authRouter } from "./_core/authRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { buildLensPrompt } from "./lib/readings/buildLensPrompt";
+import { LENSES } from "./lib/readings/lensRules";
 import { saveChart, getUserCharts, getChart, deleteChart } from "./db";
 import { calculateChart, formatChartForReading, getHouseCuspInfo } from "./ephemeris";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
-import { detectFixedStarConjunctions, formatStarConjunctions } from "./fixedStars";
-import { getNakshatraAt } from "./nakshatra";
-import { getDecanFlavor, getDecanRuler } from "./decan";
-import { getDegreeMeaning } from "./sabianSymbols";
-import { getLunarMansion } from "./kstar-planets";
-import { SIGN_RULERS, EXALTATIONS, DEBILITATIONS, HOUSE_TOPICS, PLANET_CORE } from "./astroEngine";
-import { detectAspects, detectStellium, detectGrandTrine, detectTSquare, detectRahuKetuAxis, detectPlanetaryWar, calculateRawStrength } from "./patternEngine";
-import type { PlanetPlacement } from "./astroEngine";
 
 import { detectFixedStarConjunctions, formatStarConjunctions } from "./fixedStars";
 import { getNakshatraAt } from "./nakshatra";
-import { getDecanFlavor, getDecanRuler } from "./decan";
-import { getDegreeMeaning } from "./sabianSymbols";
-import { getLunarMansion } from "./kstar-planets";
-import { SIGN_RULERS, EXALTATIONS, DEBILITATIONS } from "./astroEngine";
-import { detectAspects, detectStellium, detectGrandTrine, detectTSquare, detectRahuKetuAxis, detectPlanetaryWar, calculateRawStrength } from "./patternEngine";
-import type { PlanetPlacement } from "./astroEngine";
+import { getDecanFlavor } from "./decan";
 
 
 // ─── Core Cosmology Framework ─────────────────────────────────────────────────
@@ -231,9 +221,9 @@ ${placements}
 Current sky positions:
 ${transitPlacements || ""}
 ${starSection}
-${context ? `\nPersonal context: ${context}\n` : ""}
+${context ? `\nQUESTION FROM THE PERSON — answer this directly in your reading: ${context}\n` : ""}
 
-Write a complete reading showing how the current sky is activating this natal chart right now. This is personal — show how these specific transits are hitting this specific person's chart.
+Write a complete reading showing how the current sky is activating this natal chart right now. If a specific question was asked above, answer it directly using the chart and transits. This is personal — show how these specific transits are hitting this specific person's chart.
 
 ## CURRENT ACTIVATIONS
 What are the most significant contacts between the current sky and this natal chart? Name the specific transit planet, the natal planet it's hitting, the aspect, and what it means for this person right now.
@@ -326,7 +316,7 @@ const chartsRouter = router({
       return { success: true };
     }),
   
-  list: protectedProcedure
+  list: publicProcedure
     .query(async ({ ctx }) => {
       if (!ctx.user) throw new Error("Not authenticated");
       return await getUserCharts(ctx.user.id);
@@ -351,102 +341,149 @@ const chartsRouter = router({
 
 // ─── Synthesize Router ────────────────────────────────────────────────────────
 
-function buildSemanticBlock(): string {
-  const houseLines = Object.entries(HOUSE_TOPICS)
-    .map(([n, v]) => `  House ${n}: ${v}`)
-    .join("\n");
-
-  const planetLines = Object.entries(PLANET_CORE)
-    .map(([planet, dims]) =>
-      `  ${planet}\n    mind:   ${dims.mind}\n    soul:   ${dims.soul}\n    spirit: ${dims.spirit}`
-    )
-    .join("\n\n");
-
-  return `
-━━━ SEMANTIC REFERENCE — USE THESE EXACT MEANINGS ━━━
-
-HOUSE MEANINGS
-When a planet's house number is known, interpret it through this vocabulary.
-Do not substitute generic house keywords — use these specific ones.
-${houseLines}
-
-PLANET CORE MEANINGS
-Each planet operates on three dimensions. Use the relevant dimension(s)
-depending on which pillar (Mind / Soul / Spirit) you are writing about.
-${planetLines}
-
-━━━ END SEMANTIC REFERENCE ━━━`;
-}
-
 const synthesizeRouter = router({
   synthesize: publicProcedure
     .input(z.object({
-      chartData: z.any(),
+      chartText: z.string(),
       userQuestion: z.string().optional(),
       systemPrompt: z.string().optional(),
-      engineContext: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      const { chartData, userQuestion, systemPrompt, engineContext } = input;
+      const { chartData, userQuestion, systemPrompt } = input;
 
       const anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
       });
 
-      const defaultPrompt = `You are a skilled astrologer operating within the ancient sky-observation tradition — Babylonian, Vedic, Hellenistic, Arab, and Egyptian sources combined.
-
-${buildSemanticBlock()}
-
-CRITICAL INSTRUCTION — FIXED STARS:
-If the enriched chart data contains FIXED STAR CONJUNCTIONS, especially Royal Stars (Aldebaran, Regulus, Antares, Fomalhaut), lead the reading with them. Fixed star conjunctions are the most ancient and powerful layer of any chart. A planet conjunct a Royal Star is a defining signature of that person's life — it overrides sign and house interpretation in terms of prominence. Name the star, name its tradition, explain what it means for this specific planet and person. Give it full paragraphs, not a passing mention.
-
-Multiple fixed star conjunctions in one chart are extremely rare and must be treated as the dominant theme of the reading.
-
-INSTRUCTION — ROYAL STAR WEIGHT:
-When Venus, Sun, Moon, or Jupiter conjunct a Royal Star — this is a mark of someone cosmically designated for their field. Do not soften this. State it plainly and build the reading around it.
-
-BEFORE WRITING — ask yourself three questions about this specific chart:
-1. What is the strongest force in this chart?
-2. What is the rarest force in this chart?
-3. What would make this chart recognizable from a distance?
-Lead with those themes. Do not spend equal space on minor and major indicators.
-
-READING STRUCTURE:
-1. Open with fixed star conjunctions if present — these are the headline
-2. Then move through the chart by pillar:
-   - MIND: governed by Mercury (analysis, language, nervous system) and Moon (habit mind, memory).
-     Use the PLANET CORE meanings above. Reference the house using HOUSE MEANINGS above.
-   - SOUL: governed by Moon (nourishment, belonging, safety) and Venus (love, attachment, self-worth).
-     Use the PLANET CORE meanings above. Reference the house using HOUSE MEANINGS above.
-   - SPIRIT: governed by Sun (will, identity, life-force) and Jupiter (meaning-making, blessing, dharma).
-     Use the PLANET CORE meanings above. Reference the house using HOUSE MEANINGS above.
-3. KEY PLACEMENTS: name the 2–3 most powerful placements — exaltations, debilitations, angular houses,
-   rare conjunctions. Use the house meanings to describe what life arena each one operates in.
-4. Close with dharmic synthesis — the overall story, the central tension, the one true thing.
-
-DIGNITY RULES (apply when relevant):
-- Exalted planet: operating at peak expression of its PLANET CORE meaning
-- Debilitated planet: the PLANET CORE meaning is distorted, suppressed, or overcompensated
-- Own sign: the planet expresses its PLANET CORE meaning directly, without friction
-- Retrograde: the PLANET CORE meaning turns inward — internalized, delayed, or intensified privately
-
-Write with directness and depth. No generic affirmations. Speak to what is actually in the chart.
-Every paragraph should be traceable back to a specific placement. This is a real person's life.`;
+      const defaultPrompt = `You are a skilled astrologer operating within the ancient sky-observation tradition. Synthesize the following birth chart data into a warm, insightful reading. Use clear, natural language.`;
 
       const response = await anthropic.messages.create({
         model: "claude-sonnet-4-6",
-        max_tokens: 8192,
+        max_tokens: 2000,
         system: systemPrompt || defaultPrompt,
-        messages: [{ role: "user", content: `Chart data:\n${JSON.stringify(chartData, null, 2)}\n\nEnriched Analysis:\n${enrichChartData(chartData)}${engineContext ? "\n\nEngine Pillar Scores & Activations:\n" + engineContext : ""}\n\nQuestion: ${userQuestion || "Please provide a general reading."}` }]
+        messages: [{ role: "user", content: `Chart data:\n${JSON.stringify(chartData, null, 2)}\n\nEnriched Analysis:\n${enrichChartData(chartData)}\n\nQuestion: ${userQuestion || "Please provide a general reading."}` }]
       });
 
       return { reading: (response.content[0] as any).text };
     }),
 });
 
+// ─── Natal Placement Router ──────────────────────────────────────────────────
+
+const natalPlacementRouter = router({
+  getReading: publicProcedure
+    .input(z.object({
+      prompt: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: input.prompt }],
+      });
+      const text = response.content
+        .map((b: any) => b.type === "text" ? b.text : "")
+        .join("");
+      return { reading: text };
+    }),
+
+  getLensReading: publicProcedure
+    .input(z.object({
+      chartText: z.string(),
+      lensId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const prompt = buildLensPrompt(input.chartText, input.lensId);
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
+      });
+      const text = response.content
+        .map((b: any) => b.type === "text" ? b.text : "")
+        .join("");
+      return { reading: text };
+    }),
+
+  listLenses: publicProcedure
+    .query(() => {
+      return LENSES.map(({ id, label, description }) => ({ id, label, description }));
+    }),
+});
+
+// ─── Horary Router ───────────────────────────────────────────────────────────
+
+const horaryRouter = router({
+  followUp: publicProcedure
+    .input(z.object({
+      question: z.string().min(1),
+      natalPlacements: z.string().optional(),
+      transitPlacements: z.string().optional(),
+      history: z.array(z.object({ role: z.enum(['user','assistant']), content: z.string() })).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { question, natalPlacements, transitPlacements, history = [] } = input;
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+      const chartContext = `${natalPlacements ? "NATAL CHART:\n" + natalPlacements + "\n\n" : ""}${transitPlacements ? "CURRENT SKY:\n" + transitPlacements : ""}`;
+
+      const messages = [
+        ...history.map(h => ({ role: h.role as 'user'|'assistant', content: h.content })),
+        { role: 'user' as const, content: question }
+      ];
+
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: `${COSMOLOGY_PREAMBLE}
+
+You are a personal astrologer in an ongoing conversation. You already did a full reading of this chart. The user has follow-up questions. The chart data is below — use it to answer directly.
+
+${chartContext}
+
+Rules: Answer directly. Use specific placements. No preamble. Keep it conversational but precise.`,
+        messages,
+      });
+
+      const text = response.content.map((b: any) => b.type === "text" ? b.text : "").join("");
+      return { answer: text };
+    }),
+
+  ask: publicProcedure
+    .input(z.object({
+      question: z.string().min(3),
+      natalPlacements: z.string().optional(),
+      transitPlacements: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { question, natalPlacements, transitPlacements } = input;
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        system: `${COSMOLOGY_PREAMBLE}
+
+You are an expert horary and natal astrologer. Answer the question directly and specifically using the chart. Rules:
+- Answer in the FIRST paragraph. No warmup. No preamble.
+- Name specific planets, houses, aspects that answer the question.
+- Be honest — yes or no, with timing if visible.
+- No generic spiritual language. No hedging.
+- If the chart is unclear, say what it does show and why it is unclear.`,
+        messages: [{ role: "user", content: `QUESTION: ${question}
+
+${natalPlacements ? "NATAL CHART:\n" + natalPlacements + "\n\n" : ""}${transitPlacements ? "CURRENT SKY:\n" + transitPlacements : ""}` }],
+      });
+      const text = response.content.map((b: any) => b.type === "text" ? b.text : "").join("");
+      return { answer: text };
+    }),
+});
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 
 export const appRouter = router({
+  auth: authRouter,
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -461,6 +498,8 @@ export const appRouter = router({
   charts: chartsRouter,
   ephemeris: ephemerisRouter,
   synthesize: synthesizeRouter,
+  natalPlacement: natalPlacementRouter,
+  horary: horaryRouter,
 });
 
 export type AppRouter = typeof appRouter;

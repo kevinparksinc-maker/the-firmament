@@ -23,10 +23,7 @@ function SelectValue({
 }
 
 function SelectTrigger({
-  className,
-  size = "default",
-  children,
-  ...props
+  className, size = "default", children, ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default";
 }) {
@@ -49,11 +46,7 @@ function SelectTrigger({
 }
 
 function SelectContent({
-  className,
-  children,
-  position = "popper",
-  align = "center",
-  ...props
+  className, children, position = "popper", align = "center", ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
     <SelectPrimitive.Portal>
@@ -86,8 +79,7 @@ function SelectContent({
 }
 
 function SelectLabel({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof SelectPrimitive.Label>) {
   return (
     <SelectPrimitive.Label
@@ -99,9 +91,7 @@ function SelectLabel({
 }
 
 function SelectItem({
-  className,
-  children,
-  ...props
+  className, children, ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item>) {
   return (
     <SelectPrimitive.Item
@@ -123,8 +113,7 @@ function SelectItem({
 }
 
 function SelectSeparator({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof SelectPrimitive.Separator>) {
   return (
     <SelectPrimitive.Separator
@@ -136,8 +125,7 @@ function SelectSeparator({
 }
 
 function SelectScrollUpButton({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
   return (
     <SelectPrimitive.ScrollUpButton
@@ -154,8 +142,7 @@ function SelectScrollUpButton({
 }
 
 function SelectScrollDownButton({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
   return (
     <SelectPrimitive.ScrollDownButton

@@ -6,9 +6,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { publicProcedure, router } from "./_core/trpc";
-import { enrichChartData } from "./enrichChartData"; // adjust if inline
-import { HOUSE_TOPICS, PLANET_CORE } from "./astroEngine";
+import { publicProcedure, router } from "./trpc";
+// import { enrichChartData } from "./enrichChartData"; // adjust if inline
+import { HOUSE_TOPICS, PLANET_CORE } from "../astroEngine";
 
 // ─── Semantic Block Builder ───────────────────────────────────────────────────
 // Converts the engine's dictionaries into a plain-text reference block that
@@ -22,7 +22,7 @@ function buildSemanticBlock(): string {
 
   const planetLines = Object.entries(PLANET_CORE)
     .map(([planet, dims]) =>
-      `  ${planet}\n    mind:   ${dims.mind}\n    soul:   ${dims.soul}\n    spirit: ${dims.spirit}`
+      `  ${planet}\n    mind:   ${(dims as any).mind}\n    soul:   ${(dims as any).soul}\n    spirit: ${(dims as any).spirit}`
     )
     .join("\n\n");
 
@@ -104,14 +104,14 @@ export const synthesizeRouter = router({
         systemPrompt: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input }: { input: any }) => {
       const { chartData, userQuestion, systemPrompt } = input;
 
       const anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
       });
 
-      const enriched = enrichChartData(chartData);
+      const enriched = chartData; // enrichChartData removed
 
       const userMessage = [
         `Chart data:\n${JSON.stringify(chartData, null, 2)}`,

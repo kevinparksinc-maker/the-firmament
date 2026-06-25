@@ -17,10 +17,7 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({
-  children,
-  defaultTheme = "light",
-  switchable = false,
-}: ThemeProviderProps) {
+  children, defaultTheme = "light", switchable = false, }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
     if (switchable) {
       const stored = localStorage.getItem("theme");

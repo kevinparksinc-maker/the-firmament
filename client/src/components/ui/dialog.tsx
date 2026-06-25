@@ -72,8 +72,7 @@ function DialogClose({
 }
 
 function DialogOverlay({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay
@@ -90,11 +89,7 @@ function DialogOverlay({
 DialogOverlay.displayName = "DialogOverlay";
 
 function DialogContent({
-  className,
-  children,
-  showCloseButton = true,
-  onEscapeKeyDown,
-  ...props
+  className, children, showCloseButton = true, onEscapeKeyDown, ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
@@ -169,8 +164,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function DialogTitle({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
@@ -182,8 +176,7 @@ function DialogTitle({
 }
 
 function DialogDescription({
-  className,
-  ...props
+  className, ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description

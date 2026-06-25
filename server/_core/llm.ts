@@ -46,7 +46,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       return { role: m.role as "user" | "assistant", content: finalContent };
     });
 
-  const payload: Record<string, unknown> = { model: "claude-sonnet-4-20250514", max_tokens: 8192, messages: anthropicMessages };
+  const payload: Record<string, unknown> = { model: "claude-sonnet-4-6", max_tokens: 8192, messages: anthropicMessages };
   if (systemParts) payload.system = systemParts;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {

@@ -3,22 +3,23 @@
  * Expandable planet cards with full layer breakdown + Vedic house meanings
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getNakshatraAt } from '@/lib/nakshatra';
 import { getDecanFlavor, getDecanRuler } from '@/lib/decan';
 import { getDegreeMeaning } from '@/lib/sabianSymbols';
 import { detectFixedStarConjunctions } from '@/lib/fixedStars';
 import { getPlanetInHouse } from '@/lib/planetInHouse';
 import { PLANET_GLYPHS } from '@/lib/astroEngine';
+import { trpc } from '../lib/trpc';
 
 const SIGNS = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
-function toAbsolute(sign, degree) { const i = SIGNS.indexOf(sign); return i >= 0 ? i * 30 + degree : null; }
+function toAbsolute(sign, degree: any) { const i = SIGNS.indexOf(sign); return i >= 0 ? i * 30 + degree : null; }
 
 const SIGN_RULERS = { Aries:'Mars',Taurus:'Venus',Gemini:'Mercury',Cancer:'Moon',Leo:'Sun',Virgo:'Mercury',Libra:'Venus',Scorpio:'Mars',Sagittarius:'Jupiter',Capricorn:'Saturn',Aquarius:'Saturn',Pisces:'Jupiter' };
 const EXALTATIONS = { Sun:'Aries',Moon:'Taurus',Mercury:'Virgo',Venus:'Pisces',Mars:'Capricorn',Jupiter:'Cancer',Saturn:'Libra' };
 const DEBILITATIONS = { Sun:'Libra',Moon:'Scorpio',Mercury:'Pisces',Venus:'Virgo',Mars:'Cancer',Jupiter:'Capricorn',Saturn:'Aries' };
 
-function getDignity(planet, sign, rx) {
+function getDignity(planet, sign, rx: any) {
   if (EXALTATIONS[planet] === sign) return { label: 'EXALTED', color: '#c8c850' };
   if (DEBILITATIONS[planet] === sign) return { label: 'DEBILITATED', color: '#e87070' };
   if (SIGN_RULERS[sign] === planet) return { label: 'OWN SIGN', color: '#70c8a0' };
@@ -43,9 +44,12 @@ const HOUSE_KEYWORDS = {
   12: ['Liberation','Retreat','Hidden'],
 };
 
-function PlanetCard({ p, starMap }) {
+function PlanetCard({ p, starMap }: any) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('LAYERS');
+  const [aiReadings, setAiReadings] = useState<Record<string, string>>({});
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   const degree = p.degreeInSign ?? p.degree ?? 0;
   const minutes = p.minutes ?? 0;
@@ -62,6 +66,56 @@ function PlanetCard({ p, starMap }) {
   const houseKeywords = houseNum ? (HOUSE_KEYWORDS[houseNum] ?? []) : [];
   const hasRoyal = stars.some(s => s.star.isRoyal);
 
+  const getReading = trpc.natalPlacement.getReading.useMutation();
+
+  // Map this panel's tabs onto the Firmament Engine's section ids
+  const TAB_TO_SECTION: Record<string, string> = {
+    MEANING: 'core',
+    CAREER: 'career',
+    RELATIONSHIPS: 'relationships',
+    CHALLENGE: 'destiny',
+  };
+
+  const aiCacheKey = `${p.name}-${p.sign}-${degree}-${houseNum}-${activeTab}`;
+
+  useEffect(() => {
+    const section = TAB_TO_SECTION[activeTab];
+    if (!open || !section || !houseNum) return;
+    if (aiReadings[aiCacheKey]) return;
+
+    let cancelled = false;
+    setAiLoading(true);
+    setAiError('');
+
+    const houseLabel = `${houseNum}${houseNum === 1 ? 'st' : houseNum === 2 ? 'nd' : houseNum === 3 ? 'rd' : 'th'}`;
+    const prompt = [
+      `Planet: ${p.name}`,
+      `Sign: ${p.sign}`,
+      `Degree: ${degree}`,
+      `House: ${houseLabel}`,
+      houseMeaning ? `Reference domain: ${houseMeaning.domain}` : '',
+      houseMeaning?.core ? `Reference core meaning: ${houseMeaning.core}` : '',
+      `Write the "${section}" section of a natal interpretation for this placement, in the voice and standard of the Firmament Engine.`,
+    ].filter(Boolean).join('\n');
+
+    getReading.mutateAsync({ prompt })
+      .then(result => {
+        if (cancelled) return;
+        if (!result?.reading) throw new Error('empty');
+        setAiReadings(prev => ({ ...prev, [aiCacheKey]: result.reading }));
+      })
+      .catch(() => {
+        if (!cancelled) setAiError('The engine did not respond. Showing reference meaning instead.');
+      })
+      .finally(() => {
+        if (!cancelled) setAiLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [open, activeTab, aiCacheKey]);
+
+  const aiCurrent = aiReadings[aiCacheKey];
+
   return (
     <div style={{ border: `1px solid ${hasRoyal ? '#c8a050' : 'var(--rim)'}`, borderRadius: '4px', background: 'var(--deep)', overflow: 'hidden', transition: 'border-color 0.3s' }}>
       {/* Planet header — always visible, click to expand */}
@@ -75,7 +129,7 @@ function PlanetCard({ p, starMap }) {
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: "'Cinzel', serif", fontSize: '12px', color: '#fff', letterSpacing: '1px' }}>
             {p.name}{p.retrograde ? ' \u211e' : ''}
-            {hasRoyal && <span style={{ marginLeft: '8px', fontSize: '9px', color: '#c8a050', letterSpacing: '2px' }}>\u2605 ROYAL STAR</span>}
+            {hasRoyal && <span style={{ marginLeft: '8px', fontSize: '9px', color: '#c8a050', letterSpacing: '2px' }}>{'\u2605 ROYAL STAR'}</span>}
           </div>
           <div style={{ fontSize: '13px', color: 'var(--ember)', marginTop: '2px' }}>
             {degree}° {minutes > 0 ? `${minutes}' ` : ''}{p.sign} — House {houseNum ?? '?'}
@@ -139,10 +193,15 @@ function PlanetCard({ p, starMap }) {
             {activeTab === 'MEANING' && houseMeaning && (
               <>
                 <div style={{ fontSize: '11px', color: 'var(--ember)', fontFamily: "'Cinzel', serif", letterSpacing: '2px', marginBottom: '4px' }}>{houseMeaning.domain.toUpperCase()}</div>
-                <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7 }}>{houseMeaning.core}</div>
+                {aiLoading ? (
+                  <div style={{ fontSize: '13px', color: 'var(--silver-dim)', fontStyle: 'italic' }}>Consulting the Firmament Engine…</div>
+                ) : (
+                  <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7 }}>{aiCurrent || houseMeaning.core}</div>
+                )}
+                {aiError && <div style={{ fontSize: '11px', color: '#e87070', marginTop: '6px' }}>{aiError}</div>}
                 {houseMeaning.vedic && (
                   <div style={{ fontSize: '12px', color: 'var(--silver-dim)', fontStyle: 'italic', marginTop: '8px', padding: '8px 12px', border: '1px solid var(--rim)', borderRadius: '3px' }}>
-                    \u1e63\u0101stra: {houseMeaning.vedic}
+                    {'\u015A\u0101stra'}: {houseMeaning.vedic}
                   </div>
                 )}
               </>
@@ -151,21 +210,36 @@ function PlanetCard({ p, starMap }) {
             {activeTab === 'CAREER' && houseMeaning && (
               <>
                 <div style={{ fontSize: '11px', color: 'var(--ember)', fontFamily: "'Cinzel', serif", letterSpacing: '2px', marginBottom: '4px' }}>VOCATION & LIFE WORK</div>
-                <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7 }}>{houseMeaning.career}</div>
+                {aiLoading ? (
+                  <div style={{ fontSize: '13px', color: 'var(--silver-dim)', fontStyle: 'italic' }}>Consulting the Firmament Engine…</div>
+                ) : (
+                  <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7 }}>{aiCurrent || houseMeaning.career}</div>
+                )}
+                {aiError && <div style={{ fontSize: '11px', color: '#e87070', marginTop: '6px' }}>{aiError}</div>}
               </>
             )}
 
             {activeTab === 'RELATIONSHIPS' && houseMeaning && (
               <>
                 <div style={{ fontSize: '11px', color: 'var(--ember)', fontFamily: "'Cinzel', serif", letterSpacing: '2px', marginBottom: '4px' }}>LOVE & CONNECTION</div>
-                <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7 }}>{houseMeaning.relationships}</div>
+                {aiLoading ? (
+                  <div style={{ fontSize: '13px', color: 'var(--silver-dim)', fontStyle: 'italic' }}>Consulting the Firmament Engine…</div>
+                ) : (
+                  <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7 }}>{aiCurrent || houseMeaning.relationships}</div>
+                )}
+                {aiError && <div style={{ fontSize: '11px', color: '#e87070', marginTop: '6px' }}>{aiError}</div>}
               </>
             )}
 
             {activeTab === 'CHALLENGE' && houseMeaning && (
               <>
                 <div style={{ fontSize: '11px', color: '#e87070', fontFamily: "'Cinzel', serif", letterSpacing: '2px', marginBottom: '4px' }}>CHALLENGE TO NAVIGATE</div>
-                <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7, marginBottom: '12px' }}>{houseMeaning.challenge}</div>
+                {aiLoading ? (
+                  <div style={{ fontSize: '13px', color: 'var(--silver-dim)', fontStyle: 'italic', marginBottom: '12px' }}>Consulting the Firmament Engine…</div>
+                ) : (
+                  <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7, marginBottom: '12px' }}>{aiCurrent || houseMeaning.challenge}</div>
+                )}
+                {aiError && <div style={{ fontSize: '11px', color: '#e87070', marginTop: '-6px', marginBottom: '12px' }}>{aiError}</div>}
                 <div style={{ fontSize: '11px', color: '#70c8a0', fontFamily: "'Cinzel', serif", letterSpacing: '2px', marginBottom: '4px' }}>GIFT YOU CARRY</div>
                 <div style={{ fontSize: '14px', color: 'var(--silver)', lineHeight: 1.7 }}>{houseMeaning.gift}</div>
               </>
@@ -181,7 +255,7 @@ function PlanetCard({ p, starMap }) {
   );
 }
 
-function Row({ label, color, children }) {
+function Row({ label, color, children }: any) {
   return (
     <div style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>
       <span style={{ color, fontFamily: "'Cinzel', serif", fontSize: '9px', letterSpacing: '2px', width: '80px', flexShrink: 0, paddingTop: '2px' }}>{label}</span>
@@ -190,7 +264,7 @@ function Row({ label, color, children }) {
   );
 }
 
-export function NatalPlacements({ planets }) {
+export function NatalPlacements({ planets }: any) {
   if (!planets || planets.length === 0) return null;
 
   const placementsForStars = {};
@@ -199,7 +273,7 @@ export function NatalPlacements({ planets }) {
     placementsForStars[p.name] = { sign: p.sign, degree: p.degreeInSign ?? p.degree ?? 0, planet: p.name, absolute: abs };
   }
   const conjunctions = detectFixedStarConjunctions(placementsForStars);
-  const starMap = {};
+  const starMap: Record<string, any[]> = {};
   for (const c of conjunctions) {
     if (!starMap[c.planet]) starMap[c.planet] = [];
     starMap[c.planet].push(c);
@@ -209,13 +283,13 @@ export function NatalPlacements({ planets }) {
     <div style={{ marginBottom: '32px', animation: 'fadeUp 0.5s ease both' }}>
       <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', border: '1px solid var(--rim)', background: 'var(--deep)', borderRadius: '4px', position: 'relative' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, transparent, var(--ember), transparent)' }} />
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', letterSpacing: '4px', color: 'var(--ember)', marginBottom: '6px' }}>\u2736 NATAL PLACEMENTS \u2736</div>
+        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', letterSpacing: '4px', color: 'var(--ember)', marginBottom: '6px' }}>{'\u2736 NATAL PLACEMENTS \u2736'}</div>
         <div style={{ fontSize: '12px', color: 'var(--silver-dim)', fontStyle: 'italic' }}>
           Tap any planet to explore all layers
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {planets.map((p, i) => (
+        {planets.map((p: any, i: number) => (
           <PlanetCard key={i} p={p} starMap={starMap} />
         ))}
       </div>

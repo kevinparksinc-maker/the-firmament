@@ -1,5 +1,5 @@
 import { generateReading } from './readingEngine4';
-import type { PatternAnalysis, UserContext, ReadingOutput } from './readingEngine4';
+import type { UserContext, ReadingOutput } from './readingEngine4';
 
 export interface OraryState {
   lastQuestion?: string;
@@ -24,7 +24,7 @@ type Intent =
  */
 export function oraryLayer(
   message: string,
-  analysis: PatternAnalysis,
+  analysis: any,
   context: UserContext,
   state: OraryState = {}
 ): {

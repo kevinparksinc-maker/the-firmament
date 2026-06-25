@@ -7,7 +7,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { publicProcedure, router } from "./_core/trpc";
-import { enrichChartData } from "./enrichChartData"; // adjust if inline
+// import { enrichChartData } from "./enrichChartData"; // adjust if inline
 import { HOUSE_TOPICS, PLANET_CORE } from "./astroEngine";
 
 // ─── Semantic Block Builder ───────────────────────────────────────────────────
@@ -111,7 +111,7 @@ export const synthesizeRouter = router({
         apiKey: process.env.ANTHROPIC_API_KEY,
       });
 
-      const enriched = enrichChartData(chartData);
+      const enriched = chartData; // enrichChartData removed
 
       const userMessage = [
         `Chart data:\n${JSON.stringify(chartData, null, 2)}`,

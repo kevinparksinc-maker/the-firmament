@@ -41,13 +41,7 @@ function useCarousel() {
 }
 
 function Carousel({
-  orientation = "horizontal",
-  opts,
-  setApi,
-  plugins,
-  className,
-  children,
-  ...props
+  orientation = "horizontal", opts, setApi, plugins, className, children, ...props
 }: React.ComponentProps<"div"> & CarouselProps) {
   const [carouselRef, api] = useEmblaCarousel(
     {
@@ -170,10 +164,7 @@ function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CarouselPrevious({
-  className,
-  variant = "outline",
-  size = "icon",
-  ...props
+  className, variant = "outline", size = "icon", ...props
 }: React.ComponentProps<typeof Button>) {
   const { orientation, scrollPrev, canScrollPrev } = useCarousel();
 
@@ -200,10 +191,7 @@ function CarouselPrevious({
 }
 
 function CarouselNext({
-  className,
-  variant = "outline",
-  size = "icon",
-  ...props
+  className, variant = "outline", size = "icon", ...props
 }: React.ComponentProps<typeof Button>) {
   const { orientation, scrollNext, canScrollNext } = useCarousel();
 

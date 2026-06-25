@@ -9,11 +9,13 @@
  * not geocentric. Full parallax correction applied, especially for the Moon.
  */
 
-import Astronomy from "astronomy-engine";
+import { createRequire } from "module";
+const _require = createRequire(import.meta.url);
+const Astronomy = _require("astronomy-engine");
+const { MakeTime, Observer, SiderealTime, SunPosition, GeoVector, Ecliptic, Equator, Horizon, Body } = Astronomy;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface Observer {
+export interface ObserverLocation {
   latitude: number;   // degrees, positive = north
   longitude: number;  // degrees, positive = east
   altitude: number;   // metres above sea level
@@ -51,7 +53,7 @@ export interface HouseCusps {
 export interface EphemerisResult {
   planets: PlanetPosition[];
   houses: HouseCusps;
-  observer: Observer;
+  observer: ObserverLocation;
   date: Date;
   /** Ayanamsa used (Lahiri) in degrees */
   ayanamsa: number;
@@ -102,11 +104,11 @@ function lonToSignDeg(lon: number): { sign: string; degree: number; minutes: num
 // ─── House System: Topocentric (Polich-Page) ──────────────────────────────────
 // Approximated via Placidus with topocentric correction for the observer's lat
 
-function calcHouseCusps(date: Date, observer: Observer, ayanamsa: number): HouseCusps {
-  const astroObs = new Astronomy.Observer(observer.latitude, observer.longitude, observer.altitude);
+function calcHouseCusps(date: Date, observer: ObserverLocationLocation, ayanamsa: number): HouseCusps {
+  const astroObs = new Observer(observer.latitude, observer.longitude, observer.altitude);
   
   // Get RAMC (Right Ascension of Midheaven) and MC
-  const sidereal = Astronomy.SiderealTime(date);
+  const sidereal = SiderealTime(MakeTime(date));
   const ramc = sidereal * 15; // convert hours to degrees
   
   // MC = RAMC converted to ecliptic longitude (tropical)
@@ -159,8 +161,8 @@ function getHouseNumber(planetLon: number, cusps: number[]): number {
 
 // ─── Main Calculation ─────────────────────────────────────────────────────────
 
-export async function calculateChart(date: Date, observer: Observer): Promise<EphemerisResult> {
-  const astroObs = new Astronomy.Observer(observer.latitude, observer.longitude, observer.altitude);
+export async function calculateChart(date: Date, observer: ObserverLocation): Promise<EphemerisResult> {
+  const astroObs = new Observer(observer.latitude, observer.longitude, observer.altitude);
   const ayanamsa = getLahiriAyanamsa(date);
   const houses = calcHouseCusps(date, observer, ayanamsa);
 
@@ -185,11 +187,11 @@ export async function calculateChart(date: Date, observer: Observer): Promise<Ep
       // Sun uses SunPosition; all others use GeoVector + Ecliptic
       let tropicalLon: number;
       if (body === Astronomy.Body.Sun) {
-        const sp = Astronomy.SunPosition(date);
+        const sp = SunPosition(MakeTime(date));
         tropicalLon = sp.elon;
       } else {
-        const vec = Astronomy.GeoVector(body, date, true);
-        const ecl = Astronomy.Ecliptic(vec);
+        const vec = GeoVector(body, MakeTime(date), true);
+        const ecl = Ecliptic(vec);
         tropicalLon = ecl.elon;
       }
       
@@ -198,17 +200,17 @@ export async function calculateChart(date: Date, observer: Observer): Promise<Ep
       const { sign, degree, minutes } = lonToSignDeg(tropicalLon);
       
       // Get topocentric Alt/Az (parallax corrected)
-      const equatorial = Astronomy.Equator(body, date, astroObs, true, true);
-      const horizon = Astronomy.Horizon(date, astroObs, equatorial.ra, equatorial.dec, "normal");
+      const equatorial = Equator(body, MakeTime(date), astroObs, true, true);
+      const horizon = Horizon(MakeTime(date), astroObs, equatorial.ra, equatorial.dec, "normal");
       
       // Detect retrograde (compare position to yesterday)
       const yesterday = new Date(date.getTime() - 86400000);
       let tropicalYesterday: number;
       if (body === Astronomy.Body.Sun) {
-        tropicalYesterday = Astronomy.SunPosition(yesterday).elon;
+        tropicalYesterday = SunPosition(MakeTime(yesterday)).elon;
       } else {
-        const vecY = Astronomy.GeoVector(body, yesterday, true);
-        tropicalYesterday = Astronomy.Ecliptic(vecY).elon;
+        const vecY = GeoVector(body, MakeTime(yesterday), true);
+        tropicalYesterday = Ecliptic(vecY).elon;
       }
       let retrograde = false;
       if (body !== Astronomy.Body.Sun && body !== Astronomy.Body.Moon) {

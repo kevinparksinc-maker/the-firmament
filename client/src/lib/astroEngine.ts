@@ -1,3 +1,4 @@
+import { scorePillarFull, summarizePillarRich } from "./summarizePillarRich";
 // ARCANA STATE — Astrology Engine
 // Sidereal framework · Traditional Vedic planetary rulers · No outer planet weight
 
@@ -494,15 +495,15 @@ export function runAstroReading(
 
   const activations = hasNatal && hasTransits ? detectTransits(natal, transits) : [];
 
-  const mindResult = scorePillar('mind', effectiveNatal, effectiveTransits, activations);
-  const soulResult = scorePillar('soul', effectiveNatal, effectiveTransits, activations);
-  const spiritResult = scorePillar('spirit', effectiveNatal, effectiveTransits, activations);
+  const mindResult = scorePillarFull('mind', effectiveNatal, effectiveTransits, activations);
+  const soulResult = scorePillarFull('soul', effectiveNatal, effectiveTransits, activations);
+  const spiritResult = scorePillarFull('spirit', effectiveNatal, effectiveTransits, activations);
 
   return {
     result: {
-      mind: summarizePillar('mind', mindResult, effectiveNatal, activations),
-      soul: summarizePillar('soul', soulResult, effectiveNatal, activations),
-      spirit: summarizePillar('spirit', spiritResult, effectiveNatal, activations),
+      mind: summarizePillarRich('mind', mindResult, effectiveNatal, activations),
+      soul: summarizePillarRich('soul', soulResult, effectiveNatal, activations),
+      spirit: summarizePillarRich('spirit', spiritResult, effectiveNatal, activations),
       activations,
       natal: effectiveNatal,
       transits: effectiveTransits,
