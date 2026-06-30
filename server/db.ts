@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, savedCharts } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -56,8 +56,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -84,7 +84,11 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
@@ -96,17 +100,25 @@ export async function getUserByEmail(email: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
 // TODO: add feature queries here as your schema grows.
 
-export async function saveChart(userId: number, chartName: string, placements: string) {
+export async function saveChart(
+  userId: number,
+  chartName: string,
+  placements: string
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  
+
   return await db.insert(savedCharts).values({
     userId,
     chartName,
@@ -117,30 +129,35 @@ export async function saveChart(userId: number, chartName: string, placements: s
 export async function getUserCharts(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  
-  return await db.select().from(savedCharts).where(eq(savedCharts.userId, userId));
+
+  return await db
+    .select()
+    .from(savedCharts)
+    .where(eq(savedCharts.userId, userId));
 }
 
 export async function getChart(chartId: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  
-  const result = await db.select().from(savedCharts).where(
-    eq(savedCharts.id, chartId)
-  ).limit(1);
-  
+
+  const result = await db
+    .select()
+    .from(savedCharts)
+    .where(eq(savedCharts.id, chartId))
+    .limit(1);
+
   if (result.length === 0) return undefined;
   if (result[0].userId !== userId) throw new Error("Unauthorized");
-  
+
   return result[0];
 }
 
 export async function deleteChart(chartId: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  
+
   const chart = await getChart(chartId, userId);
   if (!chart) throw new Error("Chart not found");
-  
+
   return await db.delete(savedCharts).where(eq(savedCharts.id, chartId));
 }

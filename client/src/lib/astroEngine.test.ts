@@ -22,7 +22,10 @@ describe("parseInput — degree formats", () => {
   });
 
   it("parses retrograde planet: 'Mercury Rx: 18° 47' Libra, 11th house'", () => {
-    const { parsed } = parseInput("Mercury Rx: 18° 47' Libra, 11th house", "natal");
+    const { parsed } = parseInput(
+      "Mercury Rx: 18° 47' Libra, 11th house",
+      "natal"
+    );
     expect(parsed.Mercury).toBeDefined();
     expect(parsed.Mercury.rx).toBe(true);
     expect(parsed.Mercury.sign).toBe("Libra");
@@ -30,7 +33,10 @@ describe("parseInput — degree formats", () => {
   });
 
   it("parses transit format: 'Transit Saturn: 17° 30' Aquarius'", () => {
-    const { parsed } = parseInput("Transit Saturn: 17° 30' Aquarius", "transit");
+    const { parsed } = parseInput(
+      "Transit Saturn: 17° 30' Aquarius",
+      "transit"
+    );
     expect(parsed.Saturn).toBeDefined();
     expect(parsed.Saturn.sign).toBe("Aquarius");
     expect(parsed.Saturn.degree).toBeCloseTo(17.5, 2);
@@ -38,7 +44,8 @@ describe("parseInput — degree formats", () => {
   });
 
   it("parses Rahu/Ketu (North/South Node)", () => {
-    const text = "Rahu: 25° 37' Pisces, 4th house\nKetu: 25° 37' Virgo, 10th house";
+    const text =
+      "Rahu: 25° 37' Pisces, 4th house\nKetu: 25° 37' Virgo, 10th house";
     const { parsed } = parseInput(text, "natal");
     expect(parsed.Rahu).toBeDefined();
     expect(parsed.Rahu.sign).toBe("Pisces");
@@ -47,7 +54,8 @@ describe("parseInput — degree formats", () => {
   });
 
   it("maps 'North Node' to Rahu and 'South Node' to Ketu", () => {
-    const text = "North Node: 25° 37' Pisces, 4th house\nSouth Node: 25° 37' Virgo, 10th house";
+    const text =
+      "North Node: 25° 37' Pisces, 4th house\nSouth Node: 25° 37' Virgo, 10th house";
     const { parsed } = parseInput(text, "natal");
     expect(parsed.Rahu).toBeDefined();
     expect(parsed.Rahu.sign).toBe("Pisces");

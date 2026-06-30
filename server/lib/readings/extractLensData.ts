@@ -6,7 +6,7 @@
 import { getLens, Lens } from "./lensRules";
 
 export type Placement = {
-  planet: string;   // "Sun", "Moon", "Mars", "Rahu", "Ketu", etc.
+  planet: string; // "Sun", "Moon", "Mars", "Rahu", "Ketu", etc.
   sign: string;
   degree: number;
   house: number;
@@ -31,21 +31,24 @@ export function extractLensData(chart: NatalChart, lensId: string): LensData {
 
   // Placements that fall in the lens's target houses
   const housePlacements = chart.placements.filter(
-    (p) => lens.houses.includes(p.house) && p.planet !== "Rahu" && p.planet !== "Ketu"
+    p =>
+      lens.houses.includes(p.house) &&
+      p.planet !== "Rahu" &&
+      p.planet !== "Ketu"
   );
 
   // Planets force-included regardless of house (e.g. Venus for relationships)
   const forcedPlanets = lens.planets
     ? chart.placements.filter(
-        (p) =>
+        p =>
           lens.planets!.includes(p.planet) &&
-          !housePlacements.some((hp) => hp.planet === p.planet)
+          !housePlacements.some(hp => hp.planet === p.planet)
       )
     : [];
 
   // Rahu/Ketu axis, only if the lens calls for it
   const nodes = lens.includeNodes
-    ? chart.placements.filter((p) => p.planet === "Rahu" || p.planet === "Ketu")
+    ? chart.placements.filter(p => p.planet === "Rahu" || p.planet === "Ketu")
     : [];
 
   return {

@@ -1,97 +1,172 @@
-import { scorePillarFull, summarizePillarRich } from "./summarizePillarRich";
+import {
+  scorePillarFull,
+  summarizePillarRich,
+  detectNatalPatterns,
+  checkPatternAlerts,
+} from "./summarizePillarRich";
 // ARCANA STATE — Astrology Engine
-// Sidereal framework · Traditional Vedic planetary rulers · No outer planet weight
+// Sidereal framework · Traditional Vedic planetary rulers · Outer planets weighted
 
 export const SIGN_ORDER = [
-  'Aries','Taurus','Gemini','Cancer','Leo','Virgo',
-  'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'
+  "Aries",
+  "Taurus",
+  "Gemini",
+  "Cancer",
+  "Leo",
+  "Virgo",
+  "Libra",
+  "Scorpio",
+  "Sagittarius",
+  "Capricorn",
+  "Aquarius",
+  "Pisces",
 ];
 
 export const PLANET_GLYPHS: Record<string, string> = {
-  Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂',
-  Jupiter:'♃', Saturn:'♄', Rahu:'☊', Ketu:'☋', Asc:'↑'
+  Sun: "☉",
+  Moon: "☽",
+  Mercury: "☿",
+  Venus: "♀",
+  Mars: "♂",
+  Jupiter: "♃",
+  Saturn: "♄",
+  Uranus: "⛢",
+  Neptune: "♆",
+  Pluto: "♇",
+  Rahu: "☊",
+  Ketu: "☋",
+  Asc: "↑",
 };
 
 export const SIGN_RULERS: Record<string, string> = {
-  Aries:'Mars', Taurus:'Venus', Gemini:'Mercury', Cancer:'Moon', Leo:'Sun', Virgo:'Mercury',
-  Libra:'Venus', Scorpio:'Mars', Sagittarius:'Jupiter', Capricorn:'Saturn', Aquarius:'Saturn', Pisces:'Jupiter'
+  Aries: "Mars",
+  Taurus: "Venus",
+  Gemini: "Mercury",
+  Cancer: "Moon",
+  Leo: "Sun",
+  Virgo: "Mercury",
+  Libra: "Venus",
+  Scorpio: "Mars",
+  Sagittarius: "Jupiter",
+  Capricorn: "Saturn",
+  Aquarius: "Saturn",
+  Pisces: "Jupiter",
 };
 
 export const EXALTATIONS: Record<string, string> = {
-  Sun:'Aries', Moon:'Taurus', Mercury:'Virgo', Venus:'Pisces',
-  Mars:'Capricorn', Jupiter:'Cancer', Saturn:'Libra'
+  Sun: "Aries",
+  Moon: "Taurus",
+  Mercury: "Virgo",
+  Venus: "Pisces",
+  Mars: "Capricorn",
+  Jupiter: "Cancer",
+  Saturn: "Libra",
 };
 
 export const DEBILITATIONS: Record<string, string> = {
-  Sun:'Libra', Moon:'Scorpio', Mercury:'Pisces', Venus:'Virgo',
-  Mars:'Cancer', Jupiter:'Capricorn', Saturn:'Aries'
+  Sun: "Libra",
+  Moon: "Scorpio",
+  Mercury: "Pisces",
+  Venus: "Virgo",
+  Mars: "Cancer",
+  Jupiter: "Capricorn",
+  Saturn: "Aries",
 };
 
 export const PRIORITY: Record<string, number> = {
-  Saturn:5, Jupiter:4, Rahu:3.5, Ketu:3.5, Mars:3, Sun:2, Venus:2, Mercury:2, Moon:1.5
+  Saturn: 5,
+  Jupiter: 4,
+  Pluto: 4.5,
+  Neptune: 3.8,
+  Uranus: 3.5,
+  Rahu: 3.5,
+  Ketu: 3.5,
+  Mars: 3,
+  Sun: 2,
+  Venus: 2,
+  Mercury: 2,
+  Moon: 1.5,
 };
 
 export const HOUSE_TOPICS: Record<number, string> = {
-  1:'identity, body, personal direction, self-presentation',
-  2:'speech, values, money, food, stored resources',
-  3:'courage, effort, siblings, communication, tactical movement',
-  4:'home, emotional foundations, private life, inner security',
-  5:'creativity, children, romance, intelligence, inspired output',
-  6:'conflict, labor, health, debt, enemies, daily struggle',
-  7:'partnerships, open rivals, contracts, mirrors',
-  8:'crisis, occult depth, vulnerability, loss, transformation',
-  9:'dharma, faith, higher wisdom, travel, teacher-path',
-  10:'career, status, public role, visible action',
-  11:'networks, gains, ambitions, alliances',
-  12:'retreat, isolation, sleep, endings, spiritual release'
+  1: "identity, body, personal direction, self-presentation",
+  2: "speech, values, money, food, stored resources",
+  3: "courage, effort, siblings, communication, tactical movement",
+  4: "home, emotional foundations, private life, inner security",
+  5: "creativity, children, romance, intelligence, inspired output",
+  6: "conflict, labor, health, debt, enemies, daily struggle",
+  7: "partnerships, open rivals, contracts, mirrors",
+  8: "crisis, occult depth, vulnerability, loss, transformation",
+  9: "dharma, faith, higher wisdom, travel, teacher-path",
+  10: "career, status, public role, visible action",
+  11: "networks, gains, ambitions, alliances",
+  12: "retreat, isolation, sleep, endings, spiritual release",
 };
 
 export const PLANET_CORE: Record<string, Record<string, string>> = {
   Sun: {
-    mind:'will, ego-focus, sovereign decision making',
-    soul:'need for recognition, dignity, identity heat',
-    spirit:'life-force, dharma, purpose, radiance'
+    mind: "will, ego-focus, sovereign decision making",
+    soul: "need for recognition, dignity, identity heat",
+    spirit: "life-force, dharma, purpose, radiance",
   },
   Moon: {
-    mind:'habit mind, memory, emotional weather, receptivity',
-    soul:'nourishment, belonging, safety, intimacy with feeling',
-    spirit:'ancestral tide, intuitive flow, psychic receptivity'
+    mind: "habit mind, memory, emotional weather, receptivity",
+    soul: "nourishment, belonging, safety, intimacy with feeling",
+    spirit: "ancestral tide, intuitive flow, psychic receptivity",
   },
   Mercury: {
-    mind:'analysis, language, interpretation, nervous system patterning',
-    soul:'what the mind needs to feel coherent and named',
-    spirit:'discernment, witness, interpretive intelligence'
+    mind: "analysis, language, interpretation, nervous system patterning",
+    soul: "what the mind needs to feel coherent and named",
+    spirit: "discernment, witness, interpretive intelligence",
   },
   Venus: {
-    mind:'aesthetic judgment, relational interpretation, social preference',
-    soul:'love, attachment, pleasure, harmony, self-worth',
-    spirit:'devotional magnetism, receptivity to grace'
+    mind: "aesthetic judgment, relational interpretation, social preference",
+    soul: "love, attachment, pleasure, harmony, self-worth",
+    spirit: "devotional magnetism, receptivity to grace",
   },
   Mars: {
-    mind:'urgency, aggression, focus under pressure',
-    soul:'anger, desire, protection, hunger to act',
-    spirit:'courage, severance, disciplined force'
+    mind: "urgency, aggression, focus under pressure",
+    soul: "anger, desire, protection, hunger to act",
+    spirit: "courage, severance, disciplined force",
   },
   Jupiter: {
-    mind:'meaning-making, worldview, principle, faith reasoning',
-    soul:'hope, generosity, trust, expansion',
-    spirit:'blessing, wisdom, dharma, protection'
+    mind: "meaning-making, worldview, principle, faith reasoning",
+    soul: "hope, generosity, trust, expansion",
+    spirit: "blessing, wisdom, dharma, protection",
   },
   Saturn: {
-    mind:'fear, structure, sobriety, realism, endurance',
-    soul:'loneliness, duty, karmic pressure, boundaries',
-    spirit:'maturation, pruning, karmic law, time'
+    mind: "fear, structure, sobriety, realism, endurance",
+    soul: "loneliness, duty, karmic pressure, boundaries",
+    spirit: "maturation, pruning, karmic law, time",
   },
   Rahu: {
-    mind:'obsession, amplification, unusual fixation',
-    soul:'craving, hunger, restless pull toward experience',
-    spirit:'disruptive appetite, worldly acceleration'
+    mind: "obsession, amplification, unusual fixation",
+    soul: "craving, hunger, restless pull toward experience",
+    spirit: "disruptive appetite, worldly acceleration",
   },
   Ketu: {
-    mind:'detachment, fragmentation, abstraction, psychic static',
-    soul:'disinterest, release, past-life familiarity, severance',
-    spirit:'liberation, negation, moksha impulse'
-  }
+    mind: "detachment, fragmentation, abstraction, psychic static",
+    soul: "disinterest, release, past-life familiarity, severance",
+    spirit: "liberation, negation, moksha impulse",
+  },
+  Uranus: {
+    mind: "pattern disruption, sudden insight, refusal of inherited frameworks",
+    soul: "restlessness that cannot settle until the authentic self is expressed — the hunger to break what no longer fits",
+    spirit:
+      "awakening, liberation through disruption, the lightning that cracks the old structure open",
+  },
+  Neptune: {
+    mind: "dissolution of boundaries, impressionability, thinking in images and felt senses rather than logic",
+    soul: "longing for the infinite, the grief of not quite belonging to ordinary reality, compassion that has no edges",
+    spirit:
+      "mystical receptivity, union with something larger than self, the tide that erases the line between here and everywhere",
+  },
+  Pluto: {
+    mind: "compulsive excavation, the mind that cannot stop going deeper, psychological penetration",
+    soul: "the part of the self that has already been through the fire — desire for total transformation, not surface change",
+    spirit:
+      "death and rebirth as a living process, power that has been earned through loss, the seed that only germinates in the dark",
+  },
 };
 
 export interface PlanetPlacement {
@@ -104,7 +179,7 @@ export interface PlanetPlacement {
   cazimi: boolean;
   absolute: number | null;
   raw: string;
-  kind: 'natal' | 'transit';
+  kind: "natal" | "transit";
 }
 
 export interface Activation {
@@ -132,6 +207,9 @@ export interface ReadingResult {
   mind: PillarSummary;
   soul: PillarSummary;
   spirit: PillarSummary;
+  pressure: PillarSummary;
+  patterns: import("./summarizePillarRich").NatalPattern[];
+  patternAlerts: import("./summarizePillarRich").PatternAlert[];
   activations: Activation[];
   natal: Record<string, PlanetPlacement>;
   transits: Record<string, PlanetPlacement>;
@@ -153,25 +231,51 @@ function zodiacDegree(sign: string, degree: number): number | null {
 }
 
 function normalizePlanet(raw: string): string {
-  const clean = raw.trim().replace(/^Transit\s+/i, '').replace(/\s+Rx$/i, '').replace(/\s+/g, ' ');
+  const clean = raw
+    .trim()
+    .replace(/^Transit\s+/i, "")
+    .replace(/\s+Rx$/i, "")
+    .replace(/\s+/g, " ");
   const lower = clean.toLowerCase();
   const map: Record<string, string> = {
-    sun:'Sun', moon:'Moon', mercury:'Mercury', venus:'Venus', mars:'Mars',
-    jupiter:'Jupiter', saturn:'Saturn', rahu:'Rahu', ketu:'Ketu',
-    asc:'Asc', ascendant:'Asc',
+    sun: "Sun",
+    moon: "Moon",
+    mercury: "Mercury",
+    venus: "Venus",
+    mars: "Mars",
+    jupiter: "Jupiter",
+    saturn: "Saturn",
+    rahu: "Rahu",
+    ketu: "Ketu",
+    asc: "Asc",
+    ascendant: "Asc",
     // Outer planets — accepted and passed through
-    uranus:'Uranus', neptune:'Neptune', pluto:'Pluto',
+    uranus: "Uranus",
+    neptune: "Neptune",
+    pluto: "Pluto",
     // Aliases from astrology apps
-    'north node':'Rahu', 'north node (true)':'Rahu', 'true north node':'Rahu',
-    'south node':'Ketu', 'south node (true)':'Ketu', 'true south node':'Ketu',
-    'mean north node':'Rahu', 'mean south node':'Ketu',
-    'ascending node':'Rahu', 'descending node':'Ketu'
+    "north node": "Rahu",
+    "north node (true)": "Rahu",
+    "true north node": "Rahu",
+    "south node": "Ketu",
+    "south node (true)": "Ketu",
+    "true south node": "Ketu",
+    "mean north node": "Rahu",
+    "mean south node": "Ketu",
+    "ascending node": "Rahu",
+    "descending node": "Ketu",
   };
   return map[lower] || titleCase(clean);
 }
 
-export function parseInput(text: string, kind: 'natal' | 'transit'): { parsed: Record<string, PlanetPlacement>; rawLines: string[] } {
-  const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+export function parseInput(
+  text: string,
+  kind: "natal" | "transit"
+): { parsed: Record<string, PlanetPlacement>; rawLines: string[] } {
+  const lines = text
+    .split(/\n+/)
+    .map(l => l.trim())
+    .filter(Boolean);
   const parsed: Record<string, PlanetPlacement> = {};
   const rawLines: string[] = [];
 
@@ -198,7 +302,18 @@ export function parseInput(text: string, kind: 'natal' | 'transit'): { parsed: R
     const cazimi = /cazimi/i.test(line);
     const absolute = zodiacDegree(sign, degree);
 
-    parsed[planet] = { planet, degree, sign, house, rx, combust, cazimi, absolute, raw: line, kind };
+    parsed[planet] = {
+      planet,
+      degree,
+      sign,
+      house,
+      rx,
+      combust,
+      cazimi,
+      absolute,
+      raw: line,
+      kind,
+    };
   }
 
   return { parsed, rawLines };
@@ -209,15 +324,23 @@ function angularDifference(a: number, b: number): number {
   return diff > 180 ? 360 - diff : diff;
 }
 
-function findAspect(diff: number): { name: string; angle: number; orb: number; weight: number; delta: number } | null {
+function findAspect(
+  diff: number
+): {
+  name: string;
+  angle: number;
+  orb: number;
+  weight: number;
+  delta: number;
+} | null {
   const aspects = [
-    { name: 'conjunction', angle: 0, orb: 6, weight: 1.0 },
-    { name: 'opposition', angle: 180, orb: 6, weight: 0.85 },
-    { name: 'trine', angle: 120, orb: 5, weight: 0.6 },
-    { name: 'square', angle: 90, orb: 5, weight: 0.72 },
-    { name: 'sextile', angle: 60, orb: 4, weight: 0.45 }
+    { name: "conjunction", angle: 0, orb: 6, weight: 1.0 },
+    { name: "opposition", angle: 180, orb: 6, weight: 0.85 },
+    { name: "trine", angle: 120, orb: 5, weight: 0.6 },
+    { name: "square", angle: 90, orb: 5, weight: 0.72 },
+    { name: "sextile", angle: 60, orb: 4, weight: 0.45 },
   ];
-  let best: typeof aspects[0] & { delta: number } | null = null;
+  let best: ((typeof aspects)[0] & { delta: number }) | null = null;
   for (const aspect of aspects) {
     const delta = Math.abs(diff - aspect.angle);
     if (delta <= aspect.orb && (!best || delta < best.delta)) {
@@ -229,69 +352,96 @@ function findAspect(diff: number): { name: string; angle: number; orb: number; w
 
 function dignityLabel(planet: string, sign: string, rx = false): string[] {
   const parts: string[] = [];
-  if (EXALTATIONS[planet] === sign) parts.push('exalted');
-  if (DEBILITATIONS[planet] === sign) parts.push('debilitated');
-  if (SIGN_RULERS[sign] === planet) parts.push('in own sign');
-  if (rx) parts.push('retrograde');
+  if (EXALTATIONS[planet] === sign) parts.push("exalted");
+  if (DEBILITATIONS[planet] === sign) parts.push("debilitated");
+  if (SIGN_RULERS[sign] === planet) parts.push("in own sign");
+  if (rx) parts.push("retrograde");
   return parts;
 }
 
 function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
+  const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
 }
 
 function signFlavor(sign: string): string {
   const element: Record<string, string> = {
-    Aries: 'fire', Leo: 'fire', Sagittarius: 'fire',
-    Taurus: 'earth', Virgo: 'earth', Capricorn: 'earth',
-    Gemini: 'air', Libra: 'air', Aquarius: 'air',
-    Cancer: 'water', Scorpio: 'water', Pisces: 'water'
+    Aries: "fire",
+    Leo: "fire",
+    Sagittarius: "fire",
+    Taurus: "earth",
+    Virgo: "earth",
+    Capricorn: "earth",
+    Gemini: "air",
+    Libra: "air",
+    Aquarius: "air",
+    Cancer: "water",
+    Scorpio: "water",
+    Pisces: "water",
   };
   const ruler = SIGN_RULERS[sign];
   const templates: Record<string, string> = {
-    fire: 'directness, ignition, urgency, expressive force',
-    earth: 'practicality, containment, realism, measurable grounding',
-    air: 'mobility, concept-making, social abstraction, mental spread',
-    water: 'impressionability, feeling-intelligence, depth, permeability'
+    fire: "directness, ignition, urgency, expressive force",
+    earth: "practicality, containment, realism, measurable grounding",
+    air: "mobility, concept-making, social abstraction, mental spread",
+    water: "impressionability, feeling-intelligence, depth, permeability",
   };
-  const el = element[sign] || 'mixed';
-  return `${el}-coded expression under ${ruler}'s rulership — ${templates[el] || 'complex, layered expression'}`;
+  const el = element[sign] || "mixed";
+  return `${el}-coded expression under ${ruler}'s rulership — ${templates[el] || "complex, layered expression"}`;
 }
 
-function planetTone(planet: string, placement: PlanetPlacement | undefined, pillar: string): string[] {
+function planetTone(
+  planet: string,
+  placement: PlanetPlacement | undefined,
+  pillar: string
+): string[] {
   const parts: string[] = [];
   if (!placement) return parts;
-  const core = PLANET_CORE[planet]?.[pillar] || '';
+  const core = PLANET_CORE[planet]?.[pillar] || "";
   if (core) parts.push(`${planet} governs ${core}.`);
-  parts.push(`${planet} in ${placement.sign} colors this through ${signFlavor(placement.sign)}.`);
+  parts.push(
+    `${planet} in ${placement.sign} colors this through ${signFlavor(placement.sign)}.`
+  );
   if (placement.house && HOUSE_TOPICS[placement.house]) {
-    parts.push(`This lands through the ${ordinal(placement.house)} house: ${HOUSE_TOPICS[placement.house]}.`);
+    parts.push(
+      `This lands through the ${ordinal(placement.house)} house: ${HOUSE_TOPICS[placement.house]}.`
+    );
   }
   const dignities = dignityLabel(planet, placement.sign, placement.rx);
-  if (dignities.length) parts.push(`Condition: ${dignities.join(', ')}.`);
-  if (placement.combust) parts.push('Combustion suggests this principle is too close to solar heat, reducing clean objectivity.');
-  if (placement.cazimi) parts.push('Cazimi suggests rare interior clarity and concentrated intelligence.');
+  if (dignities.length) parts.push(`Condition: ${dignities.join(", ")}.`);
+  if (placement.combust)
+    parts.push(
+      "Combustion suggests this principle is too close to solar heat, reducing clean objectivity."
+    );
+  if (placement.cazimi)
+    parts.push(
+      "Cazimi suggests rare interior clarity and concentrated intelligence."
+    );
   return parts;
 }
 
 function describeActivation(
-  tPlanet: string, nPlanet: string, aspect: string,
-  tPlacement: PlanetPlacement, nPlacement: PlanetPlacement
+  tPlanet: string,
+  nPlanet: string,
+  aspect: string,
+  tPlacement: PlanetPlacement,
+  nPlacement: PlanetPlacement
 ): string {
   const aspectText: Record<string, string> = {
-    conjunction: 'directly merges with',
-    opposition: 'faces and polarizes',
-    square: 'pressurizes and challenges',
-    trine: 'supports and opens',
-    sextile: 'offers a smaller but usable opening to'
+    conjunction: "directly merges with",
+    opposition: "faces and polarizes",
+    square: "pressurizes and challenges",
+    trine: "supports and opens",
+    sextile: "offers a smaller but usable opening to",
   };
-  const houseText = nPlacement.house && HOUSE_TOPICS[nPlacement.house]
-    ? ` through the ${ordinal(nPlacement.house)} house themes of ${HOUSE_TOPICS[nPlacement.house]}`
-    : '';
-  const tone = PLANET_CORE[tPlanet]?.spirit || PLANET_CORE[tPlanet]?.mind || 'activation';
-  return `${tPlanet} ${aspectText[aspect] || 'contacts'} natal ${nPlanet}, stirring ${tone}${houseText}.`;
+  const houseText =
+    nPlacement.house && HOUSE_TOPICS[nPlacement.house]
+      ? ` through the ${ordinal(nPlacement.house)} house themes of ${HOUSE_TOPICS[nPlacement.house]}`
+      : "";
+  const tone =
+    PLANET_CORE[tPlanet]?.spirit || PLANET_CORE[tPlanet]?.mind || "activation";
+  return `${tPlanet} ${aspectText[aspect] || "contacts"} natal ${nPlanet}, stirring ${tone}${houseText}.`;
 }
 
 export function detectTransits(
@@ -315,7 +465,13 @@ export function detectTransits(
         priority,
         transit: tPlacement,
         natal: nPlacement,
-        summary: describeActivation(tPlanet, nPlanet, aspect.name, tPlacement, nPlacement)
+        summary: describeActivation(
+          tPlanet,
+          nPlanet,
+          aspect.name,
+          tPlacement,
+          nPlacement
+        ),
       });
     }
   }
@@ -341,33 +497,44 @@ export function detectSadeSati(
   const next = (moonIndex + 1) % 12;
 
   if ([prev, same, next].includes(saturnIndex)) {
-    const phase = saturnIndex === prev ? 'entering' : saturnIndex === same ? 'peak' : 'exiting';
+    const phase =
+      saturnIndex === prev
+        ? "entering"
+        : saturnIndex === same
+          ? "peak"
+          : "exiting";
     return `Sade Sati is ${phase}: transiting Saturn is in ${transitSaturn.sign} relative to the natal Moon in ${natalMoon.sign}. Emotional weight, karmic pruning, responsibility, and interior hardening are emphasized.`;
   }
   return null;
 }
 
-export function detectMoonPhase(transits: Record<string, PlanetPlacement>): string | null {
+export function detectMoonPhase(
+  transits: Record<string, PlanetPlacement>
+): string | null {
   const sun = transits.Sun;
   const moon = transits.Moon;
-  if (!sun || !moon || sun.absolute == null || moon.absolute == null) return null;
+  if (!sun || !moon || sun.absolute == null || moon.absolute == null)
+    return null;
   const diff = (moon.absolute - sun.absolute + 360) % 360;
-  if (diff < 12 || diff > 348) return 'New Moon tone — inward, seeded, lower external output.';
-  if (Math.abs(diff - 180) < 12) return 'Full Moon tone — culmination, revelation, emotional amplification.';
-  if (diff < 180) return 'Waxing Moon tone — building force, growth, outward movement.';
-  return 'Waning Moon tone — release, digestion, retreat, and consolidation.';
+  if (diff < 12 || diff > 348)
+    return "New Moon tone — inward, seeded, lower external output.";
+  if (Math.abs(diff - 180) < 12)
+    return "Full Moon tone — culmination, revelation, emotional amplification.";
+  if (diff < 180)
+    return "Waxing Moon tone — building force, growth, outward movement.";
+  return "Waning Moon tone — release, digestion, retreat, and consolidation.";
 }
 
 export function scorePillar(
-  name: 'mind' | 'soul' | 'spirit',
+  name: "mind" | "soul" | "spirit",
   natal: Record<string, PlanetPlacement>,
   transits: Record<string, PlanetPlacement>,
   activations: Activation[]
 ): PillarResult {
   const dependencies: Record<string, string[]> = {
-    mind: ['Mercury', 'Moon'],
-    soul: ['Moon', 'Venus'],
-    spirit: ['Sun', 'Jupiter']
+    mind: ["Mercury", "Moon"],
+    soul: ["Moon", "Venus"],
+    spirit: ["Sun", "Jupiter"],
   };
   const deps = dependencies[name];
   let score = 50;
@@ -376,51 +543,104 @@ export function scorePillar(
   for (const planet of deps) {
     const nat = natal[planet];
     if (!nat) continue;
-    if (EXALTATIONS[planet] === nat.sign) { score += 10; reasons.push(`${planet} is exalted natally.`); }
-    if (DEBILITATIONS[planet] === nat.sign) { score -= 10; reasons.push(`${planet} is debilitated natally.`); }
-    if (SIGN_RULERS[nat.sign] === planet) { score += 6; reasons.push(`${planet} is in its own sign.`); }
-    if (nat.rx && ['Mercury','Venus','Jupiter','Saturn','Mars'].includes(planet)) {
-      score -= 2;
-      reasons.push(`${planet} retrograde makes this pillar more interiorized and less straightforward.`);
+    if (EXALTATIONS[planet] === nat.sign) {
+      score += 10;
+      reasons.push(`${planet} is exalted natally.`);
     }
-    if (nat.combust) { score -= 5; reasons.push(`${planet} combust adds heat and compression.`); }
-    if (nat.cazimi) { score += 6; reasons.push(`${planet} cazimi adds rare precision.`); }
+    if (DEBILITATIONS[planet] === nat.sign) {
+      score -= 10;
+      reasons.push(`${planet} is debilitated natally.`);
+    }
+    if (SIGN_RULERS[nat.sign] === planet) {
+      score += 6;
+      reasons.push(`${planet} is in its own sign.`);
+    }
+    if (
+      nat.rx &&
+      ["Mercury", "Venus", "Jupiter", "Saturn", "Mars"].includes(planet)
+    ) {
+      score -= 2;
+      reasons.push(
+        `${planet} retrograde makes this pillar more interiorized and less straightforward.`
+      );
+    }
+    if (nat.combust) {
+      score -= 5;
+      reasons.push(`${planet} combust adds heat and compression.`);
+    }
+    if (nat.cazimi) {
+      score += 6;
+      reasons.push(`${planet} cazimi adds rare precision.`);
+    }
   }
 
   const targetSet = new Set(deps);
   for (const act of activations.slice(0, 18)) {
     if (!targetSet.has(act.natalPlanet)) continue;
     const p = act.transitPlanet;
-    const hard = act.aspect === 'square' || act.aspect === 'opposition';
-    const conj = act.aspect === 'conjunction';
+    const hard = act.aspect === "square" || act.aspect === "opposition";
+    const conj = act.aspect === "conjunction";
 
-    if (p === 'Saturn') {
+    if (p === "Saturn") {
       score += hard ? -12 : conj ? -9 : -6;
-      reasons.push(`Transit Saturn is weighing on natal ${act.natalPlanet} by ${act.aspect}.`);
-    } else if (p === 'Jupiter') {
+      reasons.push(
+        `Transit Saturn is weighing on natal ${act.natalPlanet} by ${act.aspect}.`
+      );
+    } else if (p === "Jupiter") {
       score += hard ? 3 : conj ? 10 : 7;
-      reasons.push(`Transit Jupiter is opening natal ${act.natalPlanet} by ${act.aspect}.`);
-    } else if (p === 'Rahu') {
+      reasons.push(
+        `Transit Jupiter is opening natal ${act.natalPlanet} by ${act.aspect}.`
+      );
+    } else if (p === "Rahu") {
       score += conj ? 4 : hard ? -4 : 1;
-      reasons.push(`Transit Rahu is amplifying natal ${act.natalPlanet} by ${act.aspect}.`);
-    } else if (p === 'Ketu') {
+      reasons.push(
+        `Transit Rahu is amplifying natal ${act.natalPlanet} by ${act.aspect}.`
+      );
+    } else if (p === "Ketu") {
       score += conj ? -7 : hard ? -5 : -2;
-      reasons.push(`Transit Ketu is reducing attachment around natal ${act.natalPlanet} by ${act.aspect}.`);
-    } else if (p === 'Mars') {
+      reasons.push(
+        `Transit Ketu is reducing attachment around natal ${act.natalPlanet} by ${act.aspect}.`
+      );
+    } else if (p === "Mars") {
       score += hard ? -8 : conj ? -5 : 2;
-      reasons.push(`Transit Mars is heating natal ${act.natalPlanet} by ${act.aspect}.`);
-    } else if (p === 'Sun') {
+      reasons.push(
+        `Transit Mars is heating natal ${act.natalPlanet} by ${act.aspect}.`
+      );
+    } else if (p === "Sun") {
       score += hard ? -2 : conj ? 3 : 1;
-      reasons.push(`Transit Sun temporarily spotlights natal ${act.natalPlanet}.`);
-    } else if (p === 'Venus') {
+      reasons.push(
+        `Transit Sun temporarily spotlights natal ${act.natalPlanet}.`
+      );
+    } else if (p === "Venus") {
       score += hard ? -1 : conj ? 4 : 2;
-      reasons.push(`Transit Venus modifies tone around natal ${act.natalPlanet}.`);
-    } else if (p === 'Mercury') {
+      reasons.push(
+        `Transit Venus modifies tone around natal ${act.natalPlanet}.`
+      );
+    } else if (p === "Mercury") {
       score += hard ? -1 : conj ? 3 : 1;
-      reasons.push(`Transit Mercury is activating cognition around natal ${act.natalPlanet}.`);
-    } else if (p === 'Moon') {
+      reasons.push(
+        `Transit Mercury is activating cognition around natal ${act.natalPlanet}.`
+      );
+    } else if (p === "Moon") {
       score += hard ? -1 : 1;
-      reasons.push(`Transit Moon is coloring the day around natal ${act.natalPlanet}.`);
+      reasons.push(
+        `Transit Moon is coloring the day around natal ${act.natalPlanet}.`
+      );
+    } else if (p === "Pluto") {
+      score += hard ? -11 : conj ? -10 : -6;
+      reasons.push(
+        `Transit Pluto is forcing deep transformation around natal ${act.natalPlanet} by ${act.aspect}.`
+      );
+    } else if (p === "Neptune") {
+      score += hard ? -7 : conj ? -5 : -3;
+      reasons.push(
+        `Transit Neptune is dissolving clarity around natal ${act.natalPlanet} by ${act.aspect}.`
+      );
+    } else if (p === "Uranus") {
+      score += hard ? -8 : conj ? -4 : 3;
+      reasons.push(
+        `Transit Uranus is disrupting and awakening natal ${act.natalPlanet} by ${act.aspect}.`
+      );
     }
   }
 
@@ -428,22 +648,25 @@ export function scorePillar(
   return { score, reasons };
 }
 
-export function stateFromScore(score: number): { band: 'high' | 'mid' | 'low'; label: string } {
-  if (score >= 70) return { band: 'high', label: 'Open and coherent' };
-  if (score >= 45) return { band: 'mid', label: 'Mixed and shifting' };
-  return { band: 'low', label: 'Under pressure' };
+export function stateFromScore(score: number): {
+  band: "high" | "mid" | "low";
+  label: string;
+} {
+  if (score >= 70) return { band: "high", label: "Open and coherent" };
+  if (score >= 45) return { band: "mid", label: "Mixed and shifting" };
+  return { band: "low", label: "Under pressure" };
 }
 
 export function summarizePillar(
-  name: 'mind' | 'soul' | 'spirit',
+  name: "mind" | "soul" | "spirit",
   result: PillarResult,
   natal: Record<string, PlanetPlacement>,
   activations: Activation[]
 ): PillarSummary {
   const deps: Record<string, string[]> = {
-    mind: ['Mercury', 'Moon'],
-    soul: ['Moon', 'Venus'],
-    spirit: ['Sun', 'Jupiter']
+    mind: ["Mercury", "Moon"],
+    soul: ["Moon", "Venus"],
+    spirit: ["Sun", "Jupiter"],
   };
   const depList = deps[name];
   const state = stateFromScore(result.score);
@@ -451,71 +674,140 @@ export function summarizePillar(
   const lead = depList
     .map(p => natal[p])
     .filter(Boolean)
-    .map(p => `${p!.planet} in ${p!.sign}${p!.house ? ` (${ordinal(p!.house)} house)` : ''}`)
-    .join(' · ');
+    .map(
+      p =>
+        `${p!.planet} in ${p!.sign}${p!.house ? ` (${ordinal(p!.house)} house)` : ""}`
+    )
+    .join(" · ");
 
-  const relevantActs = activations.filter(a => depList.includes(a.natalPlanet)).slice(0, 2);
+  const relevantActs = activations
+    .filter(a => depList.includes(a.natalPlanet))
+    .slice(0, 2);
   const actText = relevantActs.length
-    ? relevantActs.map(a => `${a.transitPlanet} ${a.aspect} natal ${a.natalPlanet}`).join('; ')
-    : 'No major transit pressure is dominating this pillar right now.';
+    ? relevantActs
+        .map(a => `${a.transitPlanet} ${a.aspect} natal ${a.natalPlanet}`)
+        .join("; ")
+    : "No major transit pressure is dominating this pillar right now.";
 
-  const reason = result.reasons.slice(0, 2).join(' ');
+  const reason = result.reasons.slice(0, 2).join(" ");
 
   return {
     state: `${state.label} · ${result.score}/100`,
     body: `${name.charAt(0).toUpperCase() + name.slice(1)} is reading ${
-      state.band === 'high' ? 'strong' : state.band === 'mid' ? 'mixed' : 'strained'
-    } right now. Natal base: ${lead || 'insufficient natal data.'} Active contacts: ${actText} ${reason}`.trim()
+      state.band === "high"
+        ? "strong"
+        : state.band === "mid"
+          ? "mixed"
+          : "strained"
+    } right now. Natal base: ${lead || "insufficient natal data."} Active contacts: ${actText} ${reason}`.trim(),
   };
 }
 
-export type ReadingMode = 'natal-only' | 'transit-only' | 'full';
+export type ReadingMode = "natal-only" | "transit-only" | "full";
 
 export function runAstroReading(
   natalText: string,
   transitText: string,
   context: string
 ): { result: ReadingResult | null; error: string | null; mode: ReadingMode } {
-  const { parsed: natal } = parseInput(natalText, 'natal');
-  const { parsed: transits } = parseInput(transitText, 'transit');
+  const { parsed: natal } = parseInput(natalText, "natal");
+  const { parsed: transits } = parseInput(transitText, "transit");
 
   const hasNatal = Object.keys(natal).length >= 3;
   const hasTransits = Object.keys(transits).length >= 3;
 
   // Need at least one to proceed
   if (!hasNatal && !hasTransits) {
-    return { result: null, error: 'Please enter at least your natal chart OR current transits to generate a reading.', mode: 'full' };
+    return {
+      result: null,
+      error:
+        "Please enter at least your natal chart OR current transits to generate a reading.",
+      mode: "full",
+    };
   }
 
-  const mode: ReadingMode = hasNatal && hasTransits ? 'full' : hasNatal ? 'natal-only' : 'transit-only';
+  const mode: ReadingMode =
+    hasNatal && hasTransits ? "full" : hasNatal ? "natal-only" : "transit-only";
 
   // For transit-only: treat transits as the reference chart
   const effectiveNatal = hasNatal ? natal : transits;
   const effectiveTransits = hasTransits ? transits : {};
 
-  const activations = hasNatal && hasTransits ? detectTransits(natal, transits) : [];
+  const activations =
+    hasNatal && hasTransits ? detectTransits(natal, transits) : [];
 
-  const mindResult = scorePillarFull('mind', effectiveNatal, effectiveTransits, activations);
-  const soulResult = scorePillarFull('soul', effectiveNatal, effectiveTransits, activations);
-  const spiritResult = scorePillarFull('spirit', effectiveNatal, effectiveTransits, activations);
+  const mindResult = scorePillarFull(
+    "mind",
+    effectiveNatal,
+    effectiveTransits,
+    activations
+  );
+  const soulResult = scorePillarFull(
+    "soul",
+    effectiveNatal,
+    effectiveTransits,
+    activations
+  );
+  const spiritResult = scorePillarFull(
+    "spirit",
+    effectiveNatal,
+    effectiveTransits,
+    activations
+  );
+  const pressureResult = scorePillarFull(
+    "pressure",
+    effectiveNatal,
+    effectiveTransits,
+    activations
+  );
+
+  const patterns = detectNatalPatterns(effectiveNatal);
+  const patternAlerts = checkPatternAlerts(
+    patterns,
+    effectiveNatal,
+    activations
+  );
 
   return {
     result: {
-      mind: summarizePillarRich('mind', mindResult, effectiveNatal, activations),
-      soul: summarizePillarRich('soul', soulResult, effectiveNatal, activations),
-      spirit: summarizePillarRich('spirit', spiritResult, effectiveNatal, activations),
+      mind: summarizePillarRich(
+        "mind",
+        mindResult,
+        effectiveNatal,
+        activations
+      ),
+      soul: summarizePillarRich(
+        "soul",
+        soulResult,
+        effectiveNatal,
+        activations
+      ),
+      spirit: summarizePillarRich(
+        "spirit",
+        spiritResult,
+        effectiveNatal,
+        activations
+      ),
+      pressure: summarizePillarRich(
+        "pressure",
+        pressureResult,
+        effectiveNatal,
+        activations
+      ),
+      patterns,
+      patternAlerts,
       activations,
       natal: effectiveNatal,
       transits: effectiveTransits,
-      context
+      context,
     },
     error: null,
-    mode
+    mode,
   };
 }
 
 export function ordinalExport(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
+  const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
 }
@@ -537,6 +829,8 @@ export function buildReadingText(result: any): string {
     result.spirit.body,
     "",
     "✦ ACTIVATIONS ✦",
-    ...(result.activations || []).slice(0, 5).map((a: any) => a.summary)
-  ].join("\n").trim();
+    ...(result.activations || []).slice(0, 5).map((a: any) => a.summary),
+  ]
+    .join("\n")
+    .trim();
 }

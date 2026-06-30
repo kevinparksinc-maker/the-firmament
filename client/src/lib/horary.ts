@@ -1,5 +1,5 @@
-import { generateReading } from './readingEngine4';
-import type { UserContext, ReadingOutput } from './readingEngine4';
+import { generateReading } from "./readingEngine4";
+import type { UserContext, ReadingOutput } from "./readingEngine4";
 
 export interface OraryState {
   lastQuestion?: string;
@@ -9,12 +9,12 @@ export interface OraryState {
 
 // Keep type OUTSIDE function (important)
 type Intent =
-  | 'general'
-  | 'explain'
-  | 'action'
-  | 'simulate'
-  | 'isolate'
-  | 'focus';
+  | "general"
+  | "explain"
+  | "action"
+  | "simulate"
+  | "isolate"
+  | "focus";
 
 /**
  * ORARY LAYER
@@ -35,26 +35,33 @@ export function oraryLayer(
     focus: string | null;
   };
 } {
-
   const q = message.toLowerCase();
 
   // -------------------------
   // 1. INTENT DETECTION
   // -------------------------
-  let intent: Intent = 'general';
+  let intent: Intent = "general";
 
-  if (q.includes('why')) intent = 'explain';
-  else if (q.includes('what should i') || q.includes('what do i do')) intent = 'action';
-  else if (q.includes('what if')) intent = 'simulate';
-  else if (q.includes('which') || q.includes('what planet')) intent = 'isolate';
-  else if (q.includes('focus') || q.includes('zoom')) intent = 'focus';
+  if (q.includes("why")) intent = "explain";
+  else if (q.includes("what should i") || q.includes("what do i do"))
+    intent = "action";
+  else if (q.includes("what if")) intent = "simulate";
+  else if (q.includes("which") || q.includes("what planet")) intent = "isolate";
+  else if (q.includes("focus") || q.includes("zoom")) intent = "focus";
 
   // -------------------------
   // 2. FOCUS DETECTION
   // -------------------------
   const planets = [
-    'sun', 'moon', 'mercury', 'venus',
-    'mars', 'jupiter', 'saturn', 'rahu', 'ketu'
+    "sun",
+    "moon",
+    "mercury",
+    "venus",
+    "mars",
+    "jupiter",
+    "saturn",
+    "rahu",
+    "ketu",
   ];
 
   let focus: string | null = null;
@@ -73,9 +80,7 @@ export function oraryLayer(
     ...context,
     question: message,
     focusArea:
-      intent === 'action'
-        ? context.focusArea || 'general'
-        : context.focusArea
+      intent === "action" ? context.focusArea || "general" : context.focusArea,
   };
 
   // -------------------------
@@ -89,7 +94,7 @@ export function oraryLayer(
   const newState: OraryState = {
     lastQuestion: message,
     lastIntent: intent,
-    lastFocus: focus || state.lastFocus
+    lastFocus: focus || state.lastFocus,
   };
 
   return {
@@ -97,7 +102,7 @@ export function oraryLayer(
     state: newState,
     debug: {
       intent,
-      focus
-    }
+      focus,
+    },
   };
 }

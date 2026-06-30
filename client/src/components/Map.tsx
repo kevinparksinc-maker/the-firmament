@@ -117,7 +117,11 @@ interface MapViewProps {
 }
 
 export function MapView({
-  className, initialCenter = { lat: 37.7749, lng: -122.4194 }, initialZoom = 12, onMapReady, }: MapViewProps) {
+  className,
+  initialCenter = { lat: 37.7749, lng: -122.4194 },
+  initialZoom = 12,
+  onMapReady,
+}: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<google.maps.Map | null>(null);
 

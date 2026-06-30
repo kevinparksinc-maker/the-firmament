@@ -11,7 +11,8 @@ function Accordion({
 }
 
 function AccordionItem({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof AccordionPrimitive.Item>) {
   return (
     <AccordionPrimitive.Item
@@ -23,7 +24,9 @@ function AccordionItem({
 }
 
 function AccordionTrigger({
-  className, children, ...props
+  className,
+  children,
+  ...props
 }: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {
   return (
     <AccordionPrimitive.Header className="flex">
@@ -43,7 +46,9 @@ function AccordionTrigger({
 }
 
 function AccordionContent({
-  className, children, ...props
+  className,
+  children,
+  ...props
 }: React.ComponentProps<typeof AccordionPrimitive.Content>) {
   return (
     <AccordionPrimitive.Content

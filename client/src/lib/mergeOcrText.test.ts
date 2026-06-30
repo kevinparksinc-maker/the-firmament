@@ -3,8 +3,13 @@ import { mergeOcrText } from "./mergeOcrText";
 
 describe("mergeOcrText", () => {
   it("appends new planets to empty existing text", () => {
-    const result = mergeOcrText("", "Sun: 4° Scorpio, 11th house\nMoon: 18° Gemini, 7th house");
-    expect(result).toBe("Sun: 4° Scorpio, 11th house\nMoon: 18° Gemini, 7th house");
+    const result = mergeOcrText(
+      "",
+      "Sun: 4° Scorpio, 11th house\nMoon: 18° Gemini, 7th house"
+    );
+    expect(result).toBe(
+      "Sun: 4° Scorpio, 11th house\nMoon: 18° Gemini, 7th house"
+    );
   });
 
   it("appends new planets not already in existing text", () => {

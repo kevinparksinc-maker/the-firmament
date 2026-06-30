@@ -44,7 +44,9 @@ const emptyMediaVariants = cva(
 );
 
 function EmptyMedia({
-  className, variant = "default", ...props
+  className,
+  variant = "default",
+  ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof emptyMediaVariants>) {
   return (
     <div

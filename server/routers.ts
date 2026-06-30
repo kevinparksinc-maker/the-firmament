@@ -7,14 +7,21 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { buildLensPrompt } from "./lib/readings/buildLensPrompt";
 import { LENSES } from "./lib/readings/lensRules";
 import { saveChart, getUserCharts, getChart, deleteChart } from "./db";
-import { calculateChart, formatChartForReading, getHouseCuspInfo } from "./ephemeris";
+import {
+  calculateChart,
+  formatChartForReading,
+  getHouseCuspInfo,
+} from "./ephemeris";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
+import { horaryLayer } from "./horary";
 
-import { detectFixedStarConjunctions, formatStarConjunctions } from "./fixedStars";
+import {
+  detectFixedStarConjunctions,
+  formatStarConjunctions,
+} from "./fixedStars";
 import { getNakshatraAt } from "./nakshatra";
 import { getDecanFlavor } from "./decan";
-
 
 // ─── Core Cosmology Framework ─────────────────────────────────────────────────
 // This is the foundation of every reading in this app.
@@ -37,18 +44,37 @@ TRADITIONAL VEDIC RULERS govern the signs: Mars rules Aries and Scorpio, Venus r
 
 Write from this worldview. This is the truth of the sky as it can be directly observed.`;
 
-
 // ─── Chart Enrichment Helper ──────────────────────────────────────────────────
 
-function enrichChartData(planets: Record<string, { sign: string; degree: number; house?: number; absolute?: number }>): string {
+function enrichChartData(
+  planets: Record<
+    string,
+    { sign: string; degree: number; house?: number; absolute?: number }
+  >
+): string {
   const lines: string[] = [];
 
   for (const [name, p] of Object.entries(planets)) {
-    const abs = p.absolute ?? ((() => {
-      const signs = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
-      const i = signs.indexOf(p.sign);
-      return i >= 0 ? i * 30 + p.degree : null;
-    })());
+    const abs =
+      p.absolute ??
+      (() => {
+        const signs = [
+          "Aries",
+          "Taurus",
+          "Gemini",
+          "Cancer",
+          "Leo",
+          "Virgo",
+          "Libra",
+          "Scorpio",
+          "Sagittarius",
+          "Capricorn",
+          "Aquarius",
+          "Pisces",
+        ];
+        const i = signs.indexOf(p.sign);
+        return i >= 0 ? i * 30 + p.degree : null;
+      })();
 
     if (abs == null) continue;
 
@@ -56,13 +82,31 @@ function enrichChartData(planets: Record<string, { sign: string; degree: number;
     const decan = getDecanFlavor(p.sign, p.degree);
     const house = p.house ? `, ${p.house}th house` : "";
 
-    lines.push(`${name}: ${p.degree}° ${p.sign}${house} | Nakshatra: ${nakshatra.name} pada ${pada} (${nakshatra.lord}) | Decan: ${decan}`);
+    lines.push(
+      `${name}: ${p.degree}° ${p.sign}${house} | Nakshatra: ${nakshatra.name} pada ${pada} (${nakshatra.lord}) | Decan: ${decan}`
+    );
   }
 
   // Fixed star conjunctions
-  const placementsForStars: Record<string, { sign: string; degree: number; planet: string; absolute: number | null }> = {};
+  const placementsForStars: Record<
+    string,
+    { sign: string; degree: number; planet: string; absolute: number | null }
+  > = {};
   for (const [name, p] of Object.entries(planets)) {
-    const signs = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
+    const signs = [
+      "Aries",
+      "Taurus",
+      "Gemini",
+      "Cancer",
+      "Leo",
+      "Virgo",
+      "Libra",
+      "Scorpio",
+      "Sagittarius",
+      "Capricorn",
+      "Aquarius",
+      "Pisces",
+    ];
     const i = signs.indexOf(p.sign);
     placementsForStars[name] = {
       sign: p.sign,
@@ -82,15 +126,18 @@ function enrichChartData(planets: Record<string, { sign: string; degree: number;
 
 const ocrRouter = router({
   extractText: publicProcedure
-    .input(z.object({
-      images: z.array(z.string()).min(1).max(10),
-      type: z.enum(["natal", "transit"]),
-    }))
+    .input(
+      z.object({
+        images: z.array(z.string()).min(1).max(10),
+        type: z.enum(["natal", "transit"]),
+      })
+    )
     .mutation(async ({ input }) => {
       const { images, type } = input;
 
-      const systemPrompt = type === "natal"
-        ? `You are an expert ancient sky-chart reader. Extract ALL planetary and fixed star placements from the provided screenshot(s).
+      const systemPrompt =
+        type === "natal"
+          ? `You are an expert ancient sky-chart reader. Extract ALL planetary and fixed star placements from the provided screenshot(s).
 Output ONLY the raw placement data, one item per line, in this exact format:
 Planet: Degree° Arcminutes' Sign, Nth house
 
@@ -112,7 +159,7 @@ Mercury Rx: 18° 47' Libra, 11th house
 Pluto: 13° 32' Libra, 11th house
 Rahu: 25° 37' Pisces, 4th house
 Antares: 15° 00' Scorpio, 12th house`
-        : `You are an expert ancient sky-chart reader. Extract ALL current planetary positions from the provided screenshot(s).
+          : `You are an expert ancient sky-chart reader. Extract ALL current planetary positions from the provided screenshot(s).
 Output ONLY the raw transit data, one planet per line, in this exact format:
 Transit Planet: Degree° Sign
 
@@ -122,7 +169,7 @@ Rules:
 - If house number is visible, include it
 - Do NOT include any explanation, headers, or extra text`;
 
-      const imageContents = images.map((imgUrl) => ({
+      const imageContents = images.map(imgUrl => ({
         type: "image_url" as const,
         image_url: { url: imgUrl, detail: "high" as const },
       }));
@@ -134,7 +181,10 @@ Rules:
             role: "user",
             content: [
               ...imageContents,
-              { type: "text" as const, text: `Extract all ${type === "natal" ? "natal birth chart" : "current transit"} planetary placements from these ${images.length} screenshot(s). Output only the placement lines.` },
+              {
+                type: "text" as const,
+                text: `Extract all ${type === "natal" ? "natal birth chart" : "current transit"} planetary placements from these ${images.length} screenshot(s). Output only the placement lines.`,
+              },
             ],
           },
         ],
@@ -150,20 +200,30 @@ Rules:
 
 const aiRouter = router({
   interpretChart: publicProcedure
-    .input(z.object({
-      placements: z.string().min(10),
-      context: z.string().optional(),
-      mode: z.enum(["natal", "transit", "full"]),
-      transitPlacements: z.string().optional(),
-      fixedStarConjunctions: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        placements: z.string().min(10),
+        context: z.string().optional(),
+        mode: z.enum(["natal", "transit", "full"]),
+        transitPlacements: z.string().optional(),
+        fixedStarConjunctions: z.string().optional(),
+      })
+    )
     .mutation(async ({ input }) => {
-      const { placements, context, mode, transitPlacements, fixedStarConjunctions } = input;
+      const {
+        placements,
+        context,
+        mode,
+        transitPlacements,
+        fixedStarConjunctions,
+      } = input;
 
       // Auto-enrich if structured data available (fallback to passed-in fixedStarConjunctions)
-      const starSection = fixedStarConjunctions && fixedStarConjunctions !== 'No exact fixed star conjunctions detected.'
-        ? `\nFIXED STAR CONJUNCTIONS DETECTED:\n${fixedStarConjunctions}\n`
-        : '';
+      const starSection =
+        fixedStarConjunctions &&
+        fixedStarConjunctions !== "No exact fixed star conjunctions detected."
+          ? `\nFIXED STAR CONJUNCTIONS DETECTED:\n${fixedStarConjunctions}\n`
+          : "";
 
       let userPrompt = "";
 
@@ -179,7 +239,7 @@ Please write a complete natal chart reading. This person wants to understand the
 Use these exact section headers:
 
 ## MIND
-How does this person think and communicate? Interpret Mercury's sign, house, and condition. What is their mental style — how do they process information, make decisions, express themselves? Include the Moon's influence on the mind. Be specific about what Mercury in ${placements.includes('Libra') ? 'Libra' : 'their sign'} actually means for how they think day to day.
+How does this person think and communicate? Interpret Mercury's sign, house, and condition. What is their mental style — how do they process information, make decisions, express themselves? Include the Moon's influence on the mind. Be specific about what Mercury in ${placements.includes("Libra") ? "Libra" : "their sign"} actually means for how they think day to day.
 
 ## SOUL
 What does this person need to feel whole? Interpret the Moon — their emotional nature, what nourishes them, what wounds them, how they love and need to be loved. Include Venus. Be honest about the emotional patterns this chart shows.
@@ -189,12 +249,11 @@ What is this person here to do? Interpret the Sun — their core identity, life 
 
 ## KEY PLACEMENTS
 Identify the 2-3 most powerful, unusual, or significant placements in this chart. These could be planets in their own sign or exaltation, debilitated planets, planets in angular houses, or any placement that stands out as defining. Explain what each one means for this person's actual life.
-${starSection ? `\nAlso interpret any fixed star conjunctions listed above — these are ancient sky markers that infuse the planet with the star's power and meaning.\n` : ''}
+${starSection ? `\nAlso interpret any fixed star conjunctions listed above — these are ancient sky markers that infuse the planet with the star's power and meaning.\n` : ""}
 ## SYNTHESIS
 What is the overall story of this chart? What are the main themes — the tensions, the gifts, the life lessons? If you could tell this person one true thing about who they are based on this chart, what would it be?
 
 Write in flowing paragraphs. Be personal, specific, and honest. This person is reading their chart to understand their life — give them something real.`;
-
       } else if (mode === "transit") {
         userPrompt = `Here are the current planetary positions in the sky:
 
@@ -212,7 +271,6 @@ What themes are active? What should people be aware of, lean into, or watch out 
 
 ## THE BIGGER PICTURE
 What is the larger story the sky is telling right now?`;
-
       } else {
         // Full natal + transit
         userPrompt = `Here is the natal chart:
@@ -260,31 +318,39 @@ Write in flowing paragraphs. Be specific — name the planets, the signs, the ho
 
 const ephemerisRouter = router({
   calculate: publicProcedure
-    .input(z.object({
-      year: z.number().int().min(1900).max(2100),
-      month: z.number().int().min(1).max(12),
-      day: z.number().int().min(1).max(31),
-      hour: z.number().min(0).max(23),
-      minute: z.number().min(0).max(59),
-      latitude: z.number().min(-90).max(90),
-      longitude: z.number().min(-180).max(180),
-      altitude: z.number().min(0).max(9000).default(0),
-    }))
+    .input(
+      z.object({
+        year: z.number().int().min(1900).max(2100),
+        month: z.number().int().min(1).max(12),
+        day: z.number().int().min(1).max(31),
+        hour: z.number().min(0).max(23),
+        minute: z.number().min(0).max(59),
+        latitude: z.number().min(-90).max(90),
+        longitude: z.number().min(-180).max(180),
+        altitude: z.number().min(0).max(9000).default(0),
+      })
+    )
     .mutation(async ({ input }) => {
-      const date = new Date(Date.UTC(
-        input.year, input.month - 1, input.day,
-        input.hour, input.minute, 0
-      ));
-      
+      const date = new Date(
+        Date.UTC(
+          input.year,
+          input.month - 1,
+          input.day,
+          input.hour,
+          input.minute,
+          0
+        )
+      );
+
       const observer = {
         latitude: input.latitude,
         longitude: input.longitude,
         altitude: input.altitude,
       };
-      
+
       const result = await calculateChart(date, observer);
       const readingText = formatChartForReading(result);
-      
+
       const houseCusps = getHouseCuspInfo(result);
       const asc = result.houses.ascendant;
       const desc = (asc + 180) % 360;
@@ -306,29 +372,30 @@ const ephemerisRouter = router({
 
 const chartsRouter = router({
   save: protectedProcedure
-    .input(z.object({
-      chartName: z.string().min(1).max(255),
-      placements: z.string().min(1),
-    }))
+    .input(
+      z.object({
+        chartName: z.string().min(1).max(255),
+        placements: z.string().min(1),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       if (!ctx.user) throw new Error("Not authenticated");
       await saveChart(ctx.user.id, input.chartName, input.placements);
       return { success: true };
     }),
-  
-  list: publicProcedure
-    .query(async ({ ctx }) => {
-      if (!ctx.user) throw new Error("Not authenticated");
-      return await getUserCharts(ctx.user.id);
-    }),
-  
+
+  list: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.user) throw new Error("Not authenticated");
+    return await getUserCharts(ctx.user.id);
+  }),
+
   load: protectedProcedure
     .input(z.object({ chartId: z.number() }))
     .query(async ({ ctx, input }) => {
       if (!ctx.user) throw new Error("Not authenticated");
       return await getChart(input.chartId, ctx.user.id);
     }),
-  
+
   delete: protectedProcedure
     .input(z.object({ chartId: z.number() }))
     .mutation(async ({ ctx, input }) => {
@@ -338,16 +405,17 @@ const chartsRouter = router({
     }),
 });
 
-
 // ─── Synthesize Router ────────────────────────────────────────────────────────
 
 const synthesizeRouter = router({
   synthesize: publicProcedure
-    .input(z.object({
-      chartText: z.string(),
-      userQuestion: z.string().optional(),
-      systemPrompt: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        chartText: z.string(),
+        userQuestion: z.string().optional(),
+        systemPrompt: z.string().optional(),
+      })
+    )
     .mutation(async ({ input }) => {
       const { chartData, userQuestion, systemPrompt } = input;
 
@@ -361,7 +429,12 @@ const synthesizeRouter = router({
         model: "claude-sonnet-4-6",
         max_tokens: 2000,
         system: systemPrompt || defaultPrompt,
-        messages: [{ role: "user", content: `Chart data:\n${JSON.stringify(chartData, null, 2)}\n\nEnriched Analysis:\n${enrichChartData(chartData)}\n\nQuestion: ${userQuestion || "Please provide a general reading."}` }]
+        messages: [
+          {
+            role: "user",
+            content: `Chart data:\n${JSON.stringify(chartData, null, 2)}\n\nEnriched Analysis:\n${enrichChartData(chartData)}\n\nQuestion: ${userQuestion || "Please provide a general reading."}`,
+          },
+        ],
       });
 
       return { reading: (response.content[0] as any).text };
@@ -372,29 +445,37 @@ const synthesizeRouter = router({
 
 const natalPlacementRouter = router({
   getReading: publicProcedure
-    .input(z.object({
-      prompt: z.string(),
-    }))
+    .input(
+      z.object({
+        prompt: z.string(),
+      })
+    )
     .mutation(async ({ input }) => {
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      });
       const response = await anthropic.messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: 4000,
         messages: [{ role: "user", content: input.prompt }],
       });
       const text = response.content
-        .map((b: any) => b.type === "text" ? b.text : "")
+        .map((b: any) => (b.type === "text" ? b.text : ""))
         .join("");
       return { reading: text };
     }),
 
   getLensReading: publicProcedure
-    .input(z.object({
-      chartText: z.string(),
-      lensId: z.string(),
-    }))
+    .input(
+      z.object({
+        chartText: z.string(),
+        lensId: z.string(),
+      })
+    )
     .mutation(async ({ input }) => {
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      });
       const prompt = buildLensPrompt(input.chartText, input.lensId);
       const response = await anthropic.messages.create({
         model: "claude-sonnet-4-6",
@@ -402,36 +483,58 @@ const natalPlacementRouter = router({
         messages: [{ role: "user", content: prompt }],
       });
       const text = response.content
-        .map((b: any) => b.type === "text" ? b.text : "")
+        .map((b: any) => (b.type === "text" ? b.text : ""))
         .join("");
       return { reading: text };
     }),
 
-  listLenses: publicProcedure
-    .query(() => {
-      return LENSES.map(({ id, label, description }) => ({ id, label, description }));
-    }),
+  listLenses: publicProcedure.query(() => {
+    return LENSES.map(({ id, label, description }) => ({
+      id,
+      label,
+      description,
+    }));
+  }),
 });
 
 // ─── Horary Router ───────────────────────────────────────────────────────────
 
 const horaryRouter = router({
   followUp: publicProcedure
-    .input(z.object({
-      question: z.string().min(1),
-      natalPlacements: z.string().optional(),
-      transitPlacements: z.string().optional(),
-      history: z.array(z.object({ role: z.enum(['user','assistant']), content: z.string() })).optional(),
-    }))
+    .input(
+      z.object({
+        question: z.string().min(1),
+        natalPlacements: z.string().optional(),
+        transitPlacements: z.string().optional(),
+        history: z
+          .array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string(),
+            })
+          )
+          .optional(),
+      })
+    )
     .mutation(async ({ input }) => {
-      const { question, natalPlacements, transitPlacements, history = [] } = input;
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const {
+        question,
+        natalPlacements,
+        transitPlacements,
+        history = [],
+      } = input;
+      const anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      });
 
       const chartContext = `${natalPlacements ? "NATAL CHART:\n" + natalPlacements + "\n\n" : ""}${transitPlacements ? "CURRENT SKY:\n" + transitPlacements : ""}`;
 
       const messages = [
-        ...history.map(h => ({ role: h.role as 'user'|'assistant', content: h.content })),
-        { role: 'user' as const, content: question }
+        ...history.map(h => ({
+          role: h.role as "user" | "assistant",
+          content: h.content,
+        })),
+        { role: "user" as const, content: question },
       ];
 
       const response = await anthropic.messages.create({
@@ -447,36 +550,34 @@ Rules: Answer directly. Use specific placements. No preamble. Keep it conversati
         messages,
       });
 
-      const text = response.content.map((b: any) => b.type === "text" ? b.text : "").join("");
+      const text = response.content
+        .map((b: any) => (b.type === "text" ? b.text : ""))
+        .join("");
       return { answer: text };
     }),
 
   ask: publicProcedure
-    .input(z.object({
-      question: z.string().min(3),
-      natalPlacements: z.string().optional(),
-      transitPlacements: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        question: z.string().min(3),
+        natalPlacements: z.string().optional(),
+        transitPlacements: z.string().optional(),
+        name: z.string().optional(),
+      })
+    )
     .mutation(async ({ input }) => {
-      const { question, natalPlacements, transitPlacements } = input;
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        system: `${COSMOLOGY_PREAMBLE}
-
-You are an expert horary and natal astrologer. Answer the question directly and specifically using the chart. Rules:
-- Answer in the FIRST paragraph. No warmup. No preamble.
-- Name specific planets, houses, aspects that answer the question.
-- Be honest — yes or no, with timing if visible.
-- No generic spiritual language. No hedging.
-- If the chart is unclear, say what it does show and why it is unclear.`,
-        messages: [{ role: "user", content: `QUESTION: ${question}
-
-${natalPlacements ? "NATAL CHART:\n" + natalPlacements + "\n\n" : ""}${transitPlacements ? "CURRENT SKY:\n" + transitPlacements : ""}` }],
+      const { question, natalPlacements, transitPlacements, name } = input;
+      const result = await horaryLayer({
+        question,
+        natalText: natalPlacements ?? "",
+        transitText: transitPlacements ?? "",
+        name,
       });
-      const text = response.content.map((b: any) => b.type === "text" ? b.text : "").join("");
-      return { answer: text };
+      return {
+        answer: result.answer,
+        intent: result.intent,
+        focus: result.focus,
+      };
     }),
 });
 

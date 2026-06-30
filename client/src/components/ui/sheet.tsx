@@ -29,7 +29,8 @@ function SheetPortal({
 }
 
 function SheetOverlay({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
   return (
     <SheetPrimitive.Overlay
@@ -44,7 +45,10 @@ function SheetOverlay({
 }
 
 function SheetContent({
-  className, children, side = "right", ...props
+  className,
+  children,
+  side = "right",
+  ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
 }) {
@@ -98,7 +102,8 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function SheetTitle({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof SheetPrimitive.Title>) {
   return (
     <SheetPrimitive.Title
@@ -110,7 +115,8 @@ function SheetTitle({
 }
 
 function SheetDescription({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof SheetPrimitive.Description>) {
   return (
     <SheetPrimitive.Description

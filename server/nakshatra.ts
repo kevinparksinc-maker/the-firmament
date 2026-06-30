@@ -11,26 +11,71 @@ export interface Nakshatra {
   endSignDeg: string;
 }
 
-const lords = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"];
+const lords = [
+  "Ketu",
+  "Venus",
+  "Sun",
+  "Moon",
+  "Mars",
+  "Rahu",
+  "Jupiter",
+  "Saturn",
+  "Mercury",
+];
 
 const nakshatraNames = [
-  "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
-  "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
-  "Hasta", "Chitra", "Svati", "Vishakha", "Anuradha", "Jyeshtha",
-  "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha",
-  "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
+  "Ashwini",
+  "Bharani",
+  "Krittika",
+  "Rohini",
+  "Mrigashira",
+  "Ardra",
+  "Punarvasu",
+  "Pushya",
+  "Ashlesha",
+  "Magha",
+  "Purva Phalguni",
+  "Uttara Phalguni",
+  "Hasta",
+  "Chitra",
+  "Svati",
+  "Vishakha",
+  "Anuradha",
+  "Jyeshtha",
+  "Mula",
+  "Purva Ashadha",
+  "Uttara Ashadha",
+  "Shravana",
+  "Dhanishta",
+  "Shatabhisha",
+  "Purva Bhadrapada",
+  "Uttara Bhadrapada",
+  "Revati",
 ];
 
 const step = 360 / 27;
 
 function absToSignDeg(abs: number): string {
-  const signs = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
+  const signs = [
+    "Aries",
+    "Taurus",
+    "Gemini",
+    "Cancer",
+    "Leo",
+    "Virgo",
+    "Libra",
+    "Scorpio",
+    "Sagittarius",
+    "Capricorn",
+    "Aquarius",
+    "Pisces",
+  ];
   let deg = abs;
   const signIndex = Math.floor(deg / 30) % 12;
   const inSign = deg % 30;
   const d = Math.floor(inSign);
   const m = Math.floor((inSign - d) * 60);
-  return `${d.toString().padStart(2,'0')}° ${m.toString().padStart(2,'0')}' ${signs[signIndex]}`;
+  return `${d.toString().padStart(2, "0")}° ${m.toString().padStart(2, "0")}' ${signs[signIndex]}`;
 }
 
 export const NAKSHATRAS: Nakshatra[] = nakshatraNames.map((name, i) => {
@@ -48,7 +93,10 @@ export const NAKSHATRAS: Nakshatra[] = nakshatraNames.map((name, i) => {
   };
 });
 
-export function getNakshatraAt(absDeg: number): { nakshatra: Nakshatra; pada: number } {
+export function getNakshatraAt(absDeg: number): {
+  nakshatra: Nakshatra;
+  pada: number;
+} {
   let deg = ((absDeg % 360) + 360) % 360;
   const nakshatra = NAKSHATRAS.find(n => deg >= n.startAbs && deg < n.endAbs)!;
   const padaSize = step / 4;

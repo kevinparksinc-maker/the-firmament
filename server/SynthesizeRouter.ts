@@ -21,8 +21,9 @@ function buildSemanticBlock(): string {
     .join("\n");
 
   const planetLines = Object.entries(PLANET_CORE)
-    .map(([planet, dims]) =>
-      `  ${planet}\n    mind:   ${dims.mind}\n    soul:   ${dims.soul}\n    spirit: ${dims.spirit}`
+    .map(
+      ([planet, dims]) =>
+        `  ${planet}\n    mind:   ${dims.mind}\n    soul:   ${dims.soul}\n    spirit: ${dims.spirit}`
     )
     .join("\n\n");
 

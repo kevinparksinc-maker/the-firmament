@@ -9,10 +9,10 @@ export type Lens = {
   label: string;
   description: string; // shown in UI under the button
   houses: number[];
-  planets?: string[];     // force-include these planets regardless of house
+  planets?: string[]; // force-include these planets regardless of house
   includeNodes?: boolean; // Rahu/Ketu axis
   includeAscendant?: boolean;
-  promptFrame: string;    // structure Claude must follow
+  promptFrame: string; // structure Claude must follow
 };
 
 export const LENSES: Lens[] = [
@@ -41,7 +41,8 @@ Do not reference houses or planets outside this list.
   {
     id: "relationships",
     label: "Relationship Circuit",
-    description: "Your partnership patterns, attraction style, and emotional needs.",
+    description:
+      "Your partnership patterns, attraction style, and emotional needs.",
     houses: [5, 7],
     planets: ["Venus", "Moon"],
     includeNodes: false,
@@ -64,7 +65,8 @@ Do not reference houses or planets outside this list.
   {
     id: "health",
     label: "Vitality & Body Circuit",
-    description: "Physical stability, energy patterns, and what depletes vs. restores you.",
+    description:
+      "Physical stability, energy patterns, and what depletes vs. restores you.",
     houses: [1, 6, 8],
     planets: ["Moon", "Mars"],
     includeNodes: false,
@@ -90,7 +92,8 @@ frame everything as energetic/behavioral pattern recognition only.
   {
     id: "purpose",
     label: "Dharma & Direction Circuit",
-    description: "Your soul's mission, karmic direction, and the work only you can do.",
+    description:
+      "Your soul's mission, karmic direction, and the work only you can do.",
     houses: [1, 9, 10],
     planets: ["Sun"],
     includeNodes: true,
@@ -115,7 +118,8 @@ Do not reference houses or planets outside this list.
   {
     id: "timing",
     label: "Timing & Transit Circuit",
-    description: "When to act vs. when to wait, based on your natal sensitivity points.",
+    description:
+      "When to act vs. when to wait, based on your natal sensitivity points.",
     houses: [1, 10],
     planets: ["Moon", "Saturn"],
     includeNodes: true,
@@ -141,7 +145,8 @@ describe the *pattern* of good vs. challenging timing only.
   {
     id: "family",
     label: "Roots & Family Circuit",
-    description: "Inherited patterns, home life, and what you're building for the next generation.",
+    description:
+      "Inherited patterns, home life, and what you're building for the next generation.",
     houses: [4, 12],
     planets: ["Moon"],
     includeNodes: false,
@@ -163,7 +168,7 @@ Do not reference houses or planets outside this list.
 ];
 
 export function getLens(id: string): Lens {
-  const lens = LENSES.find((l) => l.id === id);
+  const lens = LENSES.find(l => l.id === id);
   if (!lens) throw new Error(`Unknown lens id: ${id}`);
   return lens;
 }

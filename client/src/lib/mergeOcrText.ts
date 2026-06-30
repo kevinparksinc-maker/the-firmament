@@ -5,15 +5,24 @@
  */
 
 const PLANET_NAMES = [
-  'Sun', 'Moon', 'Mercury', 'Venus', 'Mars',
-  'Jupiter', 'Saturn', 'Rahu', 'Ketu', 'Asc', 'Ascendant'
+  "Sun",
+  "Moon",
+  "Mercury",
+  "Venus",
+  "Mars",
+  "Jupiter",
+  "Saturn",
+  "Rahu",
+  "Ketu",
+  "Asc",
+  "Ascendant",
 ];
 
 /** Extract the planet name key from a placement line, or null if not a planet line. */
 function extractPlanetKey(line: string): string | null {
-  const normalized = line.trim().replace(/^Transit\s+/i, '');
+  const normalized = line.trim().replace(/^Transit\s+/i, "");
   for (const planet of PLANET_NAMES) {
-    if (new RegExp(`^${planet}\\b`, 'i').test(normalized)) {
+    if (new RegExp(`^${planet}\\b`, "i").test(normalized)) {
       return planet.toLowerCase();
     }
   }
@@ -23,7 +32,7 @@ function extractPlanetKey(line: string): string | null {
 /** Returns the set of planet keys already present in existing text. */
 function getPresentPlanets(text: string): Set<string> {
   const present = new Set<string>();
-  for (const line of text.split('\n')) {
+  for (const line of text.split("\n")) {
     const key = extractPlanetKey(line);
     if (key) present.add(key);
   }
@@ -37,7 +46,7 @@ function getPresentPlanets(text: string): Set<string> {
 export function mergeOcrText(existing: string, newText: string): string {
   if (!newText.trim()) return existing;
   const presentPlanets = getPresentPlanets(existing);
-  const newLines = newText.split('\n');
+  const newLines = newText.split("\n");
   const toAdd: string[] = [];
 
   for (const line of newLines) {
@@ -50,7 +59,7 @@ export function mergeOcrText(existing: string, newText: string): string {
       // else skip — planet already present
     } else {
       // Non-planet lines (blank, etc.) — only add if not already a duplicate blank
-      if (line.trim() !== '' || toAdd[toAdd.length - 1]?.trim() !== '') {
+      if (line.trim() !== "" || toAdd[toAdd.length - 1]?.trim() !== "") {
         toAdd.push(line);
       }
     }
@@ -59,7 +68,7 @@ export function mergeOcrText(existing: string, newText: string): string {
   if (toAdd.length === 0) return existing;
 
   const trimmedExisting = existing.trim();
-  const trimmedNew = toAdd.join('\n').trim();
+  const trimmedNew = toAdd.join("\n").trim();
 
   return trimmedExisting ? `${trimmedExisting}\n${trimmedNew}` : trimmedNew;
 }

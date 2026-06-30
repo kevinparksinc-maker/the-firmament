@@ -22,7 +22,10 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       const existing = await db.getUserByEmail(input.email);
       if (existing) {
-        throw new TRPCError({ code: "CONFLICT", message: "Email already registered" });
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Email already registered",
+        });
       }
 
       const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
@@ -39,10 +42,15 @@ export const authRouter = router({
 
       const user = await db.getUserByOpenId(openId);
       if (!user) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create user" });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create user",
+        });
       }
 
-      const token = await sdk.createSessionToken(user.openId, { name: user.name ?? "" });
+      const token = await sdk.createSessionToken(user.openId, {
+        name: user.name ?? "",
+      });
       ctx.res.cookie(COOKIE_NAME, token, getSessionCookieOptions(ctx.req));
 
       return { id: user.id, email: user.email, name: user.name };
@@ -59,17 +67,25 @@ export const authRouter = router({
       const user = await db.getUserByEmail(input.email);
 
       if (!user || !user.passwordHash) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid email or password",
+        });
       }
 
       const valid = await bcrypt.compare(input.password, user.passwordHash);
       if (!valid) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid email or password",
+        });
       }
 
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
 
-      const token = await sdk.createSessionToken(user.openId, { name: user.name ?? "" });
+      const token = await sdk.createSessionToken(user.openId, {
+        name: user.name ?? "",
+      });
       ctx.res.cookie(COOKIE_NAME, token, getSessionCookieOptions(ctx.req));
 
       return { id: user.id, email: user.email, name: user.name };

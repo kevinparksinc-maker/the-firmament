@@ -53,7 +53,13 @@ function useSidebar() {
 }
 
 function SidebarProvider({
-  defaultOpen = true, open: openProp, onOpenChange: setOpenProp, className, style, children, ...props
+  defaultOpen = true,
+  open: openProp,
+  onOpenChange: setOpenProp,
+  className,
+  style,
+  children,
+  ...props
 }: React.ComponentProps<"div"> & {
   defaultOpen?: boolean;
   open?: boolean;
@@ -145,7 +151,13 @@ function SidebarProvider({
 }
 
 function Sidebar({
-  side = "left", variant = "sidebar", collapsible = "offcanvas", disableTransition = false, className, children, ...props
+  side = "left",
+  variant = "sidebar",
+  collapsible = "offcanvas",
+  disableTransition = false,
+  className,
+  children,
+  ...props
 }: React.ComponentProps<"div"> & {
   side?: "left" | "right";
   variant?: "sidebar" | "floating" | "inset";
@@ -249,7 +261,9 @@ function Sidebar({
 }
 
 function SidebarTrigger({
-  className, onClick, ...props
+  className,
+  onClick,
+  ...props
 }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar } = useSidebar();
 
@@ -312,7 +326,8 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
 }
 
 function SidebarInput({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof Input>) {
   return (
     <Input
@@ -347,7 +362,8 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function SidebarSeparator({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof Separator>) {
   return (
     <Separator
@@ -385,7 +401,9 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function SidebarGroupLabel({
-  className, asChild = false, ...props
+  className,
+  asChild = false,
+  ...props
 }: React.ComponentProps<"div"> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : "div";
 
@@ -404,7 +422,9 @@ function SidebarGroupLabel({
 }
 
 function SidebarGroupAction({
-  className, asChild = false, ...props
+  className,
+  asChild = false,
+  ...props
 }: React.ComponentProps<"button"> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : "button";
 
@@ -425,7 +445,8 @@ function SidebarGroupAction({
 }
 
 function SidebarGroupContent({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<"div">) {
   return (
     <div
@@ -482,7 +503,13 @@ const sidebarMenuButtonVariants = cva(
 );
 
 function SidebarMenuButton({
-  asChild = false, isActive = false, variant = "default", size = "default", tooltip, className, ...props
+  asChild = false,
+  isActive = false,
+  variant = "default",
+  size = "default",
+  tooltip,
+  className,
+  ...props
 }: React.ComponentProps<"button"> & {
   asChild?: boolean;
   isActive?: boolean;
@@ -526,7 +553,10 @@ function SidebarMenuButton({
 }
 
 function SidebarMenuAction({
-  className, asChild = false, showOnHover = false, ...props
+  className,
+  asChild = false,
+  showOnHover = false,
+  ...props
 }: React.ComponentProps<"button"> & {
   asChild?: boolean;
   showOnHover?: boolean;
@@ -555,7 +585,8 @@ function SidebarMenuAction({
 }
 
 function SidebarMenuBadge({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<"div">) {
   return (
     <div
@@ -576,7 +607,9 @@ function SidebarMenuBadge({
 }
 
 function SidebarMenuSkeleton({
-  className, showIcon = false, ...props
+  className,
+  showIcon = false,
+  ...props
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean;
 }) {
@@ -627,7 +660,8 @@ function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
 }
 
 function SidebarMenuSubItem({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<"li">) {
   return (
     <li
@@ -640,7 +674,11 @@ function SidebarMenuSubItem({
 }
 
 function SidebarMenuSubButton({
-  asChild = false, size = "md", isActive = false, className, ...props
+  asChild = false,
+  size = "md",
+  isActive = false,
+  className,
+  ...props
 }: React.ComponentProps<"a"> & {
   asChild?: boolean;
   size?: "sm" | "md";
@@ -691,6 +729,5 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
-  useSidebar
+  useSidebar,
 };
-

@@ -10,14 +10,14 @@
  * - Polaris altitude = observer's latitude (enforced)
  */
 
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
 
 interface PlanetData {
   name: string;
   symbol: string;
-  altitude: number;   // degrees above horizon
-  azimuth: number;    // degrees, 0=N, 90=E
+  altitude: number; // degrees above horizon
+  azimuth: number; // degrees, 0=N, 90=E
   sign: string;
   degreeInSign: number;
   retrograde: boolean;
@@ -25,8 +25,8 @@ interface PlanetData {
 
 interface SnowGlobeProps {
   planets: PlanetData[];
-  observerLatitude: number;   // degrees
-  observerLongitude: number;  // degrees
+  observerLatitude: number; // degrees
+  observerLongitude: number; // degrees
   width?: number;
   height?: number;
 }
@@ -36,41 +36,46 @@ const DOME_HEIGHT = 6216;
 const DOME_RADIUS = 12432;
 
 // Map topocentric Alt/Az to 3D point on parabolic dome
-function altAzToDomePoint(altitude: number, azimuth: number, observerLat: number): THREE.Vector3 {
+function altAzToDomePoint(
+  altitude: number,
+  azimuth: number,
+  observerLat: number
+): THREE.Vector3 {
   // Observer's position on the flat plane (distance from North Pole)
   // 1° latitude = 69.17 miles
   const observerR = (90 - observerLat) * 69.17;
-  
+
   // Observer's X,Y on the flat plane (azimuthal equidistant)
   const observerX = 0; // center the view on the observer
   const observerY = 0;
-  
+
   // Convert altitude to radial distance from zenith on dome
   // altitude=90° → zenith (directly above observer)
   // altitude=0°  → horizon (dome edge at observer's distance)
-  const altRad = altitude * Math.PI / 180;
-  const azRad = azimuth * Math.PI / 180;
-  
+  const altRad = (altitude * Math.PI) / 180;
+  const azRad = (azimuth * Math.PI) / 180;
+
   // Normalized altitude (0=horizon, 1=zenith)
   const normAlt = Math.max(0, altitude) / 90;
-  
+
   // Radial distance from zenith on dome surface (0 at zenith, max at horizon)
   // Scale based on observer latitude so Polaris sits at correct altitude
   const maxR = DOME_RADIUS * 0.8; // visual scale
   const r = (1 - normAlt) * maxR * (observerLat / 90);
-  
+
   // Direction on dome from zenith
   const dx = Math.sin(azRad) * r;
   const dy = Math.cos(azRad) * r; // north = +Y
-  
+
   // Point on flat plane
   const flatX = dx;
   const flatY = dy;
   const flatR = Math.sqrt(flatX * flatX + flatY * flatY);
-  
+
   // Z height on parabolic dome: Z = H - (H/R²) * r²
-  const z = DOME_HEIGHT - (DOME_HEIGHT / (DOME_RADIUS * DOME_RADIUS)) * flatR * flatR;
-  
+  const z =
+    DOME_HEIGHT - (DOME_HEIGHT / (DOME_RADIUS * DOME_RADIUS)) * flatR * flatR;
+
   // Scale down for rendering (1 unit = 1000 miles)
   const scale = 1 / 1000;
   return new THREE.Vector3(flatX * scale, z * scale, flatY * scale);
@@ -92,7 +97,13 @@ const PLANET_COLORS: Record<string, number> = {
   Ketu: 0xff8888,
 };
 
-export function SnowGlobe({ planets, observerLatitude, observerLongitude, width = 600, height = 500 }: SnowGlobeProps) {
+export function SnowGlobe({
+  planets,
+  observerLatitude,
+  observerLongitude,
+  width = 600,
+  height = 500,
+}: SnowGlobeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -146,7 +157,12 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
     const domePoints: THREE.Vector2[] = [];
     for (let i = 0; i <= domeSegments; i++) {
       const r = (i / domeSegments) * (DOME_RADIUS / 1000);
-      const z = (DOME_HEIGHT - (DOME_HEIGHT / (DOME_RADIUS * DOME_RADIUS)) * (r * 1000) * (r * 1000)) / 1000;
+      const z =
+        (DOME_HEIGHT -
+          (DOME_HEIGHT / (DOME_RADIUS * DOME_RADIUS)) *
+            (r * 1000) *
+            (r * 1000)) /
+        1000;
       domePoints.push(new THREE.Vector2(r, z));
     }
 
@@ -182,8 +198,16 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
       starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
     }
     const starGeo = new THREE.BufferGeometry();
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.02, transparent: true, opacity: 0.6 });
+    starGeo.setAttribute(
+      "position",
+      new THREE.BufferAttribute(starPositions, 3)
+    );
+    const starMat = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.02,
+      transparent: true,
+      opacity: 0.6,
+    });
     scene.add(new THREE.Points(starGeo, starMat));
 
     // ─── Polaris — the still center ───────────────────────────────────────────
@@ -198,13 +222,17 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
 
     // Polaris glow
     const glowGeo = new THREE.SphereGeometry(0.12, 16, 16);
-    const glowMat = new THREE.MeshBasicMaterial({ color: 0xaaccff, transparent: true, opacity: 0.3 });
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0xaaccff,
+      transparent: true,
+      opacity: 0.3,
+    });
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
     glowMesh.position.copy(polarisPos);
     scene.add(glowMesh);
 
     // Polaris label
-    const polarisLabel = makeLabel('POLARIS ✦', 0xaaccff);
+    const polarisLabel = makeLabel("POLARIS ✦", 0xaaccff);
     polarisLabel.position.copy(polarisPos);
     polarisLabel.position.y += 0.15;
     scene.add(polarisLabel);
@@ -214,22 +242,118 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
     // Positions given as approximate altitude/azimuth for mid-northern latitudes
     // In the dome model, fixed stars are placed at their sidereal ecliptic positions
     // mapped to the dome surface at a fixed azimuth based on their ecliptic longitude
-    
+
     const FIXED_STARS = [
       // ── The Four Royal Stars (Watchers of the Sky) ──
-      { name: 'ANTARES', subtitle: 'Watcher of the West', lon: 249.7, lat: -4.6, color: 0xff3300, size: 0.09, royal: true },
-      { name: 'ALDEBARAN', subtitle: 'Watcher of the East', lon: 69.7, lat: -5.5, color: 0xff6600, size: 0.09, royal: true },
-      { name: 'REGULUS', subtitle: 'Watcher of the North', lon: 149.8, lat: 0.5, color: 0xffffff, size: 0.09, royal: true },
-      { name: 'FOMALHAUT', subtitle: 'Watcher of the South', lon: 333.9, lat: -21.1, color: 0x88ccff, size: 0.09, royal: true },
+      {
+        name: "ANTARES",
+        subtitle: "Watcher of the West",
+        lon: 249.7,
+        lat: -4.6,
+        color: 0xff3300,
+        size: 0.09,
+        royal: true,
+      },
+      {
+        name: "ALDEBARAN",
+        subtitle: "Watcher of the East",
+        lon: 69.7,
+        lat: -5.5,
+        color: 0xff6600,
+        size: 0.09,
+        royal: true,
+      },
+      {
+        name: "REGULUS",
+        subtitle: "Watcher of the North",
+        lon: 149.8,
+        lat: 0.5,
+        color: 0xffffff,
+        size: 0.09,
+        royal: true,
+      },
+      {
+        name: "FOMALHAUT",
+        subtitle: "Watcher of the South",
+        lon: 333.9,
+        lat: -21.1,
+        color: 0x88ccff,
+        size: 0.09,
+        royal: true,
+      },
       // ── Other Major Fixed Stars ──
-      { name: 'SIRIUS', subtitle: 'The Brightest Star', lon: 104.1, lat: -39.6, color: 0xaaddff, size: 0.07, royal: false },
-      { name: 'SPICA', subtitle: 'Star of the Virgin', lon: 203.7, lat: -2.1, color: 0xbbddff, size: 0.07, royal: false },
-      { name: 'VEGA', subtitle: 'The Falling Eagle', lon: 284.8, lat: 61.7, color: 0xeeeeff, size: 0.06, royal: false },
-      { name: 'ARCTURUS', subtitle: 'The Bear Guardian', lon: 203.6, lat: 30.7, color: 0xffaa44, size: 0.06, royal: false },
-      { name: 'ALGOL', subtitle: 'The Demon Star', lon: 55.7, lat: 22.4, color: 0xff4488, size: 0.05, royal: false },
-      { name: 'PLEIADES', subtitle: 'The Seven Sisters', lon: 59.7, lat: 4.0, color: 0xaaccff, size: 0.05, royal: false },
-      { name: 'POLLUX', subtitle: 'The Immortal Twin', lon: 112.6, lat: 6.7, color: 0xffcc88, size: 0.05, royal: false },
-      { name: 'DENEB', subtitle: 'Tail of the Swan', lon: 324.9, lat: 60.2, color: 0xffffff, size: 0.05, royal: false },
+      {
+        name: "SIRIUS",
+        subtitle: "The Brightest Star",
+        lon: 104.1,
+        lat: -39.6,
+        color: 0xaaddff,
+        size: 0.07,
+        royal: false,
+      },
+      {
+        name: "SPICA",
+        subtitle: "Star of the Virgin",
+        lon: 203.7,
+        lat: -2.1,
+        color: 0xbbddff,
+        size: 0.07,
+        royal: false,
+      },
+      {
+        name: "VEGA",
+        subtitle: "The Falling Eagle",
+        lon: 284.8,
+        lat: 61.7,
+        color: 0xeeeeff,
+        size: 0.06,
+        royal: false,
+      },
+      {
+        name: "ARCTURUS",
+        subtitle: "The Bear Guardian",
+        lon: 203.6,
+        lat: 30.7,
+        color: 0xffaa44,
+        size: 0.06,
+        royal: false,
+      },
+      {
+        name: "ALGOL",
+        subtitle: "The Demon Star",
+        lon: 55.7,
+        lat: 22.4,
+        color: 0xff4488,
+        size: 0.05,
+        royal: false,
+      },
+      {
+        name: "PLEIADES",
+        subtitle: "The Seven Sisters",
+        lon: 59.7,
+        lat: 4.0,
+        color: 0xaaccff,
+        size: 0.05,
+        royal: false,
+      },
+      {
+        name: "POLLUX",
+        subtitle: "The Immortal Twin",
+        lon: 112.6,
+        lat: 6.7,
+        color: 0xffcc88,
+        size: 0.05,
+        royal: false,
+      },
+      {
+        name: "DENEB",
+        subtitle: "Tail of the Swan",
+        lon: 324.9,
+        lat: 60.2,
+        color: 0xffffff,
+        size: 0.05,
+        royal: false,
+      },
     ];
 
     // Fixed star group — does NOT rotate (stays fixed on dome)
@@ -243,9 +367,13 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
       const azimuth = (90 - star.lon + 360) % 360;
       // Map ecliptic latitude to altitude (higher lat = higher on dome)
       const altitude = 30 + star.lat * 0.5 + (observerLatitude - 35) * 0.3;
-      
-      const pos = altAzToDomePoint(Math.max(5, altitude), azimuth, observerLatitude);
-      
+
+      const pos = altAzToDomePoint(
+        Math.max(5, altitude),
+        azimuth,
+        observerLatitude
+      );
+
       if (star.royal) {
         // Royal Stars get a larger sphere + double glow ring
         const geo = new THREE.SphereGeometry(star.size, 16, 16);
@@ -253,29 +381,37 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.copy(pos);
         fixedStarGroup.add(mesh);
-        
+
         // Inner glow
         const g1 = new THREE.Mesh(
           new THREE.SphereGeometry(star.size * 2, 16, 16),
-          new THREE.MeshBasicMaterial({ color: star.color, transparent: true, opacity: 0.25 })
+          new THREE.MeshBasicMaterial({
+            color: star.color,
+            transparent: true,
+            opacity: 0.25,
+          })
         );
         g1.position.copy(pos);
         fixedStarGroup.add(g1);
-        
+
         // Outer glow ring
         const g2 = new THREE.Mesh(
           new THREE.SphereGeometry(star.size * 3.5, 16, 16),
-          new THREE.MeshBasicMaterial({ color: star.color, transparent: true, opacity: 0.08 })
+          new THREE.MeshBasicMaterial({
+            color: star.color,
+            transparent: true,
+            opacity: 0.08,
+          })
         );
         g2.position.copy(pos);
         fixedStarGroup.add(g2);
-        
+
         // Royal label with subtitle
         const label = makeLabel(`✦ ${star.name}`, star.color);
         label.position.copy(pos);
         label.position.y += 0.18;
         fixedStarGroup.add(label);
-        
+
         const subLabel = makeLabel(star.subtitle, 0x888866);
         subLabel.position.copy(pos);
         subLabel.position.y += 0.06;
@@ -287,14 +423,18 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.copy(pos);
         fixedStarGroup.add(mesh);
-        
+
         const glow = new THREE.Mesh(
           new THREE.SphereGeometry(star.size * 2, 12, 12),
-          new THREE.MeshBasicMaterial({ color: star.color, transparent: true, opacity: 0.15 })
+          new THREE.MeshBasicMaterial({
+            color: star.color,
+            transparent: true,
+            opacity: 0.15,
+          })
         );
         glow.position.copy(pos);
         fixedStarGroup.add(glow);
-        
+
         const label = makeLabel(star.name, star.color);
         label.position.copy(pos);
         label.position.y += 0.12;
@@ -311,7 +451,11 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
     for (const planet of planets) {
       if (planet.altitude < -10) continue; // below horizon, skip
 
-      const pos = altAzToDomePoint(planet.altitude, planet.azimuth, observerLatitude);
+      const pos = altAzToDomePoint(
+        planet.altitude,
+        planet.azimuth,
+        observerLatitude
+      );
       const color = PLANET_COLORS[planet.name] ?? 0xffffff;
 
       // Planet sphere
@@ -323,13 +467,17 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
 
       // Glow
       const glowG = new THREE.SphereGeometry(0.08, 12, 12);
-      const glowM = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2 });
+      const glowM = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.2,
+      });
       const glow = new THREE.Mesh(glowG, glowM);
       glow.position.copy(pos);
       planetGroup.add(glow);
 
       // Label
-      const rx = planet.retrograde ? ' ℞' : '';
+      const rx = planet.retrograde ? " ℞" : "";
       const label = makeLabel(`${planet.symbol} ${planet.name}${rx}`, color);
       label.position.copy(pos);
       label.position.y += 0.12;
@@ -358,7 +506,10 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
     return () => {
       cancelAnimationFrame(frameRef.current);
       renderer.dispose();
-      if (mountRef.current && renderer.domElement.parentNode === mountRef.current) {
+      if (
+        mountRef.current &&
+        renderer.domElement.parentNode === mountRef.current
+      ) {
         mountRef.current.removeChild(renderer.domElement);
       }
     };
@@ -370,10 +521,10 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
       style={{
         width: `${width}px`,
         height: `${height}px`,
-        borderRadius: '8px',
-        overflow: 'hidden',
-        border: '1px solid var(--rim)',
-        position: 'relative',
+        borderRadius: "8px",
+        overflow: "hidden",
+        border: "1px solid var(--rim)",
+        position: "relative",
       }}
     />
   );
@@ -382,14 +533,14 @@ export function SnowGlobe({ planets, observerLatitude, observerLongitude, width 
 // ─── Canvas label helper ──────────────────────────────────────────────────────
 
 function makeLabel(text: string, color: number): THREE.Sprite {
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 64;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, 256, 64);
-  ctx.font = 'bold 18px Cinzel, serif';
-  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-  ctx.textAlign = 'center';
+  ctx.font = "bold 18px Cinzel, serif";
+  ctx.fillStyle = `#${color.toString(16).padStart(6, "0")}`;
+  ctx.textAlign = "center";
   ctx.fillText(text, 128, 40);
 
   const texture = new THREE.CanvasTexture(canvas);

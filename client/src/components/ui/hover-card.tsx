@@ -18,7 +18,10 @@ function HoverCardTrigger({
 }
 
 function HoverCardContent({
-  className, align = "center", sideOffset = 4, ...props
+  className,
+  align = "center",
+  sideOffset = 4,
+  ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Content>) {
   return (
     <HoverCardPrimitive.Portal data-slot="hover-card-portal">

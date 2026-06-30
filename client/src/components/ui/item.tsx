@@ -17,7 +17,8 @@ function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function ItemSeparator({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof Separator>) {
   return (
     <Separator
@@ -51,7 +52,11 @@ const itemVariants = cva(
 );
 
 function Item({
-  className, variant = "default", size = "default", asChild = false, ...props
+  className,
+  variant = "default",
+  size = "default",
+  asChild = false,
+  ...props
 }: React.ComponentProps<"div"> &
   VariantProps<typeof itemVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : "div";
@@ -84,7 +89,9 @@ const itemMediaVariants = cva(
 );
 
 function ItemMedia({
-  className, variant = "default", ...props
+  className,
+  variant = "default",
+  ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof itemMediaVariants>) {
   return (
     <div

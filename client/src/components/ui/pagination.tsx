@@ -21,7 +21,8 @@ function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
 }
 
 function PaginationContent({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<"ul">) {
   return (
     <ul
@@ -42,7 +43,10 @@ type PaginationLinkProps = {
   React.ComponentProps<"a">;
 
 function PaginationLink({
-  className, isActive, size = "icon", ...props
+  className,
+  isActive,
+  size = "icon",
+  ...props
 }: PaginationLinkProps) {
   return (
     <a
@@ -62,7 +66,8 @@ function PaginationLink({
 }
 
 function PaginationPrevious({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof PaginationLink>) {
   return (
     <PaginationLink
@@ -78,7 +83,8 @@ function PaginationPrevious({
 }
 
 function PaginationNext({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<typeof PaginationLink>) {
   return (
     <PaginationLink
@@ -94,7 +100,8 @@ function PaginationNext({
 }
 
 function PaginationEllipsis({
-  className, ...props
+  className,
+  ...props
 }: React.ComponentProps<"span">) {
   return (
     <span

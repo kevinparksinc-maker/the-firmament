@@ -1,0 +1,256 @@
+/**
+ * HORARY LAYER — The Firmament
+ *
+ * Accepts natal placements + current transits + a question.
+ * Routes everything through the Firmament Engine → Anthropic SDK.
+ *
+ * Chain:
+ *   question + natalText + transitText
+ *     → detectIntent / detectFocus
+ *     → buildPrompt() from firmamentEngine
+ *     → Anthropic SDK
+ *     → HoraryOutput
+ */
+
+import Anthropic from "@anthropic-ai/sdk";
+import { buildPrompt } from "@shared/firmamentEngine";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// ─── TYPES ────────────────────────────────────────────────────────────────────
+
+export type HoraryIntent =
+  | "general"
+  | "explain"
+  | "action"
+  | "simulate"
+  | "isolate"
+  | "timing";
+
+export type HoraryFocus =
+  | "general"
+  | "career"
+  | "relationships"
+  | "finance"
+  | "health"
+  | "spirituality"
+  | "creativity"
+  | "home";
+
+export interface HoraryInput {
+  question: string;
+  natalText: string; // raw natal placement text
+  transitText: string; // raw current sky / transit text
+  name?: string;
+}
+
+export interface HoraryOutput {
+  answer: string;
+  intent: HoraryIntent;
+  focus: HoraryFocus;
+  state: {
+    lastQuestion: string;
+    lastIntent: HoraryIntent;
+    lastFocus: HoraryFocus;
+  };
+}
+
+// ─── INTENT DETECTION ────────────────────────────────────────────────────────
+
+function detectIntent(q: string): HoraryIntent {
+  if (q.includes("why") || q.includes("reason")) return "explain";
+  if (
+    q.includes("what should") ||
+    q.includes("what do i do") ||
+    q.includes("how do i")
+  )
+    return "action";
+  if (q.includes("what if") || q.includes("should i")) return "simulate";
+  if (
+    q.includes("which planet") ||
+    q.includes("what energy") ||
+    q.includes("which")
+  )
+    return "isolate";
+  if (q.includes("when") || q.includes("timing") || q.includes("how long"))
+    return "timing";
+  return "general";
+}
+
+function detectFocus(q: string): HoraryFocus {
+  if (
+    q.includes("career") ||
+    q.includes("work") ||
+    q.includes("job") ||
+    q.includes("business")
+  )
+    return "career";
+  if (
+    q.includes("love") ||
+    q.includes("partner") ||
+    q.includes("relationship") ||
+    q.includes("marriage")
+  )
+    return "relationships";
+  if (
+    q.includes("money") ||
+    q.includes("finance") ||
+    q.includes("income") ||
+    q.includes("wealth")
+  )
+    return "finance";
+  if (
+    q.includes("health") ||
+    q.includes("body") ||
+    q.includes("sick") ||
+    q.includes("healing")
+  )
+    return "health";
+  if (
+    q.includes("spirit") ||
+    q.includes("purpose") ||
+    q.includes("dharma") ||
+    q.includes("soul")
+  )
+    return "spirituality";
+  if (
+    q.includes("creat") ||
+    q.includes("art") ||
+    q.includes("music") ||
+    q.includes("build")
+  )
+    return "creativity";
+  if (
+    q.includes("home") ||
+    q.includes("family") ||
+    q.includes("move") ||
+    q.includes("living")
+  )
+    return "home";
+  return "general";
+}
+
+// ─── INTENT / FOCUS INSTRUCTIONS ─────────────────────────────────────────────
+
+const INTENT_INSTRUCTIONS: Record<HoraryIntent, string> = {
+  general:
+    "Give a complete reading of how the current sky speaks to this natal chart in relation to the question.",
+  explain:
+    "Focus on WHY this is happening. Trace it through the planetary contacts. Name the exact mechanism.",
+  action:
+    "Focus on WHAT TO DO. Be direct. Name the action, the timing, the planet to work with.",
+  simulate:
+    "Read the chart as a decision point. What does each path look like through these placements?",
+  isolate:
+    "Identify the KEY PLANET most relevant to this question. Name it, explain why, read it fully.",
+  timing:
+    "Focus on TIMING. Which planets are moving, what aspects are forming, when do they perfect.",
+};
+
+const FOCUS_INSTRUCTIONS: Record<HoraryFocus, string> = {
+  general: "Read the full chart without narrowing the focus.",
+  career:
+    "Focus on 10th house, Saturn, Sun, and any planets in public-facing houses.",
+  relationships: "Focus on 7th house, Venus, Moon, and the nodal axis.",
+  finance: "Focus on 2nd and 8th house, Jupiter, Venus, and wealth indicators.",
+  health:
+    "Focus on 1st and 6th house, the Moon, Mars, and the Ascendant ruler.",
+  spirituality:
+    "Focus on 9th and 12th house, Jupiter, Ketu, and the nodal axis.",
+  creativity: "Focus on 5th house, Sun, Venus, and Mercury.",
+  home: "Focus on 4th house, Moon, Saturn, and the IC.",
+};
+
+// ─── HORARY PROMPT BUILDER ───────────────────────────────────────────────────
+
+function buildHoraryPrompt(
+  input: HoraryInput,
+  intent: HoraryIntent,
+  focus: HoraryFocus
+): string {
+  const { question, natalText, transitText, name } = input;
+
+  // Run both charts through the Firmament Engine prompt builder
+  const natalPrompt = buildPrompt(natalText, "natal");
+  const transitPrompt = buildPrompt(transitText, "transit");
+
+  return `You are reading a horary chart through the Firmament cosmological framework — the fixed dome sky system used by the Babylonians, Vedics, Egyptians, and Hellenistic tradition.
+
+THE FIXED SKY: Planets wander against a fixed star backdrop. Positions are tropical. Fixed stars are sidereal anchors. Royal Stars — Aldebaran, Regulus, Antares, Fomalhaut — are the four Watchers. Traditional Vedic rulers only. No outer planet rulerships. No precession.
+
+You are not a horoscope generator. You are someone who has actually looked at this person's whole chart, knows their patterns, and is sitting with them talking through their actual life. Every sentence must trace to a specific placement — degree, sign, house, aspect, orb — and every placement must be translated into something that happens in an actual human life: a behavior, a decision, a relationship dynamic, a recurring situation. Never describe a planet in the abstract. Always describe what that planet does inside this person's life, in language a person would use about their own life, not language an astrology book would use.
+
+═══════════════════════════════════════════════
+QUERENT${name ? `: ${name}` : ""}
+QUESTION: ${question}
+═══════════════════════════════════════════════
+
+NATAL CHART — THE FOUNDATION:
+${natalPrompt}
+
+CURRENT SKY — THE TRANSITS:
+${transitPrompt}
+
+═══════════════════════════════════════════════
+FOCUS: ${focus.toUpperCase()} — ${FOCUS_INSTRUCTIONS[focus]}
+MODE: ${intent.toUpperCase()} — ${INTENT_INSTRUCTIONS[intent]}
+═══════════════════════════════════════════════
+
+READING STRUCTURE — go through every section, in full, with real depth. Do not compress sections together. Do not skip any section even if it feels repetitive; each one is doing a different job.
+
+## THE SKY SPEAKS
+Lead with the single strongest transit contact to the natal chart right now — name the two planets, the exact aspect, the orb, and what house(s) are involved. Explain what is being lit up and why this is the dominant signal right now, not six months ago and not six months from now.
+
+## WHAT THIS MEANS FOR YOUR QUESTION
+Answer the actual question directly, in plain language, in the first paragraph. Then back it up: name the specific planets, houses, and aspects that speak to this exact question. No generalizations, no "the stars suggest" — name what is literally happening in the chart and connect it to the literal situation they're asking about.
+
+## THE PATTERN UNDERNEATH
+Step back from this one moment and name the recurring life pattern this question is actually part of — the loop this person has lived through before, visible in the natal chart independent of the current transit. Describe it as a pattern of behavior or circumstance ("you tend to ___ when ___," "this is the same shape as ___") rather than a trait. Use a real fixed star or nodal axis contact if one is active, but only in service of naming the pattern, not as decoration.
+
+## WALKING THROUGH IT WITH YOU
+This is the section where you talk to them the way someone who knows their whole chart and has been watching their life would talk to them — like sitting across the table. Lay out, in order: where they actually are right now in this situation, what's pulling on them from more than one direction, and what the realistic next stretch of this looks like if nothing changes. Be specific to their actual life, not to "people with this placement in general."
+
+## WHAT I'D ACTUALLY TELL YOU TO DO
+Real, concrete advice — not "trust the process." Break it into:
+- RIGHT NOW: the one thing to do or stop doing in the next few days
+- THIS MONTH: what to actively work on while this transit is active, tied to its window of influence
+- WATCH FOR: the specific external sign or shift that will tell them the situation is moving
+Name the planet or transit governing each timeframe so the advice is chart-grounded, but the language itself should sound like advice from a person, not an astrology textbook.
+
+## THE HONEST PART
+Say plainly what isn't working, what risk or self-sabotage pattern is visible, or what hard truth the chart shows that's easy to avoid looking at. No softening. If the chart is genuinely favorable with no real tension, say so plainly instead of inventing a warning — but most charts have at least one real friction point; find the true one rather than a generic caution.
+
+## TIMING
+Name the specific window — when this peaks, when it eases, when to revisit the question — based on the applying/separating nature of the transit and any upcoming aspect that changes the picture.
+
+STANDARD: Every claim must be traceable to a named placement. No filler, no hedging, no astrology-book language ("this represents," "this symbolizes"). Write the way a real person would talk about another real person's actual life. This reading should feel like this person is being walked through their own life by someone who has actually been paying attention to it.`;
+}
+
+// ─── MAIN HORARY FUNCTION ────────────────────────────────────────────────────
+
+export async function horaryLayer(input: HoraryInput): Promise<HoraryOutput> {
+  const q = input.question.toLowerCase();
+  const intent = detectIntent(q);
+  const focus = detectFocus(q);
+
+  const prompt = buildHoraryPrompt(input, intent, focus);
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 3500,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const answer = (response.content[0] as any).text ?? "";
+
+  return {
+    answer: answer.trim(),
+    intent,
+    focus,
+    state: {
+      lastQuestion: input.question,
+      lastIntent: intent,
+      lastFocus: focus,
+    },
+  };
+}

@@ -35,7 +35,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "Through narrow defile the wanderer reaches higher ground.",
     "A large abandoned house where children play.",
     "A celestial choir sings.",
-    "A duck pond and its brood."
+    "A duck pond and its brood.",
   ],
   Taurus: [
     "A clear mountain stream.",
@@ -67,7 +67,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A squaw selling beads to a prospector.",
     "A woman in middle life stands with a veil.",
     "Two cobblers working at a table.",
-    "A peacock parading on an ancient lawn."
+    "A peacock parading on an ancient lawn.",
   ],
   Gemini: [
     "A glass bottomed boat reveals underwater life.",
@@ -99,7 +99,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A gypsy comes out of the forest.",
     "A man in a boat on a placid lake.",
     "The first mockingbird of spring sings.",
-    "A parade of bathing beauties before a jury."
+    "A parade of bathing beauties before a jury.",
   ],
   Cancer: [
     "A shipwrecked sailor clamors for rescue.",
@@ -131,7 +131,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A violent storm in a forest of giant trees.",
     "A large map of the world spreads before the observer.",
     "A Greek muse weighs newborn twins.",
-    "A daughter of the American Revolution."
+    "A daughter of the American Revolution.",
   ],
   Leo: [
     "A fat little boy sits on the back of a turtle.",
@@ -163,7 +163,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A long line of soldiers climbs a steep hill.",
     "A chicken farm on a large estate.",
     "A mermaid climbs a rock to a sailor.",
-    "A man writing in a large ledger."
+    "A man writing in a large ledger.",
   ],
   Virgo: [
     "A man's head with a prophetic square cap.",
@@ -195,7 +195,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A group of aristocrats at a formal dinner.",
     "A man guided by his sense of humor.",
     "A gentle rabbit sits in a garden.",
-    "A man talking to a parrot."
+    "A man talking to a parrot.",
   ],
   Libra: [
     "A butterfly with a pin through its body.",
@@ -227,7 +227,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A woman sees her reflection in a mirror.",
     "A man alone in a garden of delight.",
     "A starving cat strays from its home.",
-    "A philosopher entertains a crowd."
+    "A philosopher entertains a crowd.",
   ],
   Scorpio: [
     "A sight‑seeing bus filled with tourists.",
@@ -259,7 +259,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A military band marches noisily.",
     "The king of the fairies approaches his domain.",
     "A woman praying at the tomb of her son.",
-    "A Halloween jester."
+    "A Halloween jester.",
   ],
   Sagittarius: [
     "A group of old men at a rest home.",
@@ -291,7 +291,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A sculptor's vision emerges from the stone.",
     "An old bridge over a beautiful stream.",
     "A fat boy mowing the lawn.",
-    "The pope blesses the faithful."
+    "The pope blesses the faithful.",
   ],
   Capricorn: [
     "An Indian chief claims power from the assembled tribe.",
@@ -323,7 +323,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A mountain climber reaches the peak.",
     "A large volume of knowledge lies open.",
     "A woman reading tea leaves.",
-    "The director of the company sits at his desk."
+    "The director of the company sits at his desk.",
   ],
   Aquarius: [
     "An old adobe mission.",
@@ -355,7 +355,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A woman sees her reflection in a mirror.",
     "A man alone in a garden of delight.",
     "A starving cat strays from its home.",
-    "A philosopher entertains a crowd."
+    "A philosopher entertains a crowd.",
   ],
   Pisces: [
     "A public market.",
@@ -387,8 +387,8 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
     "A man in a canoe.",
     "A woman with a large hat.",
     "A man in a canoe.",
-    "A majestic rock formation."
-     ]
+    "A majestic rock formation.",
+  ],
 };
 
 /**
@@ -399,7 +399,7 @@ export const SABIAN_SYMBOLS: Record<string, string[]> = {
  */
 
 export function getDegreeMeaning(sign: string, degree: number): string {
-const idx = Math.floor(degree) - 1;
+  const idx = Math.floor(degree) - 1;
   if (idx < 0 || idx >= 30) return "";
 
   const symbols = SABIAN_SYMBOLS[sign as keyof typeof SABIAN_SYMBOLS];

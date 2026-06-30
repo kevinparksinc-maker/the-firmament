@@ -19,7 +19,13 @@ interface ManusDialogProps {
 }
 
 export function ManusDialog({
-  title, logo, open = false, onLogin, onOpenChange, onClose, }: ManusDialogProps) {
+  title,
+  logo,
+  open = false,
+  onLogin,
+  onOpenChange,
+  onClose,
+}: ManusDialogProps) {
   const [internalOpen, setInternalOpen] = useState(open);
 
   useEffect(() => {

@@ -1,18 +1,18 @@
 export interface Aspect {
   planet1: string;
   planet2: string;
-  aspect: 'conjunction' | 'opposition' | 'square' | 'trine' | 'sextile';
+  aspect: "conjunction" | "opposition" | "square" | "trine" | "sextile";
   angle: number;
   orb: number;
   exact: boolean;
 }
 
 const ASPECTS = [
-  { name: 'conjunction', angle: 0, orb: 8, weight: 1.0 },
-  { name: 'opposition', angle: 180, orb: 8, weight: 0.85 },
-  { name: 'square', angle: 90, orb: 7, weight: 0.72 },
-  { name: 'trine', angle: 120, orb: 7, weight: 0.6 },
-  { name: 'sextile', angle: 60, orb: 5, weight: 0.45 },
+  { name: "conjunction", angle: 0, orb: 8, weight: 1.0 },
+  { name: "opposition", angle: 180, orb: 8, weight: 0.85 },
+  { name: "square", angle: 90, orb: 7, weight: 0.72 },
+  { name: "trine", angle: 120, orb: 7, weight: 0.6 },
+  { name: "sextile", angle: 60, orb: 5, weight: 0.45 },
 ];
 
 export function detectAspects(

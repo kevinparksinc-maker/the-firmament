@@ -12,13 +12,23 @@
 import { createRequire } from "module";
 const _require = createRequire(import.meta.url);
 const Astronomy = _require("astronomy-engine");
-const { MakeTime, Observer, SiderealTime, SunPosition, GeoVector, Ecliptic, Equator, Horizon, Body } = Astronomy;
+const {
+  MakeTime,
+  Observer,
+  SiderealTime,
+  SunPosition,
+  GeoVector,
+  Ecliptic,
+  Equator,
+  Horizon,
+  Body,
+} = Astronomy;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ObserverLocation {
-  latitude: number;   // degrees, positive = north
-  longitude: number;  // degrees, positive = east
-  altitude: number;   // metres above sea level
+  latitude: number; // degrees, positive = north
+  longitude: number; // degrees, positive = east
+  altitude: number; // metres above sea level
 }
 
 export interface PlanetPosition {
@@ -45,9 +55,9 @@ export interface PlanetPosition {
 }
 
 export interface HouseCusps {
-  cusps: number[];      // 12 house cusps in sidereal longitude
-  ascendant: number;    // sidereal longitude
-  mc: number;           // sidereal longitude
+  cusps: number[]; // 12 house cusps in sidereal longitude
+  ascendant: number; // sidereal longitude
+  mc: number; // sidereal longitude
 }
 
 export interface EphemerisResult {
@@ -62,14 +72,33 @@ export interface EphemerisResult {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ZODIAC_SIGNS = [
-  "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-  "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+  "Aries",
+  "Taurus",
+  "Gemini",
+  "Cancer",
+  "Leo",
+  "Virgo",
+  "Libra",
+  "Scorpio",
+  "Sagittarius",
+  "Capricorn",
+  "Aquarius",
+  "Pisces",
 ];
 
 const PLANET_SYMBOLS: Record<string, string> = {
-  Sun: "☉", Moon: "☽", Mercury: "☿", Venus: "♀", Mars: "♂",
-  Jupiter: "♃", Saturn: "♄", Uranus: "⛢", Neptune: "♆", Pluto: "♇",
-  "North Node": "☊", "South Node": "☋",
+  Sun: "☉",
+  Moon: "☽",
+  Mercury: "☿",
+  Venus: "♀",
+  Mars: "♂",
+  Jupiter: "♃",
+  Saturn: "♄",
+  Uranus: "⛢",
+  Neptune: "♆",
+  Pluto: "♇",
+  "North Node": "☊",
+  "South Node": "☋",
 };
 
 // Lahiri ayanamsa (approximate, accurate to ~0.1° for modern dates)
@@ -93,7 +122,11 @@ function tropicalToSidereal(tropicalLon: number, ayanamsa: number): number {
   return sid;
 }
 
-function lonToSignDeg(lon: number): { sign: string; degree: number; minutes: number } {
+function lonToSignDeg(lon: number): {
+  sign: string;
+  degree: number;
+  minutes: number;
+} {
   const signIndex = Math.floor(lon / 30);
   const degInSign = lon % 30;
   const degree = Math.floor(degInSign);
@@ -104,39 +137,55 @@ function lonToSignDeg(lon: number): { sign: string; degree: number; minutes: num
 // ─── House System: Topocentric (Polich-Page) ──────────────────────────────────
 // Approximated via Placidus with topocentric correction for the observer's lat
 
-function calcHouseCusps(date: Date, observer: ObserverLocationLocation, ayanamsa: number): HouseCusps {
-  const astroObs = new Observer(observer.latitude, observer.longitude, observer.altitude);
-  
+function calcHouseCusps(
+  date: Date,
+  observer: ObserverLocationLocation,
+  ayanamsa: number
+): HouseCusps {
+  const astroObs = new Observer(
+    observer.latitude,
+    observer.longitude,
+    observer.altitude
+  );
+
   // Get RAMC (Right Ascension of Midheaven) and MC
   const sidereal = SiderealTime(MakeTime(date));
   const ramc = sidereal * 15; // convert hours to degrees
-  
+
   // MC = RAMC converted to ecliptic longitude (tropical)
   const obliquity = 23.4367; // mean obliquity
-  const mcTropical = Math.atan2(
-    Math.cos(ramc * Math.PI / 180),
-    -(Math.sin(ramc * Math.PI / 180) * Math.cos(obliquity * Math.PI / 180))
-  ) * 180 / Math.PI;
+  const mcTropical =
+    (Math.atan2(
+      Math.cos((ramc * Math.PI) / 180),
+      -(
+        Math.sin((ramc * Math.PI) / 180) * Math.cos((obliquity * Math.PI) / 180)
+      )
+    ) *
+      180) /
+    Math.PI;
   const mcNorm = ((mcTropical % 360) + 360) % 360;
-  
+
   // ASC calculation
-  const lat = observer.latitude * Math.PI / 180;
-  const e = obliquity * Math.PI / 180;
-  const ramcRad = ramc * Math.PI / 180;
-  
-  let ascTropical = Math.atan2(
-    Math.cos(ramcRad),
-    -(Math.sin(ramcRad) * Math.cos(e) + Math.tan(lat) * Math.sin(e))
-  ) * 180 / Math.PI;
+  const lat = (observer.latitude * Math.PI) / 180;
+  const e = (obliquity * Math.PI) / 180;
+  const ramcRad = (ramc * Math.PI) / 180;
+
+  let ascTropical =
+    (Math.atan2(
+      Math.cos(ramcRad),
+      -(Math.sin(ramcRad) * Math.cos(e) + Math.tan(lat) * Math.sin(e))
+    ) *
+      180) /
+    Math.PI;
   ascTropical = ((ascTropical % 360) + 360) % 360;
-  
+
   // Simple equal house cusps from ASC (Topocentric approximation)
   const cusps: number[] = [];
   for (let i = 0; i < 12; i++) {
     const tropical = (ascTropical + i * 30) % 360;
     cusps.push(tropicalToSidereal(tropical, ayanamsa));
   }
-  
+
   return {
     cusps,
     ascendant: tropicalToSidereal(ascTropical, ayanamsa),
@@ -148,7 +197,7 @@ function getHouseNumber(planetLon: number, cusps: number[]): number {
   for (let i = 0; i < 12; i++) {
     const start = cusps[i]!;
     const end = cusps[(i + 1) % 12]!;
-    
+
     if (start <= end) {
       if (planetLon >= start && planetLon < end) return i + 1;
     } else {
@@ -161,22 +210,29 @@ function getHouseNumber(planetLon: number, cusps: number[]): number {
 
 // ─── Main Calculation ─────────────────────────────────────────────────────────
 
-export async function calculateChart(date: Date, observer: ObserverLocation): Promise<EphemerisResult> {
-  const astroObs = new Observer(observer.latitude, observer.longitude, observer.altitude);
+export async function calculateChart(
+  date: Date,
+  observer: ObserverLocation
+): Promise<EphemerisResult> {
+  const astroObs = new Observer(
+    observer.latitude,
+    observer.longitude,
+    observer.altitude
+  );
   const ayanamsa = getLahiriAyanamsa(date);
   const houses = calcHouseCusps(date, observer, ayanamsa);
 
   const bodyList: Array<{ name: string; body: Astronomy.Body }> = [
-    { name: "Sun",     body: Astronomy.Body.Sun },
-    { name: "Moon",    body: Astronomy.Body.Moon },
+    { name: "Sun", body: Astronomy.Body.Sun },
+    { name: "Moon", body: Astronomy.Body.Moon },
     { name: "Mercury", body: Astronomy.Body.Mercury },
-    { name: "Venus",   body: Astronomy.Body.Venus },
-    { name: "Mars",    body: Astronomy.Body.Mars },
+    { name: "Venus", body: Astronomy.Body.Venus },
+    { name: "Mars", body: Astronomy.Body.Mars },
     { name: "Jupiter", body: Astronomy.Body.Jupiter },
-    { name: "Saturn",  body: Astronomy.Body.Saturn },
-    { name: "Uranus",  body: Astronomy.Body.Uranus },
+    { name: "Saturn", body: Astronomy.Body.Saturn },
+    { name: "Uranus", body: Astronomy.Body.Uranus },
     { name: "Neptune", body: Astronomy.Body.Neptune },
-    { name: "Pluto",   body: Astronomy.Body.Pluto },
+    { name: "Pluto", body: Astronomy.Body.Pluto },
   ];
 
   const planets: PlanetPosition[] = [];
@@ -194,15 +250,21 @@ export async function calculateChart(date: Date, observer: ObserverLocation): Pr
         const ecl = Ecliptic(vec);
         tropicalLon = ecl.elon;
       }
-      
+
       // Keep tropical, also compute sidereal
       const siderealLon = tropicalToSidereal(tropicalLon, ayanamsa);
       const { sign, degree, minutes } = lonToSignDeg(tropicalLon);
-      
+
       // Get topocentric Alt/Az (parallax corrected)
       const equatorial = Equator(body, MakeTime(date), astroObs, true, true);
-      const horizon = Horizon(MakeTime(date), astroObs, equatorial.ra, equatorial.dec, "normal");
-      
+      const horizon = Horizon(
+        MakeTime(date),
+        astroObs,
+        equatorial.ra,
+        equatorial.dec,
+        "normal"
+      );
+
       // Detect retrograde (compare position to yesterday)
       const yesterday = new Date(date.getTime() - 86400000);
       let tropicalYesterday: number;
@@ -219,9 +281,9 @@ export async function calculateChart(date: Date, observer: ObserverLocation): Pr
         if (diff < -180) diff += 360;
         retrograde = diff < 0;
       }
-      
+
       const house = getHouseNumber(siderealLon, houses.cusps);
-      
+
       planets.push({
         name,
         symbol: PLANET_SYMBOLS[name] ?? "★",
@@ -243,15 +305,15 @@ export async function calculateChart(date: Date, observer: ObserverLocation): Pr
   // Add Rahu (North Node) and Ketu (South Node)
   // Using mean ascending node formula: Omega = 125.0445479 - 0.0529539297 * d
   try {
-    const d = (date.getTime() / 86400000) - 10957.5; // days from J2000
-    const rahuTropical = ((125.0445479 - 0.0529539297 * d) % 360 + 360) % 360;
+    const d = date.getTime() / 86400000 - 10957.5; // days from J2000
+    const rahuTropical = (((125.0445479 - 0.0529539297 * d) % 360) + 360) % 360;
     const ketuTropical = (rahuTropical + 180) % 360;
     const rahuSidereal = tropicalToSidereal(rahuTropical, ayanamsa);
     const ketuSidereal = (rahuSidereal + 180) % 360;
-    
+
     const rahuInfo = lonToSignDeg(rahuTropical);
     const ketuInfo = lonToSignDeg(ketuTropical);
-    
+
     planets.push({
       name: "Rahu",
       symbol: "☊",
@@ -265,7 +327,7 @@ export async function calculateChart(date: Date, observer: ObserverLocation): Pr
       retrograde: true, // Nodes are always retrograde
       house: getHouseNumber(rahuSidereal, houses.cusps),
     });
-    
+
     planets.push({
       name: "Ketu",
       symbol: "☋",
@@ -310,7 +372,9 @@ export function formatChartForReading(result: EphemerisResult): string {
 }
 
 // Export house cusp info for the wheel
-export function getHouseCuspInfo(result: EphemerisResult): Array<{ house: number; sign: string; degree: number; minutes: number }> {
+export function getHouseCuspInfo(
+  result: EphemerisResult
+): Array<{ house: number; sign: string; degree: number; minutes: number }> {
   return result.houses.cusps.map((lon, i) => {
     const { sign, degree, minutes } = lonToSignDeg(lon);
     return { house: i + 1, sign, degree, minutes };
