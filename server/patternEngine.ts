@@ -7,6 +7,7 @@
  */
 
 import type { PlanetPlacement } from "./astroEngine";
+import { getAspectMotion } from "./aspectMotion";
 
 // ============================================================================
 // TYPES
@@ -56,6 +57,7 @@ export interface RawAspect {
     | "quincunx";
   angle: number;
   orb: number;
+  motion: "applying" | "separating" | "exact";
   strength: number;
   isHard: boolean;
   isSoft: boolean;
@@ -260,12 +262,20 @@ export function detectAspects(
         const delta = Math.abs(diff - def.angle);
         if (delta <= def.orb) {
           const strength = 1 - delta / def.orb;
+          const signedDelta = diff - def.angle;
+          const motion = getAspectMotion(
+            name1,
+            name2,
+            signedDelta,
+            def.angle
+          );
           aspects.push({
             planet1: name1,
             planet2: name2,
             type: def.type,
             angle: def.angle,
             orb: delta,
+            motion,
             strength,
             isHard: def.isHard,
             isSoft: def.isSoft,

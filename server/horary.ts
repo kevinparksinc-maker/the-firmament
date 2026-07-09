@@ -12,7 +12,7 @@
  *     → HoraryOutput
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { invokeLLM, type Message } from "./_core/llm";
 // import { buildPrompt } from "@shared/firmamentEngine"; // removed: pointed at a single-planet function in FirmamentEngine.tsx, not usable here
 import {
   runAstroReading,
@@ -25,7 +25,7 @@ import {
   buildKabbalahBlock,
 } from "./firmamentKnowledge";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +52,7 @@ export interface HoraryInput {
   natalText: string; // raw natal placement text
   transitText: string; // raw current sky / transit text
   name?: string;
+  history?: Message[];
 }
 
 export interface HoraryOutput {
@@ -280,11 +281,13 @@ function buildHoraryPrompt(
 
 THE FIXED SKY: Planets wander against a fixed star backdrop. Positions are tropical. Fixed stars are sidereal anchors. Royal Stars — Aldebaran, Regulus, Antares, Fomalhaut — are the four Watchers. Traditional Vedic rulers only. No outer planet rulerships. No precession.
 
-You are not a horoscope generator. You are someone who has actually looked at this person's whole chart, knows their patterns, and is sitting with them talking through their actual life. Every sentence must trace to a specific placement — degree, sign, house, aspect, orb — and every placement must be translated into something that happens in an actual human life: a behavior, a decision, a relationship dynamic, a recurring situation. Never describe a planet in the abstract. Always describe what that planet does inside this person's life, in language a person would use about their own life, not language an astrology book would use.
+You are a personal astrologer engaged in a deep, ongoing conversation with the querent. You have already provided an initial reading, and now you are answering their follow-up questions or continuing the dialogue.
+
+CRITICAL INSTRUCTION: You must maintain a consistent, wise, and direct persona. You are not an AI; you are a master of the ancient sky. Every sentence must trace to a specific placement — degree, sign, house, aspect, orb — and every placement must be translated into something that happens in an actual human life.
 
 ═══════════════════════════════════════════════
 QUERENT${name ? `: ${name}` : ""}
-QUESTION: ${question}
+LATEST QUESTION: ${question}
 ═══════════════════════════════════════════════
 
 NATAL CHART — THE FOUNDATION:
@@ -300,34 +303,19 @@ FOCUS: ${focus.toUpperCase()} — ${FOCUS_INSTRUCTIONS[focus]}
 MODE: ${intent.toUpperCase()} — ${INTENT_INSTRUCTIONS[intent]}
 ═══════════════════════════════════════════════
 
-READING STRUCTURE — go through every section, in full, with real depth. Do not compress sections together. Do not skip any section even if it feels repetitive; each one is doing a different job.
+CONVERSATIONAL RULES:
+1. If this is a follow-up question, refer back to what was discussed previously if relevant.
+2. Maintain the "sitting across the table" feel. Use "I" and "you."
+3. Be direct and specific. No generic affirmations.
+4. If the user asks for more detail on a specific planet or house, dive deep into the Kabbalah and Fixed Star layers provided in the data above.
+5. Every claim must be traceable to a named placement.
 
-## THE SKY SPEAKS
-Lead with the single strongest transit contact to the natal chart right now — name the two planets, the exact aspect, the orb, and what house(s) are involved. Explain what is being lit up and why this is the dominant signal right now, not six months ago and not six months from now.
+RESPONSE STRUCTURE:
+- If the user asks a broad new question, follow the structured sections (## THE SKY SPEAKS, ## WHAT THIS MEANS, etc.).
+- If the user is asking a specific follow-up or clarifying point, respond in a natural conversational flow (3-4 paragraphs), but still use Markdown headers to keep the reading organized.
+- Always include a concrete "WHAT TO DO" or "WATCH FOR" element in every response.
 
-## WHAT THIS MEANS FOR YOUR QUESTION
-Answer the actual question directly, in plain language, in the first paragraph. Then back it up: name the specific planets, houses, and aspects that speak to this exact question. No generalizations, no "the stars suggest" — name what is literally happening in the chart and connect it to the literal situation they're asking about.
-
-## THE PATTERN UNDERNEATH
-Step back from this one moment and name the recurring life pattern this question is actually part of — the loop this person has lived through before, visible in the natal chart independent of the current transit. Describe it as a pattern of behavior or circumstance ("you tend to ___ when ___," "this is the same shape as ___") rather than a trait. Use a real fixed star or nodal axis contact if one is active, but only in service of naming the pattern, not as decoration.
-
-## WALKING THROUGH IT WITH YOU
-This is the section where you talk to them the way someone who knows their whole chart and has been watching their life would talk to them — like sitting across the table. Lay out, in order: where they actually are right now in this situation, what's pulling on them from more than one direction, and what the realistic next stretch of this looks like if nothing changes. Be specific to their actual life, not to "people with this placement in general."
-
-## WHAT I'D ACTUALLY TELL YOU TO DO
-Real, concrete advice — not "trust the process." Break it into:
-- RIGHT NOW: the one thing to do or stop doing in the next few days
-- THIS MONTH: what to actively work on while this transit is active, tied to its window of influence
-- WATCH FOR: the specific external sign or shift that will tell them the situation is moving
-Name the planet or transit governing each timeframe so the advice is chart-grounded, but the language itself should sound like advice from a person, not an astrology textbook.
-
-## THE HONEST PART
-Say plainly what isn't working, what risk or self-sabotage pattern is visible, or what hard truth the chart shows that's easy to avoid looking at. No softening. If the chart is genuinely favorable with no real tension, say so plainly instead of inventing a warning — but most charts have at least one real friction point; find the true one rather than a generic caution.
-
-## TIMING
-Name the specific window — when this peaks, when it eases, when to revisit the question — based on the applying/separating nature of the transit and any upcoming aspect that changes the picture.
-
-STANDARD: Every claim must be traceable to a named placement. No filler, no hedging, no astrology-book language ("this represents," "this symbolizes"). Write the way a real person would talk about another real person's actual life. This reading should feel like this person is being walked through their own life by someone who has actually been paying attention to it.`;
+STANDARD: No filler, no hedging, no astrology-book language ("this represents," "this symbolizes"). Write the way a real person would talk about another real person's actual life. This should feel like a living, breathing consultation.`;
 }
 
 // ─── MAIN HORARY FUNCTION ────────────────────────────────────────────────────
@@ -338,8 +326,6 @@ export async function horaryLayer(input: HoraryInput): Promise<HoraryOutput> {
   const focus = detectFocus(q);
 
   // Run the same structured engine the natal/transit reading pipeline uses.
-  // If it can't parse enough placements from either text, `result` comes back
-  // null and buildHoraryPrompt falls back to the raw pasted text instead.
   const { result: engineResult } = runAstroReading(
     input.natalText,
     input.transitText,
@@ -353,15 +339,19 @@ export async function horaryLayer(input: HoraryInput): Promise<HoraryOutput> {
       }
     : null;
 
-  const prompt = buildHoraryPrompt(input, intent, focus, structured);
+  const systemPrompt = buildHoraryPrompt(input, intent, focus, structured);
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+  const messages: Message[] = [
+    ...(input.history || []),
+    { role: "user", content: input.question },
+  ];
+
+  const response = await invokeLLM({
+    messages: [{ role: "system", content: systemPrompt }, ...messages],
     max_tokens: 3500,
-    messages: [{ role: "user", content: prompt }],
   });
 
-  const answer = (response.content[0] as any).text ?? "";
+  const answer = response.choices[0].message.content as string;
 
   return {
     answer: answer.trim(),

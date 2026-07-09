@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
-import { publicProcedure, protectedProcedure, router } from "./trpc";
+import { publicProcedure, router } from "./trpc";
 import { sdk } from "./sdk";
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
@@ -96,11 +96,8 @@ export const authRouter = router({
     return { success: true };
   }),
 
-  me: protectedProcedure.query(async ({ ctx }) => {
-    return {
-      id: ctx.user.id,
-      email: ctx.user.email,
-      name: ctx.user.name,
-    };
-  }),
+  // Public + nullable: the app is usable logged-out, so `me` must return null
+  // (not throw UNAUTHORIZED) when there is no session. Returning the full user
+  // object keeps the client's useAuth() state in sync.
+  me: publicProcedure.query(({ ctx }) => ctx.user),
 });

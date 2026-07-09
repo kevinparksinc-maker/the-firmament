@@ -9,6 +9,8 @@ import { z } from "zod";
 import { publicProcedure, router } from "./_core/trpc";
 // import { enrichChartData } from "./enrichChartData"; // adjust if inline
 import { HOUSE_TOPICS, PLANET_CORE } from "./astroEngine";
+import { detectAspects } from "./patternEngine";
+import { buildWisdomBlock } from "./wisdomLayer";
 
 // ─── Semantic Block Builder ───────────────────────────────────────────────────
 // Converts the engine's dictionaries into a plain-text reference block that
@@ -114,9 +116,25 @@ export const synthesizeRouter = router({
 
       const enriched = chartData; // enrichChartData removed
 
+      let wisdomBlock = "";
+      try {
+        const planetsForAspects = (chartData as any)?.planets || (chartData as any)?.chart?.planets;
+        if (planetsForAspects) {
+          const aspectConfig = { orbConjunction: 7, orbOpposition: 7, orbTrine: 5, orbSquare: 5, orbSextile: 4, orbQuincunx: 3 };
+          const aspects = detectAspects(planetsForAspects, aspectConfig);
+          const aspectMotions = aspects.map((a: any) => a.motion).filter(Boolean);
+          if (aspectMotions.length > 0) {
+            wisdomBlock = buildWisdomBlock({ aspectMotions: aspectMotions as any });
+          }
+        }
+      } catch (err) {
+        console.error("wisdom block generation skipped:", err);
+      }
+
       const userMessage = [
         `Chart data:\n${JSON.stringify(chartData, null, 2)}`,
         `\nEnriched Analysis:\n${enriched}`,
+        wisdomBlock ? `\nAspect Motion Notes:\n${wisdomBlock}` : "",
         `\nQuestion: ${userQuestion || "Please provide a general reading."}`,
       ].join("");
 

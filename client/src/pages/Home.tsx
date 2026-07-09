@@ -17,6 +17,7 @@ import {
   type ReadingResult,
   type ReadingMode,
 } from "@/lib/astroEngine";
+import { detectNatalPatterns, checkPatternAlerts } from "@/lib/summarizePillarRich";
 import { ScreenshotUploader } from "@/components/ScreenshotUploader";
 import { SavedChartManager } from "@/components/SavedChartManager";
 import { TransitDataForm } from "@/components/TransitDataForm";
@@ -24,6 +25,7 @@ import { BirthDataForm } from "@/components/BirthDataForm";
 import { SnowGlobe } from "@/components/SnowGlobe";
 import { NatalPlacements } from "@/components/NatalPlacements";
 import FirmamentEngine from "@/components/FirmamentEngine";
+import { AIChatBox, type Message } from "@/components/AIChatBox";
 import { ChartWheel } from "@/components/ChartWheel";
 import { mergeOcrText } from "@/lib/mergeOcrText";
 import {
@@ -499,6 +501,8 @@ function EngineReadingDisplay({
 
   const sadeSati = detectSadeSati(natal, transits);
   const moonPhase = detectMoonPhase(transits);
+  const patterns = detectNatalPatterns(natal);
+  const patternAlerts = checkPatternAlerts(patterns, natal, activations);
 
   // Prefer the AI's actual MIND/SOUL/SPIRIT prose if it exists in aiReading.
   // Falls back to the template text built above when the AI text is missing
@@ -508,6 +512,13 @@ function EngineReadingDisplay({
   const aiSpiritText = extractAiSection(aiReading, [
     "SPIRIT RIGHT NOW",
     "SPIRIT",
+  ]);
+  const aiSynthesisText = extractAiSection(aiReading, [
+    "THE BIGGER PICTURE",
+    "SYNTHESIS",
+  ]);
+  const aiActivationsText = extractAiSection(aiReading, [
+    "CURRENT ACTIVATIONS",
   ]);
 
   return (
@@ -679,7 +690,18 @@ function EngineReadingDisplay({
         </ReadingSection>
       )}
       <ReadingSection title="Key Transit Activations" glyph="✦" delay={0.4}>
-        {activations.length > 0 ? (
+        {aiActivationsText ? (
+          <p
+            style={{
+              fontSize: "14px",
+              color: "var(--silver)",
+              lineHeight: 1.65,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {aiActivationsText}
+          </p>
+        ) : activations.length > 0 ? (
           activations
             .slice(0, 8)
             .map((a, i) => (
@@ -695,16 +717,53 @@ function EngineReadingDisplay({
           </p>
         )}
       </ReadingSection>
-      <ReadingSection title="Synthesis" glyph="⟁" delay={0.5}>
+      <ReadingSection title="Synthesis" glyph="⟁" delay={0.5} defaultOpen={true}>
         <div
           style={{ fontSize: "14px", color: "var(--silver)", lineHeight: 1.65 }}
         >
-          {sadeSati && <p style={{ marginBottom: "12px" }}>{sadeSati}</p>}
-          {moonPhase && <p style={{ marginBottom: "12px" }}>{moonPhase}</p>}
-          {context && (
-            <p style={{ marginBottom: "12px" }}>Context entered: {context}</p>
+          {aiSynthesisText ? (
+            <p style={{ whiteSpace: "pre-wrap", marginBottom: "20px" }}>
+              {aiSynthesisText}
+            </p>
+          ) : (
+            <>
+              {sadeSati && <p style={{ marginBottom: "12px" }}>{sadeSati}</p>}
+              {moonPhase && <p style={{ marginBottom: "12px" }}>{moonPhase}</p>}
+              {patternAlerts.length > 0 && (
+                <div style={{ marginBottom: "20px" }}>
+                  <p
+                    style={{
+                      fontFamily: "'Cinzel', serif",
+                      fontSize: "10px",
+                      letterSpacing: "2px",
+                      color: "var(--ember)",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    PATTERN ACTIVATIONS
+                  </p>
+                  {patternAlerts.map((alert, idx) => (
+                    <p
+                      key={idx}
+                      style={{
+                        marginBottom: "10px",
+                        paddingLeft: "12px",
+                        borderLeft: "1px solid var(--ember-dim)",
+                      }}
+                    >
+                      {alert.plainWarning}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {context && (
+                <p style={{ marginBottom: "12px" }}>
+                  Context entered: {context}
+                </p>
+              )}
+            </>
           )}
-          <p>
+          <p style={{ opacity: 0.6, fontSize: "12px", marginTop: "20px" }}>
             Hermetic collision law applied: no placement is read in isolation;
             every active point is judged by contact, condition, and house
             activation together.
@@ -737,10 +796,7 @@ export default function Home() {
   const [natalResetKey, setNatalResetKey] = useState(0);
   const [transitResetKey, setTransitResetKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [chatHistory, setChatHistory] = useState<
-    Array<{ role: "user" | "assistant"; content: string }>
-  >([]);
-  const [chatInput, setChatInput] = useState("");
+  const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chartLocked, setChartLocked] = useState(false);
   const [snowGlobePlanets, setSnowGlobePlanets] = useState<any[]>([]);
@@ -764,10 +820,9 @@ export default function Home() {
   const askHorary = trpc.horary.ask.useMutation();
   const followUp = trpc.horary.followUp.useMutation();
 
-  async function sendChat() {
-    if (!chatInput.trim() || chatLoading) return;
-    const userMsg = chatInput.trim();
-    setChatInput("");
+  async function sendChat(content: string) {
+    if (!content.trim() || chatLoading) return;
+    const userMsg = content.trim();
     setChatLoading(true);
     const newHistory = [
       ...chatHistory,
@@ -775,11 +830,11 @@ export default function Home() {
     ];
     setChatHistory(newHistory);
     try {
-      const result = await followUp.mutateAsync({
+      const result = await askHorary.mutateAsync({
         question: userMsg,
         natalPlacements: natalInput || undefined,
         transitPlacements: transitInput || undefined,
-        history: chatHistory.slice(-6),
+        history: chatHistory.slice(-10),
       });
       setChatHistory([
         ...newHistory,
@@ -855,6 +910,7 @@ export default function Home() {
       });
 
       setAiReading(result.reading);
+      setChartLocked(true);
 
       // If user asked a question, get a direct horary answer
       if (contextInput.trim().length > 3) {
@@ -866,6 +922,10 @@ export default function Home() {
         setAiReading(
           prev => prev + "\n\n---\n\n## YOUR QUESTION\n\n" + horaryResult.answer
         );
+        setChatHistory([
+          { role: "user", content: contextInput },
+          { role: "assistant", content: horaryResult.answer },
+        ]);
       }
       setTimeout(() => {
         outputRef.current?.scrollIntoView({
@@ -1279,115 +1339,31 @@ export default function Home() {
 
       {/* Conversation Layer */}
       {chartLocked && (
-        <div
-          style={{
-            marginTop: "32px",
-            border: "1px solid var(--rim)",
-            borderRadius: "4px",
-            overflow: "hidden",
-          }}
-        >
+        <div style={{ marginTop: "32px" }}>
           <div
             style={{
               padding: "16px 20px",
-              borderBottom: "1px solid var(--rim)",
+              border: "1px solid var(--rim)",
+              borderBottom: "none",
+              borderRadius: "4px 4px 0 0",
               fontFamily: "'Cinzel', serif",
               fontSize: "10px",
               letterSpacing: "4px",
               color: "var(--ember)",
+              background: "var(--deep)",
             }}
           >
-            ✦ CONTINUE THE READING
+            ✦ CONSULT THE FIRMAMENT
           </div>
-          <div
-            style={{
-              maxHeight: "400px",
-              overflowY: "auto",
-              padding: "20px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "16px",
-            }}
-          >
-            {chatHistory.slice(1).map((msg, i) => (
-              <div
-                key={i}
-                style={{
-                  alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                  maxWidth: "85%",
-                  padding: "12px 16px",
-                  background:
-                    msg.role === "user"
-                      ? "rgba(200,146,58,0.1)"
-                      : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${msg.role === "user" ? "var(--ember-dim)" : "var(--rim)"}`,
-                  borderRadius: "4px",
-                  color: "var(--silver)",
-                  fontSize: "14px",
-                  lineHeight: 1.6,
-                  fontFamily: "'Crimson Pro', serif",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {msg.content}
-              </div>
-            ))}
-            {chatLoading && (
-              <div
-                style={{
-                  color: "var(--ember)",
-                  fontFamily: "'Cinzel', serif",
-                  fontSize: "11px",
-                  letterSpacing: "3px",
-                }}
-              >
-                CONSULTING THE STARS...
-              </div>
-            )}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              padding: "16px",
-              borderTop: "1px solid var(--rim)",
-            }}
-          >
-            <input
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendChat()}
-              placeholder="Ask another question..."
-              style={{
-                flex: 1,
-                background: "var(--surface)",
-                border: "1px solid var(--rim)",
-                borderRadius: "3px",
-                color: "var(--silver)",
-                fontFamily: "'Crimson Pro', serif",
-                fontSize: "15px",
-                padding: "10px 14px",
-                outline: "none",
-              }}
-            />
-            <button
-              onClick={sendChat}
-              disabled={chatLoading}
-              style={{
-                padding: "10px 20px",
-                background: "transparent",
-                border: "1px solid var(--ember-dim)",
-                borderRadius: "3px",
-                color: "var(--ember)",
-                fontFamily: "'Cinzel', serif",
-                fontSize: "11px",
-                letterSpacing: "3px",
-                cursor: chatLoading ? "not-allowed" : "pointer",
-              }}
-            >
-              ASK
-            </button>
-          </div>
+          <AIChatBox
+            messages={chatHistory}
+            onSendMessage={sendChat}
+            isLoading={chatLoading}
+            height="500px"
+            placeholder="Ask the stars anything..."
+            emptyStateMessage="The heavens are open. What would you know?"
+            className="rounded-t-none border-t-0"
+          />
         </div>
       )}
 

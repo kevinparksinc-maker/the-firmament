@@ -1,5 +1,3 @@
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { authRouter } from "./_core/authRouter";
@@ -559,19 +557,34 @@ Rules: Answer directly. Use specific placements. No preamble. Keep it conversati
   ask: publicProcedure
     .input(
       z.object({
-        question: z.string().min(3),
+        question: z.string().min(1),
         natalPlacements: z.string().optional(),
         transitPlacements: z.string().optional(),
         name: z.string().optional(),
+        history: z
+          .array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string(),
+            })
+          )
+          .optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const { question, natalPlacements, transitPlacements, name } = input;
+      const {
+        question,
+        natalPlacements,
+        transitPlacements,
+        name,
+        history,
+      } = input;
       const result = await horaryLayer({
         question,
         natalText: natalPlacements ?? "",
         transitText: transitPlacements ?? "",
         name,
+        history: history as any,
       });
       return {
         answer: result.answer,
@@ -586,14 +599,6 @@ Rules: Answer directly. Use specific placements. No preamble. Keep it conversati
 export const appRouter = router({
   auth: authRouter,
   system: systemRouter,
-  auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
-  }),
   ocr: ocrRouter,
   ai: aiRouter,
   charts: chartsRouter,
