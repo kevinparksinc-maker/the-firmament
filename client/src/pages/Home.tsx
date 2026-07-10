@@ -800,8 +800,8 @@ export default function Home() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chartLocked, setChartLocked] = useState(false);
   const [snowGlobePlanets, setSnowGlobePlanets] = useState<any[]>([]);
-  const [observerLat, setObserverLat] = useState(40.7);
-  const [observerLng, setObserverLng] = useState(-74.0);
+  const [observerLat, setObserverLat] = useState(36.17); // Las Vegas
+  const [observerLng, setObserverLng] = useState(-115.14); // Las Vegas
   const [chartWheelData, setChartWheelData] = useState<{
     houseCusps: any[];
     angles: any;
