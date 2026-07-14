@@ -1064,6 +1064,9 @@ export default function FirmamentEngine({
   const [aspects, setAspects] = useState([]);
   const [aspectType, setAspectType] = useState("conjunction");
   const [aspectPlanet, setAspectPlanet] = useState("Moon");
+  // Two-screen state
+  const [activeScreen, setActiveScreen] = useState<"inputs" | "results">("inputs");
+  const [showAspectsPanel, setShowAspectsPanel] = useState(false);
 
   const placementKey = `${planet}-${degree}-${sign}-${house}`;
   const cacheKey = `${placementKey}-${activeTab}`;
@@ -1374,6 +1377,18 @@ export default function FirmamentEngine({
     letterSpacing: "0.06em",
   };
 
+  // ── SCREEN STATE HELPERS ──────────────────────────────────────────────────
+  function goToResults() {
+    if (!currentRead) {
+      fetchReading();
+    }
+    setActiveScreen("results");
+  }
+
+  function backToInputs() {
+    setActiveScreen("inputs");
+  }
+
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div style={app}>
@@ -1382,19 +1397,31 @@ export default function FirmamentEngine({
           0%,100% { opacity:0.25; transform:scale(1); }
           50%      { opacity:1;    transform:scale(1.5); }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         select option { background: #07091A; }
         ::-webkit-scrollbar { display: none; }
         button:hover { opacity: 0.78; }
+        .screen-enter { animation: fadeIn 0.3s ease-in-out; }
       `}</style>
 
-      {/* Header */}
-      <div style={header}>
-        <h1 style={title}>THE FIRMAMENT</h1>
-        <p style={sub}>Natal Interpretation Engine</p>
-      </div>
+      {/* ── SCREEN 1: INPUT CONSOLE ── */}
+      {activeScreen === "inputs" && (
+        <div className="screen-enter">
+          {/* Header */}
+          <div style={header}>
+            <h1 style={title}>THE FIRMAMENT</h1>
+            <p style={sub}>Natal Interpretation Engine</p>
+          </div>
 
-      {/* Controls */}
-      <div style={controls}>
+          {/* Controls */}
+          <div style={controls}>
         <div style={group}>
           <span style={lbl}>Planet</span>
           <select
@@ -1457,193 +1484,375 @@ export default function FirmamentEngine({
         </div>
       </div>
 
-      {/* Aspects panel */}
-      <div
-        style={{
-          padding: "20px 36px",
-          borderBottom: `1px solid ${C.line}`,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
-        <span style={{ ...lbl, marginBottom: 2 }}>
-          Aspects (optional — activates Kabbalistic path mechanics)
-        </span>
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <select
-            style={{ ...inputBase, width: "auto", minWidth: 130 }}
-            value={aspectType}
-            onChange={e => setAspectType(e.target.value)}
-          >
-            {["conjunction", "opposition", "trine", "square", "sextile"].map(
-              a => (
-                <option key={a} value={a}>
-                  {a.charAt(0).toUpperCase() + a.slice(1)}
-                </option>
-              )
-            )}
-          </select>
-          <span
-            style={{ color: C.ash, fontSize: 11, fontFamily: "sans-serif" }}
-          >
-            with
-          </span>
-          <select
-            style={{ ...inputBase, width: "auto", minWidth: 120 }}
-            value={aspectPlanet}
-            onChange={e => setAspectPlanet(e.target.value)}
-          >
-            {PLANETS.filter(p => p !== planet).map(p => (
-              <option key={p}>{p}</option>
-            ))}
-          </select>
-          <button
+          {/* Aspects Accordion */}
+          <div
             style={{
-              ...resetBtn,
-              padding: "10px 20px",
-              borderColor: `rgba(196,162,74,0.3)`,
-              color: C.gold,
+              padding: "16px 36px",
+              borderBottom: `1px solid ${C.line}`,
             }}
-            onClick={addAspect}
           >
-            + Add
-          </button>
-        </div>
-        {aspects.length > 0 && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {aspects.map((a, i) => (
+            <button
+              onClick={() => setShowAspectsPanel(!showAspectsPanel)}
+              style={{
+                ...lbl,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: C.gold,
+                fontSize: 10,
+                letterSpacing: "0.28em",
+                textTransform: "uppercase",
+              }}
+            >
+              {showAspectsPanel ? "▼" : "▶"} Advanced Mechanics (Aspects)
+            </button>
+
+            {showAspectsPanel && (
+              <div
+                style={{
+                  marginTop: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <span style={{ ...lbl, marginBottom: 2 }}>
+                  Aspects (optional — activates Kabbalistic path mechanics)
+                </span>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                  }}
+                >
+                  <select
+                    style={{ ...inputBase, width: "auto", minWidth: 130 }}
+                    value={aspectType}
+                    onChange={e => setAspectType(e.target.value)}
+                  >
+                    {["conjunction", "opposition", "trine", "square", "sextile"].map(
+                      a => (
+                        <option key={a} value={a}>
+                          {a.charAt(0).toUpperCase() + a.slice(1)}
+                        </option>
+                      )
+                    )}
+                  </select>
+                  <span
+                    style={{ color: C.ash, fontSize: 11, fontFamily: "sans-serif" }}
+                  >
+                    with
+                  </span>
+                  <select
+                    style={{ ...inputBase, width: "auto", minWidth: 120 }}
+                    value={aspectPlanet}
+                    onChange={e => setAspectPlanet(e.target.value)}
+                  >
+                    {PLANETS.filter(p => p !== planet).map(p => (
+                      <option key={p}>{p}</option>
+                    ))}
+                  </select>
+                  <button
+                    style={{
+                      ...resetBtn,
+                      padding: "10px 20px",
+                      borderColor: `rgba(196,162,74,0.3)`,
+                      color: C.gold,
+                    }}
+                    onClick={addAspect}
+                  >
+                    + Add
+                  </button>
+                </div>
+                {aspects.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {aspects.map((a, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          fontFamily: "sans-serif",
+                          fontSize: 9,
+                          letterSpacing: "0.18em",
+                          textTransform: "uppercase",
+                          padding: "5px 12px",
+                          border: `1px solid rgba(196,162,74,0.25)`,
+                          color: C.gold,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        {ASPECT_PATHS[a.type]?.symbol} {a.type} {a.planet2}
+                        <span
+                          style={{ cursor: "pointer", color: C.ash, fontSize: 11 }}
+                          onClick={() => removeAspect(i)}
+                        >
+                          ✕
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Placement badge + Cast button */}
+          <div style={badge}>
+            <span style={badgePlacement}>
+              {planet} {degree}° {sign} · {house} House
+            </span>
+            {dignityNote && <span style={badgeDignity}>{dignityNote}</span>}
+            {starConjunction && (
               <span
-                key={i}
                 style={{
                   fontFamily: "sans-serif",
-                  fontSize: 9,
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  padding: "5px 12px",
-                  border: `1px solid rgba(196,162,74,0.25)`,
-                  color: C.gold,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
+                  fontSize: 10,
+                  letterSpacing: "0.14em",
+                  color: starConjunction.star.isRoyal ? C.gold : C.silver,
+                  fontStyle: "italic",
+                  marginTop: 2,
+                  opacity: starConjunction.star.isRoyal ? 1 : 0.75,
                 }}
               >
-                {ASPECT_PATHS[a.type]?.symbol} {a.type} {a.planet2}
-                <span
-                  style={{ cursor: "pointer", color: C.ash, fontSize: 11 }}
-                  onClick={() => removeAspect(i)}
-                >
-                  ✕
-                </span>
+                {starConjunction.star.isRoyal ? "✦ " : "· "}
+                {planet} conjunct {starConjunction.star.name}
+                {starConjunction.star.isRoyal ? " — Royal Star" : ""} (orb{" "}
+                {starConjunction.orb}°{starConjunction.exact ? " — exact" : ""})
+                {" · "}
+                {starConjunction.star.archetype}
               </span>
-            ))}
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Placement badge */}
-      <div style={badge}>
-        <span style={badgePlacement}>
-          {planet} {degree}° {sign} · {house} House
-        </span>
-        {dignityNote && <span style={badgeDignity}>{dignityNote}</span>}
-        {starConjunction && (
-          <span
-            style={{
-              fontFamily: "sans-serif",
-              fontSize: 10,
-              letterSpacing: "0.14em",
-              color: starConjunction.star.isRoyal ? C.gold : C.silver,
-              fontStyle: "italic",
-              marginTop: 2,
-              opacity: starConjunction.star.isRoyal ? 1 : 0.75,
-            }}
-          >
-            {starConjunction.star.isRoyal ? "✦ " : "· "}
-            {planet} conjunct {starConjunction.star.name}
-            {starConjunction.star.isRoyal ? " — Royal Star" : ""} (orb{" "}
-            {starConjunction.orb}°{starConjunction.exact ? " — exact" : ""})
-            {" · "}
-            {starConjunction.star.archetype}
-          </span>
-        )}
-      </div>
-
-      {/* Tab bar */}
-      <div style={tabBar}>
-        {TABS.map(t => (
+          {/* Cast the Reading button */}
           <button
-            key={t.id}
-            style={tabStyle(activeTab === t.id)}
-            onClick={() => setActiveTab(t.id)}
+            style={{
+              display: "block",
+              margin: "28px 36px",
+              background: "transparent",
+              border: `1px solid rgba(196,162,74,0.5)`,
+              color: C.gold,
+              padding: "16px 40px",
+              fontSize: 10,
+              letterSpacing: "0.28em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              fontFamily: "sans-serif",
+              transition: "all 0.2s",
+              width: "auto",
+              textShadow: `0 0 16px rgba(196,162,74,0.35)`,
+            }}
+            onClick={goToResults}
           >
-            {t.label}
+            ✦ &nbsp; Cast the Reading
           </button>
-        ))}
-      </div>
-
-      {/* Content area */}
-      {loading ? (
-        <div style={loadRow}>
-          <div style={dot} />
-          <div style={{ ...dot, animationDelay: "0.22s" }} />
-          <div style={{ ...dot, animationDelay: "0.44s" }} />
-          <span style={{ marginLeft: 10 }}>Reading the fixed sky</span>
         </div>
-      ) : error ? (
-        <div style={errMsg}>{error}</div>
-      ) : currentRead ? (
-        <div style={readingArea}>
-          <div style={readingText}>{currentRead}</div>
-        </div>
-      ) : (
-        <button style={interpretBtn} onClick={fetchReading}>
-          ✦ &nbsp; Interpret this placement
-        </button>
       )}
 
-      <div style={{ marginTop: 24 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {lensesQuery.data &&
-            lensesQuery.data.map(lens => (
-              <button
-                key={lens.id}
-                onClick={() => fetchLensReading(lens.id)}
+      {/* ── SCREEN 2: RESULTS DASHBOARD ── */}
+      {activeScreen === "results" && (
+        <div className="screen-enter">
+          {/* Header with back button */}
+          <div
+            style={{
+              ...header,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <h1 style={title}>THE FIRMAMENT</h1>
+              <p style={sub}>Natal Interpretation Engine</p>
+            </div>
+            <button
+              onClick={backToInputs}
+              style={{
+                background: "transparent",
+                border: `1px solid rgba(196,162,74,0.35)`,
+                color: C.ash,
+                padding: "10px 18px",
+                fontSize: 9,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                fontFamily: "sans-serif",
+                transition: "all 0.2s",
+              }}
+            >
+              ← Back to Inputs
+            </button>
+          </div>
+
+          {/* Summary card */}
+          <div
+            style={{
+              ...badge,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span style={badgePlacement}>
+                {planet} {degree}° {sign} · {house} House
+              </span>
+              {dignityNote && <span style={badgeDignity}>{dignityNote}</span>}
+            </div>
+            {starConjunction && (
+              <span
                 style={{
-                  padding: "8px 14px",
-                  borderRadius: 6,
-                  border: "1px solid var(--rim)",
-                  background:
-                    activeLens === lens.id
-                      ? "rgba(100,160,220,0.25)"
-                      : "transparent",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 13,
+                  fontFamily: "sans-serif",
+                  fontSize: 10,
+                  letterSpacing: "0.14em",
+                  color: starConjunction.star.isRoyal ? C.gold : C.silver,
+                  fontStyle: "italic",
+                  opacity: starConjunction.star.isRoyal ? 1 : 0.75,
+                  textAlign: "right",
                 }}
               >
-                {lens.label}
+                {starConjunction.star.isRoyal ? "✦ " : "· "}
+                {planet} conjunct {starConjunction.star.name}
+                {starConjunction.star.isRoyal ? " — Royal Star" : ""}
+              </span>
+            )}
+          </div>
+
+          {/* Horizontal-scrolling pill bar */}
+          <div
+            style={{
+              ...tabBar,
+              position: "relative",
+              overflowX: "auto",
+            }}
+          >
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                style={{
+                  ...tabStyle(activeTab === t.id),
+                  padding: "12px 20px",
+                  fontSize: 10,
+                  borderRadius: 4,
+                  backgroundColor: activeTab === t.id ? `rgba(196,162,74,0.15)` : "transparent",
+                  border: activeTab === t.id ? `1px solid ${C.gold}` : `1px solid transparent`,
+                  margin: "12px 8px 12px 0",
+                  whiteSpace: "nowrap",
+                  borderBottom: "none",
+                  minWidth: "fit-content",
+                }}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
               </button>
             ))}
-        </div>
-
-        {getLensReading.isPending && (
-          <p style={{ marginTop: 12 }}>Reading the circuit...</p>
-        )}
-
-        {lensResult && (
-          <div style={{ marginTop: 16, whiteSpace: "pre-wrap" }}>
-            {lensResult}
+            {/* Right gradient fade to signal swipeability */}
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 40,
+                background: `linear-gradient(to right, transparent, ${C.void})`,
+                pointerEvents: "none",
+              }}
+            />
           </div>
-        )}
-      </div>
+
+          {/* Content area */}
+          {loading ? (
+            <div style={loadRow}>
+              <div style={dot} />
+              <div style={{ ...dot, animationDelay: "0.22s" }} />
+              <div style={{ ...dot, animationDelay: "0.44s" }} />
+              <span style={{ marginLeft: 10 }}>Engaging the Firmament...</span>
+            </div>
+          ) : error ? (
+            <div
+              style={{
+                ...errMsg,
+                background: `rgba(201,64,64,0.15)`,
+                border: `1px solid rgba(201,64,64,0.3)`,
+                borderRadius: 4,
+                margin: "28px 36px",
+              }}
+            >
+              {error}
+            </div>
+          ) : currentRead ? (
+            <div style={readingArea}>
+              <div style={readingText}>{currentRead}</div>
+            </div>
+          ) : null}
+
+          {/* Lenses section */}
+          <div style={{ padding: "28px 36px" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {lensesQuery.data &&
+                lensesQuery.data.map(lens => (
+                  <button
+                    key={lens.id}
+                    onClick={() => fetchLensReading(lens.id)}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 4,
+                      border: `1px solid ${C.line}`,
+                      background:
+                        activeLens === lens.id
+                          ? `rgba(196,162,74,0.2)`
+                          : "transparent",
+                      color: activeLens === lens.id ? C.gold : C.ash,
+                      cursor: "pointer",
+                      fontSize: 11,
+                      fontFamily: "sans-serif",
+                      transition: "all 0.2s",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {lens.label}
+                  </button>
+                ))}
+            </div>
+
+            {getLensReading.isPending && (
+              <p
+                style={{
+                  marginTop: 12,
+                  color: C.goldDim,
+                  fontSize: 11,
+                  fontFamily: "sans-serif",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Reading the circuit...
+              </p>
+            )}
+
+            {lensResult && (
+              <div
+                style={{
+                  marginTop: 16,
+                  whiteSpace: "pre-wrap",
+                  fontFamily: "'Georgia', serif",
+                  fontSize: 14,
+                  lineHeight: 1.8,
+                  color: C.dim,
+                }}
+              >
+                {lensResult}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

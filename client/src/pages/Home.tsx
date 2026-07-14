@@ -1224,16 +1224,94 @@ export default function Home() {
         </Panel>
       </div>
 
-      {/* Context panel */}
-      <Panel title="Optional Context" style={{ marginBottom: "20px" }}>
+      {/* Horary Question Panel */}
+      <Panel title="Ask the Firmament" style={{ marginBottom: "20px" }}>
+        <div style={{ marginBottom: "12px" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              color: "var(--silver-dim)",
+              fontStyle: "italic",
+              marginBottom: "10px",
+            }}
+          >
+            ✦ Pose a specific question and the stars will answer. Leave blank for a general reading.
+          </div>
+        </div>
         <textarea
           value={contextInput}
           onChange={e => setContextInput(e.target.value)}
-          placeholder="Anything on your mind — relationships, career, spiritual questions, what you're going through right now. The more you share, the more specific the reading."
-          style={{ ...textareaStyle, minHeight: "80px" }}
-          onFocus={e => (e.target.style.borderColor = "var(--ice)")}
-          onBlur={e => (e.target.style.borderColor = "var(--rim)")}
+          placeholder="What weighs on your mind? Relationships · Career · Purpose · Timing · Obstacles · Hidden patterns. Be specific — 'Why do I keep choosing the wrong partners?' is more powerful than 'Tell me about love.'"
+          style={{
+            ...textareaStyle,
+            minHeight: "100px",
+            background: "linear-gradient(135deg, rgba(100,160,220,0.05), rgba(200,146,58,0.05))",
+            borderColor: "rgba(196,162,74,0.25)",
+            color: "var(--silver)",
+          }}
+          onFocus={e => {
+            e.target.style.borderColor = "var(--ice)";
+            e.target.style.boxShadow = "0 0 12px rgba(100,160,220,0.2)";
+            e.target.style.background = "linear-gradient(135deg, rgba(100,160,220,0.1), rgba(200,146,58,0.05))";
+          }}
+          onBlur={e => {
+            e.target.style.borderColor = "rgba(196,162,74,0.25)";
+            e.target.style.boxShadow = "none";
+            e.target.style.background = "linear-gradient(135deg, rgba(100,160,220,0.05), rgba(200,146,58,0.05))";
+          }}
         />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gap: "8px",
+            marginTop: "12px",
+          }}
+        >
+          {[
+            "Relationships & Love",
+            "Career & Purpose",
+            "Timing & Cycles",
+            "Hidden Patterns",
+            "Obstacles & Blocks",
+            "Next Steps",
+          ].map(topic => (
+            <button
+              key={topic}
+              onClick={() =>
+                setContextInput(prev =>
+                  prev.trim()
+                    ? prev + " — " + topic
+                    : "Help me understand: " + topic.toLowerCase()
+                )
+              }
+              style={{
+                background: "rgba(196,162,74,0.08)",
+                border: "1px solid rgba(196,162,74,0.2)",
+                borderRadius: "3px",
+                color: "var(--silver)",
+                padding: "6px 10px",
+                fontSize: "11px",
+                fontFamily: "'Cinzel', serif",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                letterSpacing: "0.5px",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "rgba(196,162,74,0.15)";
+                e.currentTarget.style.borderColor = "rgba(196,162,74,0.4)";
+                e.currentTarget.style.color = "var(--ember)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "rgba(196,162,74,0.08)";
+                e.currentTarget.style.borderColor = "rgba(196,162,74,0.2)";
+                e.currentTarget.style.color = "var(--silver)";
+              }}
+            >
+              {topic}
+            </button>
+          ))}
+        </div>
       </Panel>
 
       {/* Error */}
