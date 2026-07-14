@@ -92,7 +92,7 @@ export const authRouter = router({
     }),
 
   logout: publicProcedure.mutation(async ({ ctx }) => {
-    ctx.res.clearCookie(COOKIE_NAME);
+    ctx.res.clearCookie(COOKIE_NAME, { ...getSessionCookieOptions(ctx.req), maxAge: -1 });
     return { success: true };
   }),
 
