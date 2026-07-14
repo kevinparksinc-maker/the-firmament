@@ -8,6 +8,39 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 
+// Register PWA service worker for offline support
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then(registration => {
+        console.log("✦ Service Worker registered:", registration);
+      })
+      .catch(error => {
+        console.log("Service Worker registration failed:", error);
+      });
+  });
+}
+
+// Initialize Capacitor for mobile
+if (
+  (window as any).CapacitorIsNativeIOS ||
+  (window as any).CapacitorIsNativeAndroid
+) {
+  import("@capacitor/core").then(({ Capacitor }) => {
+    Capacitor.isNativePlatform().then(isNative => {
+      if (isNative) {
+        console.log("✦ Running as native mobile app");
+        // Initialize native plugins
+        import("@capacitor/status-bar").then(({ StatusBar }) => {
+          StatusBar.setBackgroundColor({ color: "#03020A" });
+          StatusBar.setStyle({ style: "DARK" });
+        });
+      }
+    });
+  });
+}
+
 const queryClient = new QueryClient();
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
