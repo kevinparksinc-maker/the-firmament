@@ -324,14 +324,20 @@ VOICE: A master of the ancient sky sitting across the table. Direct, specific, n
 
 /** Render the key engine inputs as readable lines for the prompt. */
 function summarizeFacts(c: SportsHoraryChart): string {
-  const lordLine = (label: string, l: LordFacts) =>
-    `${label}: ${l.planet} in H${l.house}` +
-    ` (${l.dignity}` +
-    `${l.combust ? ", combust" : ""}${l.cazimi ? ", cazimi" : ""}` +
-    `${l.besieged ? ", besieged" : ""}` +
-    `${l.maleficFromDeathHouses ? ", afflicted from H6/H8" : ""}` +
-    `${l.beneficAspect ? ", benefic support" : ""}` +
-    `${l.fixedStar ? `, conjunct ${l.fixedStar}` : ""})`;
+  const lordLine = (label: string, l: LordFacts) => {
+    let line = `${label}: ${l.planet} in H${l.house}` +
+      ` (${l.dignity}` +
+      `${l.combust ? ", combust" : ""}${l.cazimi ? ", cazimi" : ""}` +
+      `${l.besieged ? ", besieged" : ""}` +
+      `${l.maleficFromDeathHouses ? ", afflicted from H6/H8" : ""}` +
+      `${l.beneficAspect ? ", benefic support" : ""}`;
+
+    if (l.fixedStar) {
+      line += `, conjunct ${l.fixedStar.name} (${l.fixedStar.influence})`;
+    }
+    line += ")";
+    return line;
+  };
   return [
     lordLine("Favorite lord (L1)", c.l1),
     lordLine("Challenger lord (L7)", c.l7),
