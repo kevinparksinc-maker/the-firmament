@@ -101,6 +101,25 @@ export default function SportsHorary() {
     flags: string[];
   } | null>(null);
 
+  const calculateChart = trpc.ephemeris.calculate.useMutation({
+    onSuccess: data => {
+      const chartText = Object.entries(data.planets)
+        .map(([planet, info]: [string, any]) => {
+          const house = info.house ? `, ${info.house}th house` : "";
+          const retrograde = info.retrograde ? " Rx" : "";
+          return `${planet}: ${info.degree.toFixed(2)}° ${info.sign}${house}${retrograde}`;
+        })
+        .join("\n");
+      setTransitInput(chartText);
+    },
+    onError: err => {
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: `Could not calculate chart: ${err.message}` },
+      ]);
+    },
+  });
+
   const ask = trpc.sportsHorary.ask.useMutation({
     onSuccess: data => {
       setMessages(prev => [...prev, { role: "assistant", content: data.answer }]);
@@ -117,6 +136,30 @@ export default function SportsHorary() {
       ]);
     },
   });
+
+  const handleCalculateChart = () => {
+    if (!eventDate || !eventTime) {
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: "I need the event date and time to calculate the chart." },
+      ]);
+      return;
+    }
+    const [year, month, day] = eventDate.split("-");
+    const [hours, minutes] = eventTime.split(":");
+    calculateChart.mutate({
+      year: parseInt(year),
+      month: parseInt(month),
+      day: parseInt(day),
+      hours: parseInt(hours),
+      minutes: parseInt(minutes),
+      seconds: 0,
+      latitude: 40.7128,
+      longitude: -74.006,
+      timezone: "UTC",
+      locationName: eventLocation || "Event location",
+    });
+  };
 
   const handleSend = (content: string) => {
     if (transitInput.trim().length < 10) {
@@ -198,6 +241,14 @@ export default function SportsHorary() {
             className="rounded-lg border-2 border-border bg-card p-2 text-sm"
           />
         </div>
+
+        <button
+          onClick={handleCalculateChart}
+          disabled={calculateChart.isPending || !eventDate || !eventTime}
+          className="w-full mb-4 rounded-lg bg-primary text-primary-foreground p-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition"
+        >
+          {calculateChart.isPending ? "Calculating..." : "✦ Calculate Event Chart ✦"}
+        </button>
 
         <textarea
           value={transitInput}
