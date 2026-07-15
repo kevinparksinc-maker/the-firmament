@@ -1421,7 +1421,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Conversation Layer */}
+      {/* Horary Oracle Conversation */}
       {chartLocked && (
         <div style={{ marginTop: "32px" }}>
           <div
@@ -1435,17 +1435,21 @@ export default function Home() {
               letterSpacing: "4px",
               color: "var(--ember)",
               background: "var(--deep)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
-            ✦ CONSULT THE FIRMAMENT
+            <span>✦ THE HORARY ORACLE ✦</span>
+            <span style={{ fontSize: "9px", color: "var(--silver-dim)", letterSpacing: "2px" }}>FOLLOW-UP QUESTIONS</span>
           </div>
           <AIChatBox
             messages={chatHistory}
             onSendMessage={sendChat}
             isLoading={chatLoading}
             height="500px"
-            placeholder="Ask the stars anything..."
-            emptyStateMessage="The heavens are open. What would you know?"
+            placeholder="Ask your follow-up questions. What else do you wish to know about this reading?"
+            emptyStateMessage="The oracle awaits your inquiry. Deepen your understanding with a follow-up question."
             className="rounded-t-none border-t-0"
           />
         </div>
