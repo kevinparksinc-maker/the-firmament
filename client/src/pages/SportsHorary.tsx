@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 
@@ -89,6 +90,9 @@ function VerdictBanner({
 export default function SportsHorary() {
   const [favorite, setFavorite] = useState("");
   const [challenger, setChallenger] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [eventLocation, setEventLocation] = useState("");
   const [transitInput, setTransitInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [result, setResult] = useState<{
@@ -143,15 +147,19 @@ export default function SportsHorary() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <header className="text-center mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <Link href="/" className="text-sm text-primary hover:opacity-70 transition">
+            ← Back to Home
+          </Link>
           <h1 className="text-3xl font-bold" style={{ fontFamily: "serif" }}>
-            Firmament · Sports Horary
+            Sports Horary
           </h1>
-          <p className="text-sm opacity-70 mt-1">
-            Ascendant (H1) = Favorite · Descendant (H7) = Challenger. The engine
-            scores the chart; the oracle explains the call.
-          </p>
-        </header>
+          <div style={{ width: "120px" }} />
+        </div>
+        <p className="text-sm opacity-70 text-center mb-6">
+          Ascendant (H1) = Favorite · Descendant (H7) = Challenger. The engine
+          scores the chart; the oracle explains the call.
+        </p>
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <input
@@ -164,6 +172,29 @@ export default function SportsHorary() {
             value={challenger}
             onChange={e => setChallenger(e.target.value)}
             placeholder="Challenger (H7)"
+            className="rounded-lg border-2 border-border bg-card p-2 text-sm"
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <input
+            type="date"
+            value={eventDate}
+            onChange={e => setEventDate(e.target.value)}
+            placeholder="Event Date"
+            className="rounded-lg border-2 border-border bg-card p-2 text-sm"
+          />
+          <input
+            type="time"
+            value={eventTime}
+            onChange={e => setEventTime(e.target.value)}
+            placeholder="Event Time"
+            className="rounded-lg border-2 border-border bg-card p-2 text-sm"
+          />
+          <input
+            value={eventLocation}
+            onChange={e => setEventLocation(e.target.value)}
+            placeholder="Location"
             className="rounded-lg border-2 border-border bg-card p-2 text-sm"
           />
         </div>
