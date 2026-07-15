@@ -5,6 +5,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Streamdown } from "streamdown";
+import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import {
   runAstroReading,
@@ -1055,6 +1056,11 @@ export default function Home() {
               {label}
             </div>
           ))}
+        </div>
+        <div style={{ marginTop: "24px", fontSize: "12px" }}>
+          <Link href="/sports" style={{ color: "var(--ember)", textDecoration: "none", opacity: 0.7, transition: "opacity 0.3s" }} onMouseEnter={e => e.currentTarget.style.opacity = "1"} onMouseLeave={e => e.currentTarget.style.opacity = "0.7"}>
+            ✦ SPORTS PREDICTION ✦
+          </Link>
         </div>
       </header>
 
