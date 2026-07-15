@@ -22,23 +22,18 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-// Initialize Capacitor for mobile
-if (
-  (window as any).CapacitorIsNativeIOS ||
-  (window as any).CapacitorIsNativeAndroid
-) {
-  import("@capacitor/core").then(({ Capacitor }) => {
-    Capacitor.isNativePlatform().then(isNative => {
+// Optional: Initialize Capacitor for native mobile apps (if available)
+if (typeof (window as any).Capacitor !== "undefined") {
+  try {
+    const { Capacitor } = (window as any);
+    Capacitor.isNativePlatform?.().then((isNative: boolean) => {
       if (isNative) {
         console.log("✦ Running as native mobile app");
-        // Initialize native plugins
-        import("@capacitor/status-bar").then(({ StatusBar }) => {
-          StatusBar.setBackgroundColor({ color: "#03020A" });
-          StatusBar.setStyle({ style: "DARK" });
-        });
       }
     });
-  });
+  } catch (e) {
+    // Capacitor not available, running as PWA
+  }
 }
 
 const queryClient = new QueryClient();
