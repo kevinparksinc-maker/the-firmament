@@ -81,7 +81,7 @@ describe("calculateCompositeScore", () => {
   it("§VI Algol on L1 → −8 and 'doomed'", () => {
     const r = calculateCompositeScore(
       chart({
-        l1: lord({ fixedStar: "Algol" }),
+        l1: lord({ fixedStar: { name: "Algol", influence: "malefic, testing" } }),
         moon: { phase: "waning", house: 3 }, // −2 momentum to isolate
       })
     );
@@ -94,7 +94,7 @@ describe("calculateCompositeScore", () => {
     const r = calculateCompositeScore(
       chart({
         l1: lord({ house: 6, dignity: "exaltation" }), // +4 +3 → strongly Favorite
-        l7: lord({ planet: "Venus", fixedStar: "Regulus" }),
+        l7: lord({ planet: "Venus", fixedStar: { name: "Regulus", influence: "fortunate, protective" } }),
       })
     );
     expect(r.score).toBeGreaterThan(0); // score says Favorite...
@@ -104,8 +104,8 @@ describe("calculateCompositeScore", () => {
   it("§VI Regulus on BOTH lords → forced Even (draw)", () => {
     const r = calculateCompositeScore(
       chart({
-        l1: lord({ fixedStar: "Regulus" }),
-        l7: lord({ planet: "Venus", fixedStar: "Regulus" }),
+        l1: lord({ fixedStar: { name: "Regulus", influence: "fortunate, protective" } }),
+        l7: lord({ planet: "Venus", fixedStar: { name: "Regulus", influence: "fortunate, protective" } }),
       })
     );
     expect(r.verdict).toBe("Even");
