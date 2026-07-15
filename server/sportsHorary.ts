@@ -31,6 +31,7 @@ export interface SportsScore {
   score: number;
   verdict: Verdict;
   flags: string[];
+  breakdown: string[]; // How points were calculated
 }
 
 // ─── INPUT CONTRACT ─────────────────────────────────────────────────────────
@@ -130,8 +131,12 @@ function inViaCombusta(longitude: number): boolean {
 export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
   let score = 0;
   const flags: string[] = [];
-  const add = (pts: number) => {
+  const breakdown: string[] = [];
+  const add = (pts: number, reason: string = "") => {
     score += pts;
+    if (reason) {
+      breakdown.push(`${pts > 0 ? "+" : ""}${pts} — ${reason}`);
+    }
   };
   const pushFlag = (f: string) => {
     if (!flags.includes(f)) flags.push(f);
@@ -287,28 +292,30 @@ export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
 
   // All fixed stars contribute to the score
   if (l1.fixedStar) {
-    if (l1.fixedStar.name === "Spica") add(+5);
-    else if (l1.fixedStar.name === "Aldebaran") add(+4); // Watcher, protective
-    else if (l1.fixedStar.name === "Antares") add(-3); // Challenging
+    if (l1.fixedStar.name === "Spica") add(+5, `L1 conjunct Spica (${l1.fixedStar.influence})`);
+    else if (l1.fixedStar.name === "Aldebaran") add(+4, `L1 conjunct Aldebaran (${l1.fixedStar.influence})`);
+    else if (l1.fixedStar.name === "Antares") add(-3, `L1 conjunct Antares (${l1.fixedStar.influence})`);
     else if (l1.fixedStar.name === "Algol") {
-      add(-8);
+      add(-8, `L1 conjunct Algol (${l1.fixedStar.influence}) — DOOMED`);
       pushFlag("doomed");
     }
-    else if (l1.fixedStar.name === "Sirius") add(+3); // fortunate
-    else if (l1.fixedStar.influence?.includes("benefic")) add(+2);
-    else if (l1.fixedStar.influence?.includes("malefic")) add(-2);
+    else if (l1.fixedStar.name === "Sirius") add(+3, `L1 conjunct Sirius (${l1.fixedStar.influence})`);
+    else if (l1.fixedStar.name === "Regulus") add(+6, `L1 conjunct Regulus (${l1.fixedStar.influence}) — OVERRIDE`);
+    else if (l1.fixedStar.influence?.includes("benefic")) add(+2, `L1 conjunct ${l1.fixedStar.name} (benefic)`);
+    else if (l1.fixedStar.influence?.includes("malefic")) add(-2, `L1 conjunct ${l1.fixedStar.name} (malefic)`);
   }
   if (l7.fixedStar) {
-    if (l7.fixedStar.name === "Spica") add(-5); // mirror
-    else if (l7.fixedStar.name === "Aldebaran") add(-4);
-    else if (l7.fixedStar.name === "Antares") add(+3);
+    if (l7.fixedStar.name === "Spica") add(-5, `L7 conjunct Spica (${l7.fixedStar.influence})`);
+    else if (l7.fixedStar.name === "Aldebaran") add(-4, `L7 conjunct Aldebaran (${l7.fixedStar.influence})`);
+    else if (l7.fixedStar.name === "Antares") add(+3, `L7 conjunct Antares (${l7.fixedStar.influence})`);
     else if (l7.fixedStar.name === "Algol") {
-      add(+8); // mirror
+      add(+8, `L7 conjunct Algol (${l7.fixedStar.influence}) — DOOMED`);
       pushFlag("doomed_challenger");
     }
-    else if (l7.fixedStar.name === "Sirius") add(-3);
-    else if (l7.fixedStar.influence?.includes("benefic")) add(-2);
-    else if (l7.fixedStar.influence?.includes("malefic")) add(+2);
+    else if (l7.fixedStar.name === "Sirius") add(-3, `L7 conjunct Sirius (${l7.fixedStar.influence})`);
+    else if (l7.fixedStar.name === "Regulus") add(-6, `L7 conjunct Regulus (${l7.fixedStar.influence}) — OVERRIDE`);
+    else if (l7.fixedStar.influence?.includes("benefic")) add(-2, `L7 conjunct ${l7.fixedStar.name} (benefic)`);
+    else if (l7.fixedStar.influence?.includes("malefic")) add(+2, `L7 conjunct ${l7.fixedStar.name} (malefic)`);
   }
 
   // ══ §IX STEP 7 — Thresholds ════════════════════════════════════════════════
@@ -323,5 +330,5 @@ export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
     verdict = "Even";
   }
 
-  return { score, verdict, flags };
+  return { score, verdict, flags, breakdown };
 }

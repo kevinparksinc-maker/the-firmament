@@ -310,6 +310,9 @@ ENGINE VERDICT (authoritative):
 - VERDICT: ${score.verdict}  →  ${winner}
 - Flags: ${score.flags.length ? score.flags.join(", ") : "(none)"}
 
+SCORE BREAKDOWN (how points were calculated):
+${score.breakdown.length ? score.breakdown.map(b => `  ${b}`).join("\n") : "  (no points awarded)"}
+
 CHART FACTORS THE ENGINE READ:
 ${factsSummary}
 
