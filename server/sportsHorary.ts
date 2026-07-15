@@ -65,7 +65,7 @@ export interface LordFacts {
   maleficFromDeathHouses: boolean; // afflicted by a malefic aspecting from H6/H8
   beneficAspect: boolean; // receives a benefic aspect
   /** 1–2° conjunction with a royal/fixed star, if any (§VI). */
-  fixedStar: "Regulus" | "Spica" | "Algol" | null;
+  fixedStar: { name: string; influence: string } | null;
 }
 
 export interface SportsHoraryChart {
@@ -279,22 +279,36 @@ export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
 
   // ══ §IX STEP 6 — §VI Fixed Star Override (can override everything above) ═══
   let forcedVerdict: Verdict | null = null;
-  const regulusL1 = l1.fixedStar === "Regulus";
-  const regulusL7 = l7.fixedStar === "Regulus";
+  const regulusL1 = l1.fixedStar?.name === "Regulus";
+  const regulusL7 = l7.fixedStar?.name === "Regulus";
   if (regulusL1 && regulusL7) forcedVerdict = "Even"; // "Draw" if both
   else if (regulusL1) forcedVerdict = "Favorite";
   else if (regulusL7) forcedVerdict = "Challenger";
-  // Spica — luck bonus (can overcome a deficit)
-  if (l1.fixedStar === "Spica") add(+5);
-  if (l7.fixedStar === "Spica") add(-5); // mirror
-  // Algol — the demon star
-  if (l1.fixedStar === "Algol") {
-    add(-8);
-    pushFlag("doomed");
+
+  // All fixed stars contribute to the score
+  if (l1.fixedStar) {
+    if (l1.fixedStar.name === "Spica") add(+5);
+    else if (l1.fixedStar.name === "Aldebaran") add(+4); // Watcher, protective
+    else if (l1.fixedStar.name === "Antares") add(-3); // Challenging
+    else if (l1.fixedStar.name === "Algol") {
+      add(-8);
+      pushFlag("doomed");
+    }
+    else if (l1.fixedStar.name === "Sirius") add(+3); // fortunate
+    else if (l1.fixedStar.influence?.includes("benefic")) add(+2);
+    else if (l1.fixedStar.influence?.includes("malefic")) add(-2);
   }
-  if (l7.fixedStar === "Algol") {
-    add(+8); // mirror
-    pushFlag("doomed_challenger");
+  if (l7.fixedStar) {
+    if (l7.fixedStar.name === "Spica") add(-5); // mirror
+    else if (l7.fixedStar.name === "Aldebaran") add(-4);
+    else if (l7.fixedStar.name === "Antares") add(+3);
+    else if (l7.fixedStar.name === "Algol") {
+      add(+8); // mirror
+      pushFlag("doomed_challenger");
+    }
+    else if (l7.fixedStar.name === "Sirius") add(-3);
+    else if (l7.fixedStar.influence?.includes("benefic")) add(-2);
+    else if (l7.fixedStar.influence?.includes("malefic")) add(+2);
   }
 
   // ══ §IX STEP 7 — Thresholds ════════════════════════════════════════════════

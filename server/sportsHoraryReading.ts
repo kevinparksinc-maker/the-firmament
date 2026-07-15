@@ -92,14 +92,25 @@ function dignityOf(p: PlanetPlacement): Dignity {
   return "neutral";
 }
 
-/** 1.5° conjunction with Regulus / Spica / Algol, else null. */
-function fixedStarConjunct(
-  p: PlanetPlacement
-): "Regulus" | "Spica" | "Algol" | null {
+/** Find any fixed star within 2° conjunction (includes all Royal Stars + major navigational stars). */
+function fixedStarConjunct(p: PlanetPlacement): { name: string; influence: string } | null {
   const L = lon(p);
-  for (const name of ["Regulus", "Spica", "Algol"] as const) {
-    const star = FIXED_STARS.find(s => s.shortName === name || s.name === name);
-    if (star && sep(L, ((star.sidDegree % 360) + 360) % 360) <= 1.5) return name;
+  for (const star of FIXED_STARS) {
+    const starLon = ((star.sidDegree % 360) + 360) % 360;
+    const d = sep(L, starLon);
+
+    // Royal Stars (Aldebaran, Regulus, Antares, Fomalhaut) and major navigational stars get 2° orb
+    const isRoyal = ["Aldebaran", "Regulus", "Antares", "Fomalhaut", "Sirius", "Polaris"].includes(star.name);
+    const orb = isRoyal ? 2.0 : 1.5;
+
+    if (d <= orb) {
+      const influence = star.meaning || (
+        star.nature === "benefic" ? "fortunate, protective" :
+        star.nature === "malefic" ? "challenging, testing" :
+        "neutral"
+      );
+      return { name: star.name, influence };
+    }
   }
   return null;
 }
