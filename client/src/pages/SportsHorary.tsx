@@ -20,6 +20,34 @@ Jupiter: 8° Sagittarius, 9th house
 Venus: 12° Libra, 7th house
 Saturn: 25° Capricorn, 10th house`;
 
+const MAJOR_CITIES = {
+  "New York": { lat: 40.7128, lon: -74.006 },
+  "Los Angeles": { lat: 34.0522, lon: -118.2437 },
+  "Chicago": { lat: 41.8781, lon: -87.6298 },
+  "Houston": { lat: 29.7604, lon: -95.3698 },
+  "Phoenix": { lat: 33.4484, lon: -112.074 },
+  "Philadelphia": { lat: 39.9526, lon: -75.1652 },
+  "San Antonio": { lat: 29.4241, lon: -98.4936 },
+  "San Diego": { lat: 32.7157, lon: -117.1611 },
+  "Dallas": { lat: 32.7767, lon: -96.797 },
+  "San Jose": { lat: 37.3382, lon: -121.8863 },
+  "Miami": { lat: 25.7617, lon: -80.1918 },
+  "Denver": { lat: 39.7392, lon: -104.9903 },
+  "Seattle": { lat: 47.6062, lon: -122.3321 },
+  "Boston": { lat: 42.3601, lon: -71.0589 },
+  "Las Vegas": { lat: 36.1699, lon: -115.1398 },
+  "Atlanta": { lat: 33.749, lon: -84.388 },
+  "London": { lat: 51.5074, lon: -0.1278 },
+  "Paris": { lat: 48.8566, lon: 2.3522 },
+  "Tokyo": { lat: 35.6762, lon: 139.6503 },
+  "Sydney": { lat: -33.8688, lon: 151.2093 },
+  "Mumbai": { lat: 19.0760, lon: 72.8777 },
+  "Dubai": { lat: 25.2048, lon: 55.2708 },
+  "Singapore": { lat: 1.3521, lon: 103.8198 },
+  "Toronto": { lat: 43.6532, lon: -79.3832 },
+  "Mexico City": { lat: 19.4326, lon: -99.1332 },
+};
+
 type Verdict = "Favorite" | "Challenger" | "Even";
 
 function VerdictBanner({
@@ -92,7 +120,8 @@ export default function SportsHorary() {
   const [challenger, setChallenger] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
-  const [eventLocation, setEventLocation] = useState("");
+  const [selectedCity, setSelectedCity] = useState("New York");
+  const [customLocation, setCustomLocation] = useState("");
   const [transitInput, setTransitInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [result, setResult] = useState<{
@@ -147,6 +176,10 @@ export default function SportsHorary() {
     }
     const [year, month, day] = eventDate.split("-");
     const [hours, minutes] = eventTime.split(":");
+
+    const city = MAJOR_CITIES[selectedCity as keyof typeof MAJOR_CITIES];
+    const coords = city || { lat: 40.7128, lon: -74.006 };
+
     calculateChart.mutate({
       year: parseInt(year),
       month: parseInt(month),
@@ -154,10 +187,10 @@ export default function SportsHorary() {
       hours: parseInt(hours),
       minutes: parseInt(minutes),
       seconds: 0,
-      latitude: 40.7128,
-      longitude: -74.006,
+      latitude: coords.lat,
+      longitude: coords.lon,
       timezone: "UTC",
-      locationName: eventLocation || "Event location",
+      locationName: customLocation || selectedCity,
     });
   };
 
@@ -234,13 +267,26 @@ export default function SportsHorary() {
             placeholder="Event Time"
             className="rounded-lg border-2 border-border bg-card p-2 text-sm"
           />
-          <input
-            value={eventLocation}
-            onChange={e => setEventLocation(e.target.value)}
-            placeholder="Location"
+          <select
+            value={selectedCity}
+            onChange={e => setSelectedCity(e.target.value)}
             className="rounded-lg border-2 border-border bg-card p-2 text-sm"
-          />
+          >
+            {Object.keys(MAJOR_CITIES).map(city => (
+              <option key={city} value={city}>
+                {city}
+              </option>
+            ))}
+          </select>
         </div>
+
+        <input
+          type="text"
+          value={customLocation}
+          onChange={e => setCustomLocation(e.target.value)}
+          placeholder="Custom location (optional, overrides city selection)"
+          className="w-full rounded-lg border-2 border-border bg-card p-2 text-sm mb-3"
+        />
 
         <button
           onClick={handleCalculateChart}
