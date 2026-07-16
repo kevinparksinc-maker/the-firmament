@@ -28,6 +28,7 @@ import { NatalPlacements } from "@/components/NatalPlacements";
 import FirmamentEngine from "@/components/FirmamentEngine";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 import { ChartWheel } from "@/components/ChartWheel";
+import { AppsHub } from "@/components/AppsHub";
 import { mergeOcrText } from "@/lib/mergeOcrText";
 import {
   detectFixedStarConjunctions,
@@ -1063,6 +1064,11 @@ export default function Home() {
           </Link>
         </div>
       </header>
+
+      {/* Apps Hub */}
+      <div style={{ marginBottom: "32px", marginTop: "24px" }}>
+        <AppsHub />
+      </div>
 
       {/* Date row */}
       <div
