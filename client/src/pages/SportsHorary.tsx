@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
+import { speak, stopSpeaking, isSpeaking } from "@/lib/textToSpeech";
+import { Volume2, Square } from "lucide-react";
 
 /**
  * SPORTS HORARY PAGE  (route: /sports)
@@ -129,6 +131,7 @@ export default function SportsHorary() {
     score: number;
     flags: string[];
   } | null>(null);
+  const [isSpeakingAnswer, setIsSpeakingAnswer] = useState(false);
 
   const calculateChart = trpc.ephemeris.calculate.useMutation({
     onSuccess: data => {
@@ -220,6 +223,24 @@ export default function SportsHorary() {
     });
   };
 
+  const handleListen = () => {
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find(m => m.role === "assistant");
+
+    if (!lastAssistantMessage) return;
+
+    if (isSpeakingAnswer) {
+      stopSpeaking();
+      setIsSpeakingAnswer(false);
+    } else {
+      speak(lastAssistantMessage.content, () => {
+        setIsSpeakingAnswer(false);
+      });
+      setIsSpeakingAnswer(true);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-3xl mx-auto px-4 py-8">
@@ -304,13 +325,33 @@ export default function SportsHorary() {
         />
 
         {result && (
-          <VerdictBanner
-            verdict={result.verdict}
-            score={result.score}
-            flags={result.flags}
-            favorite={favorite}
-            challenger={challenger}
-          />
+          <>
+            <VerdictBanner
+              verdict={result.verdict}
+              score={result.score}
+              flags={result.flags}
+              favorite={favorite}
+              challenger={challenger}
+            />
+            {messages.some(m => m.role === "assistant") && (
+              <button
+                onClick={handleListen}
+                className="w-full mb-4 rounded-lg border-2 border-primary bg-primary/10 text-primary p-2 text-sm font-medium hover:bg-primary/20 transition flex items-center justify-center gap-2"
+              >
+                {isSpeakingAnswer ? (
+                  <>
+                    <Square className="size-4" />
+                    Stop listening
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="size-4" />
+                    Listen to the reading
+                  </>
+                )}
+              </button>
+            )}
+          </>
         )}
 
         <AIChatBox
