@@ -178,7 +178,28 @@ export default function SportsHorary() {
       return;
     }
     const [year, month, day] = eventDate.split("-");
-    const [hours, minutes] = eventTime.split(":");
+
+    // Parse time format: can be "14:30" (24h) or "2:30 PM" (12h with AM/PM)
+    let hours = 0, minutes = 0;
+    const timeStr = eventTime.trim();
+    const hasAMPM = /\s*(AM|PM|am|pm)/.test(timeStr);
+
+    if (hasAMPM) {
+      // 12-hour format with AM/PM
+      const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM|am|pm)/i);
+      if (match) {
+        hours = parseInt(match[1]);
+        minutes = parseInt(match[2]);
+        const meridiem = match[3].toUpperCase();
+        if (meridiem === "PM" && hours !== 12) hours += 12;
+        if (meridiem === "AM" && hours === 12) hours = 0;
+      }
+    } else {
+      // 24-hour format
+      const [h, m] = timeStr.split(":");
+      hours = parseInt(h);
+      minutes = parseInt(m);
+    }
 
     const city = MAJOR_CITIES[selectedCity as keyof typeof MAJOR_CITIES];
     const coords = city || { lat: 40.7128, lon: -74.006 };
@@ -187,8 +208,8 @@ export default function SportsHorary() {
       year: parseInt(year),
       month: parseInt(month),
       day: parseInt(day),
-      hours: parseInt(hours),
-      minutes: parseInt(minutes),
+      hours,
+      minutes,
       seconds: 0,
       latitude: coords.lat,
       longitude: coords.lon,
