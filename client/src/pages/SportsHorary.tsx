@@ -170,35 +170,23 @@ export default function SportsHorary() {
   });
 
   const handleCalculateChart = () => {
-    if (!eventDate || !eventTime) {
+    if (!eventDate) {
       setMessages(prev => [
         ...prev,
-        { role: "assistant", content: "I need the event date and time to calculate the chart." },
+        { role: "assistant", content: "I need the event date to calculate the chart." },
       ]);
       return;
     }
     const [year, month, day] = eventDate.split("-");
 
-    // Parse time format: can be "14:30" (24h) or "2:30 PM" (12h with AM/PM)
-    let hours = 0, minutes = 0;
-    const timeStr = eventTime.trim();
-    const hasAMPM = /\s*(AM|PM|am|pm)/.test(timeStr);
+    // Parse time format: default to noon (12:00) if empty
+    let hours = 12, minutes = 0;
 
-    if (hasAMPM) {
-      // 12-hour format with AM/PM
-      const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM|am|pm)/i);
-      if (match) {
-        hours = parseInt(match[1]);
-        minutes = parseInt(match[2]);
-        const meridiem = match[3].toUpperCase();
-        if (meridiem === "PM" && hours !== 12) hours += 12;
-        if (meridiem === "AM" && hours === 12) hours = 0;
-      }
-    } else {
-      // 24-hour format
+    if (eventTime && eventTime.trim().length > 0) {
+      const timeStr = eventTime.trim();
       const [h, m] = timeStr.split(":");
-      hours = parseInt(h);
-      minutes = parseInt(m);
+      hours = parseInt(h) || 12;
+      minutes = parseInt(m) || 0;
     }
 
     const city = MAJOR_CITIES[selectedCity as keyof typeof MAJOR_CITIES];
@@ -306,7 +294,7 @@ export default function SportsHorary() {
             type="time"
             value={eventTime}
             onChange={e => setEventTime(e.target.value)}
-            placeholder="Event Time"
+            placeholder="Event Time (optional, defaults to noon)"
             className="rounded-lg border-2 border-border bg-card p-2 text-sm"
           />
           <select
@@ -332,7 +320,7 @@ export default function SportsHorary() {
 
         <button
           onClick={handleCalculateChart}
-          disabled={calculateChart.isPending || !eventDate || !eventTime}
+          disabled={calculateChart.isPending || !eventDate}
           className="w-full mb-4 rounded-lg bg-primary text-primary-foreground p-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition"
         >
           {calculateChart.isPending ? "Calculating..." : "✦ Calculate Event Chart ✦"}
