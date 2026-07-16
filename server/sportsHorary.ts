@@ -134,8 +134,11 @@ export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
   const breakdown: string[] = [];
   const add = (pts: number, reason: string = "") => {
     score += pts;
+    // Always log, even if no explicit reason provided
     if (reason) {
       breakdown.push(`${pts > 0 ? "+" : ""}${pts} — ${reason}`);
+    } else if (pts !== 0) {
+      breakdown.push(`${pts > 0 ? "+" : ""}${pts} — (automatic)`);
     }
   };
   const pushFlag = (f: string) => {
@@ -153,8 +156,8 @@ export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
   if (voc) {
     pushFlag("STALEMATE");
     // −2 Fav and −2 Chall → net 0 on the signed score.
-    add(-2); // −2 to Favorite
-    add(+2); // −2 to Challenger (= +2 on a fav-positive score)
+    add(-2, "VOC Moon penalty to Favorite");
+    add(+2, "VOC Moon penalty to Challenger (mirrored)");
   }
 
   // ══ §IX STEP 2 — Circuit Breaker: L1/L7 Mutual Reception ═══════════════════
@@ -164,57 +167,57 @@ export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
 
   // ══ §IX STEP 3 — §III Placement & Dignity (skip if VOC or Mutual Reception) ═
   if (!voc && !mutualReception) {
-    // Defensive Cover
-    if (l1.house === 12) add(+3);
-    if (l7.house === 6) add(-3); // mirror
+    // Destruction (house behind Asc/Desc = undoing)
+    if (l1.house === 12) add(-3, "Destruction (L1 in H12, house of undoing)");
+    if (l7.house === 6) add(+3, "Destruction (L7 in H6, house of undoing, mirrored)");
     // Offensive Combat
-    if (l1.house === 6) add(+4);
-    if (l7.house === 12) add(-4); // mirror
+    if (l1.house === 6) add(+4, "Offensive Combat (L1 in H6)");
+    if (l7.house === 12) add(-4, "Offensive Combat (L7 in H12, mirrored)");
     // Invasion
-    if (l1.house === 7) add(-4);
-    if (l7.house === 1) add(+4); // mirror
+    if (l1.house === 7) add(-4, "Invasion (L1 in H7)");
+    if (l7.house === 1) add(+4, "Invasion (L7 in H1, mirrored)");
     // Clutch Mutual Reception (L1↔L10 / L7↔L4)
-    if (chart.l1l10MutualReception) add(+3);
-    if (chart.l7l4MutualReception) add(-3); // mirror
+    if (chart.l1l10MutualReception) add(+3, "Clutch Mutual Reception (L1↔L10)");
+    if (chart.l7l4MutualReception) add(-3, "Clutch Mutual Reception (L7↔L4, mirrored)");
     // Combustion — Cazimi overrides the combustion penalty
-    if (l1.cazimi) add(+5);
-    else if (l1.combust) add(-5);
-    if (l7.cazimi) add(-5);
-    else if (l7.combust) add(+5); // mirror
+    if (l1.cazimi) add(+5, "Cazimi (L1 within 17' of Sun)");
+    else if (l1.combust) add(-5, "Combust (L1 burned by Sun)");
+    if (l7.cazimi) add(-5, "Cazimi (L7 within 17' of Sun, mirrored)");
+    else if (l7.combust) add(+5, "Combust (L7 burned by Sun, mirrored)");
     // Affliction (malefic aspect from H6/H8)
-    if (l1.maleficFromDeathHouses) add(-3);
-    if (l7.maleficFromDeathHouses) add(+3); // mirror
+    if (l1.maleficFromDeathHouses) add(-3, "Affliction (L1 aspected by malefic from H6/H8)");
+    if (l7.maleficFromDeathHouses) add(+3, "Affliction (L7 aspected by malefic from H6/H8, mirrored)");
     // 8th House Chaos
-    if (l1.house === 8) add(-2);
-    if (l7.house === 8) add(+2); // mirror
+    if (l1.house === 8) add(-2, "8th House (L1 in house of death)");
+    if (l7.house === 8) add(+2, "8th House (L7 in house of death, mirrored)");
     // Benefic Support
-    if (l1.beneficAspect) add(+2);
-    if (l7.beneficAspect) add(-2); // mirror
+    if (l1.beneficAspect) add(+2, "Benefic Support (L1 receives benefic aspect)");
+    if (l7.beneficAspect) add(-2, "Benefic Support (L7 receives benefic aspect, mirrored)");
     // Kendra Power Boost
-    if (chart.favBeneficStrongInH1orH10) add(+3);
-    if (chart.challBeneficStrongInH4orH7) add(-3); // mirror
+    if (chart.favBeneficStrongInH1orH10) add(+3, "Kendra Power Boost (strong benefic in H1 or H10)");
+    if (chart.challBeneficStrongInH4orH7) add(-3, "Kendra Power Boost (strong benefic in H4 or H7, mirrored)");
     // Baseline Dignity
-    if (l1.dignity === "own" || l1.dignity === "exaltation") add(+3);
-    if (l1.dignity === "debilitation") add(-3);
-    if (l7.dignity === "own" || l7.dignity === "exaltation") add(-3); // mirror
-    if (l7.dignity === "debilitation") add(+3); // mirror
+    if (l1.dignity === "own" || l1.dignity === "exaltation") add(+3, `L1 in ${l1.dignity}`);
+    if (l1.dignity === "debilitation") add(-3, "L1 in debilitation");
+    if (l7.dignity === "own" || l7.dignity === "exaltation") add(-3, `L7 in ${l7.dignity} (mirrored)`);
+    if (l7.dignity === "debilitation") add(+3, "L7 in debilitation (mirrored)");
     // Upachaya Growth (malefics: +1 each Fav side, −1 each Chall side)
-    add(+1 * chart.maleficsInFavUpachaya);
-    add(-1 * chart.maleficsInChallUpachaya);
+    if (chart.maleficsInFavUpachaya > 0) add(+1 * chart.maleficsInFavUpachaya, `Upachaya Growth (${chart.maleficsInFavUpachaya} malefic(s) in Fav houses 3/6/10/11)`);
+    if (chart.maleficsInChallUpachaya > 0) add(-1 * chart.maleficsInChallUpachaya, `Upachaya Growth (${chart.maleficsInChallUpachaya} malefic(s) in Chall houses 9/12/4/5, mirrored)`);
     // Moon Momentum
-    add(chart.moon.phase === "waxing" ? +2 : -2);
-    if (chart.moon.house === 1) add(+3);
-    if (chart.moon.house === 7) add(-3);
+    add(chart.moon.phase === "waxing" ? +2 : -2, `Moon ${chart.moon.phase}`);
+    if (chart.moon.house === 1) add(+3, "Moon in H1");
+    if (chart.moon.house === 7) add(-3, "Moon in H7");
     // Point-Zero (Turnovers)
-    if (chart.l6FavStrongMaleficFree) add(+3);
-    if (chart.l12ChallStrongMaleficFree) add(-3);
+    if (chart.l6FavStrongMaleficFree) add(+3, "Point-Zero (L6 strong & malefic-free for Favorite)");
+    if (chart.l12ChallStrongMaleficFree) add(-3, "Point-Zero (L12 strong & malefic-free for Challenger, mirrored)");
     // Besiegement
     if (l1.besieged) {
-      add(-4);
+      add(-4, "Besieged (L1 hemmed between Saturn & Mars)");
       pushFlag("besieged");
     }
     if (l7.besieged) {
-      add(+4);
+      add(+4, "Besieged (L7 hemmed between Saturn & Mars, mirrored)");
       pushFlag("besieged_chall");
     }
   }
@@ -228,45 +231,47 @@ export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
   // ══ §IX STEP 4 — §V The Seven Secrets (skip if VOC) ═══════════════════════
   if (!voc) {
     // Secret 1 — Part of Fortune
-    if (chart.partOfFortune === "H1_or_conjL1") add(+4);
-    else if (chart.partOfFortune === "H7_or_conjL7") add(-4);
+    if (chart.partOfFortune === "H1_or_conjL1") add(+4, "Secret 1: Part of Fortune in H1 or conjunct L1");
+    else if (chart.partOfFortune === "H7_or_conjL7") add(-4, "Secret 1: Part of Fortune in H7 or conjunct L7 (mirrored)");
     // Secret 3 — End of Matter (L4 trine/sextile a lord)
-    if (chart.l4AspectsL1TrineSextile) add(+5);
-    if (chart.l4AspectsL7TrineSextile) add(-5); // mirror
+    if (chart.l4AspectsL1TrineSextile) add(+5, "Secret 3: End of Matter (L4 trine/sextile to L1)");
+    if (chart.l4AspectsL7TrineSextile) add(-5, "Secret 3: End of Matter (L4 trine/sextile to L7, mirrored)");
     // Secret 4 — Translation of Light (±3 to the receiving side)
     if (chart.translationOfLight) {
       const t = chart.translationOfLight;
       const magnitude = t.translator === "benefic" ? 3 : -3;
-      add(t.receiving === "fav" ? magnitude : -magnitude);
+      const side = t.receiving === "fav" ? "Favorite" : "Challenger";
+      const translator = t.translator === "benefic" ? "benefic" : "malefic";
+      add(t.receiving === "fav" ? magnitude : -magnitude, `Secret 4: Translation of Light (${translator}) to ${side}`);
     }
     // Secret 5 — Planetary Hour
-    if (chart.planetaryHour === "L1_or_H1") add(+3);
-    else if (chart.planetaryHour === "L7_or_H7") add(-3);
+    if (chart.planetaryHour === "L1_or_H1") add(+3, "Secret 5: Planetary Hour favors Favorite");
+    else if (chart.planetaryHour === "L7_or_H7") add(-3, "Secret 5: Planetary Hour favors Challenger (mirrored)");
     // Secret 6 — Peregrine (both peregrine → CHAOS flag, no net points)
     if (bothPeregrine) {
       pushFlag("chaos");
     } else {
-      if (l1.dignity === "peregrine") add(-4);
-      if (l7.dignity === "peregrine") add(+4); // mirror
+      if (l1.dignity === "peregrine") add(-4, "Secret 6: L1 peregrine (zero essential dignity)");
+      if (l7.dignity === "peregrine") add(+4, "Secret 6: L7 peregrine (zero essential dignity, mirrored)");
     }
     // Secret 7 — Via Combusta (major override)
-    if (inViaCombusta(l1.longitude)) add(-5);
-    if (inViaCombusta(l7.longitude)) add(+5); // mirror
+    if (inViaCombusta(l1.longitude)) add(-5, "Secret 7: L1 in Via Combusta (15° Libra—15° Scorpio, debilitating)");
+    if (inViaCombusta(l7.longitude)) add(+5, "Secret 7: L7 in Via Combusta (15° Libra—15° Scorpio, debilitating, mirrored)");
   }
 
   // ══ §IX STEP 5 — §VII Western Applying/Separating Aspects ══════════════════
   const la = chart.lordAspect;
   if (la.applying === "fav") {
-    add(+2);
+    add(+2, "L1 applying to L7 (Favorite initiating)");
     pushFlag("fav_initiating");
   } else if (la.applying === "chall") {
-    add(-2);
+    add(-2, "L7 applying to L1 (Challenger initiating, mirrored)");
     pushFlag("chall_initiating");
   }
   if (la.applying && la.type) {
     // Applying trine/sextile → smooth resolution to the applying side
     if (la.type === "trine" || la.type === "sextile") {
-      add(la.applying === "fav" ? +3 : -3);
+      add(la.applying === "fav" ? +3 : -3, `L1/L7 ${la.type} — smooth resolution for applying side`);
     }
     // Applying square/opposition → contested; resolved by the faster planet
     if (la.type === "square" || la.type === "opposition") {
@@ -274,7 +279,7 @@ export function calculateCompositeScore(chart: SportsHoraryChart): SportsScore {
     }
     // Faster planet "gets there first" → +3 to the faster side
     if (la.fasterSide) {
-      add(la.fasterSide === "fav" ? +3 : -3);
+      add(la.fasterSide === "fav" ? +3 : -3, `${la.fasterSide === "fav" ? "L1" : "L7"} faster planet (reaches perfection first)`);
     }
   }
   // Classical motion flags (qualitative — no independent points per §IV/§VII)

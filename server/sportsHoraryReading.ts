@@ -115,6 +115,260 @@ function fixedStarConjunct(p: PlanetPlacement): { name: string; influence: strin
   return null;
 }
 
+// ─── ADAPTER: LLM-based chart analysis ────────────────────────────────────────
+
+const CHART_ANALYSIS_PROMPT = `You are an expert astrologer analyzing a sports horary chart using the Vedic/sidereal system.
+
+Your job: Take raw chart data and SYSTEMATICALLY extract every astrological condition needed for sports prediction scoring.
+
+CHART DATA PROVIDED:
+{CHART_DATA_HERE}
+
+===============================================================================
+ANALYSIS STEPS (follow in order, be methodical)
+===============================================================================
+
+STEP 1: HOUSE RULERS
+- Read the cusp of H1 → which sign? → find its Vedic ruler → that's L1 (Favorite lord)
+- Read the cusp of H7 → which sign? → find its Vedic ruler → that's L7 (Challenger lord)
+- Same process for: L4, L6, L10, L12
+
+STEP 2: DIGNITY ANALYSIS (for L1, L7, and all other planets)
+- For each planet, is it in its OWN sign? (ruled by that planet) → own
+- Is it in its EXALTATION sign? (use list below) → exalt
+- Is it in DETRIMENT? (opposite of own) → detriment
+- Is it in FALL? (opposite of exalt) → fall
+- Otherwise → peregrine
+
+Vedic Exaltations:
+  Sun: Aries, Moon: Taurus, Mars: Capricorn, Mercury: Virgo, Jupiter: Cancer, Venus: Pisces, Saturn: Libra
+Vedic Detriments:
+  Sun: Libra, Moon: Scorpio, Mars: Cancer, Mercury: Pisces, Jupiter: Capricorn, Venus: Virgo, Saturn: Aries
+
+STEP 3: COMBUSTION & CAZIMI
+- Find Sun's exact degree
+- For each planet, measure distance from Sun
+- If 0-17 minutes away → CAZIMI (strong, overrides combustion)
+- If 17 minutes - 8°30' away → COMBUST (weakened)
+- Otherwise → FREE
+
+STEP 4: RETROGRADE
+- Mark each retrograde planet in data
+- Note direction (direct vs retrograde)
+
+STEP 5: PLANETARY WAR (Graha Yuddha)
+- Are L1 and L7 in the same sign?
+- If yes: which has lower longitude (earlier in sign) → WINS
+- Which is retrograde? (retrograde loses war)
+- Record winner/loser
+
+STEP 6: FIXED STAR CONJUNCTIONS
+- Scan ALL planets for conjunctions to these stars:
+  * Regulus (29° Leo sidereal) ±6° → always powerful force
+  * Spica (23° Libra sidereal) ±5° → fortunate/helpful
+  * Algol (26° Taurus sidereal) ±5° → always harsh/destructive
+  * Aldebaran (9° Gemini sidereal) ±4° → powerful/warrior nature
+  * Sirius (13° Cancer sidereal) ±3° → fortunate/brilliant
+- Record: planet, star, orb, favorable/unfavorable
+
+STEP 7: ASPECTS BETWEEN L1 AND L7
+- Distance between L1 and L7
+- Type: conjunction (0°), square (90°), opposition (180°), trine (120°), sextile (60°)?
+- Within orb? (8° for major aspects)
+- Who is faster planet? (closer to aspect perfection)
+
+STEP 8: MOON ANALYSIS
+- Which house does Moon occupy?
+- Phase: Is Moon waxing or waning? (measure Sun-Moon elongation: <180° = waxing, >180° = waning)
+- Void of Course? (Does Moon have any aspects to planets before changing signs? If NO → VOC)
+- Which is next aspect? (Moon will aspect this planet next)
+- Which was last aspect? (Moon last separated from this planet)
+
+STEP 9: RAHU & KETU PLACEMENT
+- Which house is Rahu in?
+- Which house is Ketu in?
+- Is Rahu conjunct L1? (same sign, within 8°)
+- Is Rahu conjunct L7? (same sign, within 8°)
+- Is Ketu conjunct L1? (same sign, within 8°)
+- Is Ketu conjunct L7? (same sign, within 8°)
+
+STEP 10: HOUSE OCCUPANTS (by cluster)
+- Vedic Favorite Cluster: H1, H3, H6, H10, H11 → list all planets
+- Vedic Challenger Cluster: H7, H9, H12, H4, H5 → list all planets
+- Count: benefics, malefics, retrograde, combust in each cluster
+
+STEP 11: ANGULAR HOUSES & STRENGTH
+- Angular (strong): H1, H4, H7, H10
+- Succedent (medium): H2, H5, H8, H11
+- Cadent (weak): H3, H6, H9, H12
+- Mark each planet's type
+
+STEP 12: BENEFIC & MALEFIC ASPECTS TO LORDS
+- Is L1 aspected by any benefic (Venus, Jupiter)?
+- Is L1 aspected by any malefic (Mars, Saturn)?
+- Is L7 aspected by any benefic?
+- Is L7 aspected by any malefic?
+- Record: yes/no for each
+
+STEP 13: MUTUAL RECEPTIONS
+- Is L1 in L7's sign AND L7 in L1's sign? → mutual reception
+- Is L1 in L10's sign AND L10 in L1's sign? → mutual reception
+- Is L7 in L4's sign AND L4 in L7's sign? → mutual reception
+
+STEP 14: ASCENDANT DEGREE RADICALITY
+- What is the exact degree of Ascendant?
+- If 0-5° or 25-30° → questionable radicality
+- Otherwise → radical
+
+===============================================================================
+OUTPUT: Return a JSON object with this exact structure (NO markdown, NO explanation)
+===============================================================================
+
+{
+  "l1": {
+    "planet": "Mars",
+    "house": 1,
+    "sign": "Aries",
+    "degree": 12.5,
+    "dignity": "own",
+    "retrograde": false,
+    "combust": false,
+    "cazimi": false
+  },
+  "l7": {
+    "planet": "Venus",
+    "house": 7,
+    "sign": "Libra",
+    "degree": 18.0,
+    "dignity": "own",
+    "retrograde": false,
+    "combust": false,
+    "cazimi": false
+  },
+  "l4": { "planet": "...", ... },
+  "l6": { "planet": "...", ... },
+  "l10": { "planet": "...", ... },
+  "l12": { "planet": "...", ... },
+
+  "planets": [
+    {
+      "planet": "Sun",
+      "house": 1,
+      "sign": "Aries",
+      "degree": 5.2,
+      "dignity": "own",
+      "retrograde": false,
+      "combust": false
+    }
+  ],
+
+  "moon": {
+    "house": 2,
+    "phase": "waxing",
+    "applyingTo": "Mercury",
+    "lastAspectTo": "Venus"
+  },
+
+  "voidOfCourseMoon": false,
+  "ascendantDegree": 15.3
+}`;
+
+export async function buildSportsHoraryChartViaLLM(
+  chart: Chart,
+  favoriteTeam: string,
+  challengerTeam: string,
+): Promise<SportsHoraryChart | null> {
+  const chartDataString = formatChartForAnalysis(chart);
+  const prompt = CHART_ANALYSIS_PROMPT.replace("{CHART_DATA_HERE}", chartDataString);
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 4000,
+    });
+
+    const content = response.choices[0].message.content as string;
+
+    // Extract JSON from response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("No JSON found in Claude response");
+      return null;
+    }
+
+    const analysisResult = JSON.parse(jsonMatch[0]);
+
+    // Map to SportsHoraryChart (convert from LLM output to rulebook schema)
+    const moon = analysisResult.moon || { house: 0, phase: "waning" };
+
+    const chart_result: SportsHoraryChart = {
+      l1: toLordFacts(analysisResult.l1),
+      l7: toLordFacts(analysisResult.l7),
+      voidOfCourseMoon: analysisResult.voidOfCourseMoon ?? false,
+      l1l7MutualReception: false, // TODO: derive from l1/l7 in each other's sign
+      l1l10MutualReception: false,
+      l7l4MutualReception: false,
+      favBeneficStrongInH1orH10: false,
+      challBeneficStrongInH4orH7: false,
+      moon: {
+        phase: moon.phase || "waning",
+        house: moon.house || 0,
+      },
+      maleficsInFavUpachaya: 0,
+      maleficsInChallUpachaya: 0,
+      l6FavStrongMaleficFree: false,
+      l12ChallStrongMaleficFree: false,
+      l1l7SameHouseOrDegree: false,
+      l1l7Opposition: false,
+      partOfFortune: null,
+      l4AspectsL1TrineSextile: false,
+      l4AspectsL7TrineSextile: false,
+      translationOfLight: null,
+      planetaryHour: null,
+      lordAspect: { applying: null, type: null, fasterSide: null },
+      frustration: false,
+      prohibition: false,
+      refranation: false,
+    };
+
+    return chart_result;
+  } catch (error) {
+    console.error("Chart analysis via LLM failed:", error);
+    return null;
+  }
+}
+
+function formatChartForAnalysis(chart: Chart): string {
+  const lines: string[] = [];
+  for (const [name, place] of Object.entries(chart)) {
+    const rx = place.rx ? " (retrograde)" : "";
+    const combust = place.combust ? " (combust)" : "";
+    const cazimi = place.cazimi ? " (cazimi)" : "";
+    lines.push(`${name}: ${place.sign} ${place.degree}° (H${place.house})${rx}${combust}${cazimi}`);
+  }
+  return lines.join("\n");
+}
+
+function toLordFacts(obj: any): LordFacts {
+  return {
+    planet: obj.planet,
+    house: obj.house,
+    longitude: 0, // TODO: calculate from sign + degree
+    dignity: obj.dignity,
+    combust: obj.combust,
+    cazimi: obj.cazimi,
+    besieged: false,
+    maleficFromDeathHouses: false,
+    beneficAspect: false,
+    fixedStar: null,
+  };
+}
+
 // ─── ADAPTER: chart facts → rulebook input ───────────────────────────────────
 
 export function buildSportsHoraryChart(chart: Chart): SportsHoraryChart | null {
@@ -325,6 +579,46 @@ WRITE THE READING:
 VOICE: A master of the ancient sky sitting across the table. Direct, specific, no hedging, no astrology-book filler. Every claim traces to a named placement or flag. Use Markdown headers.`;
 }
 
+/** Complete house cluster analysis - Favorite vs Challenger */
+function analyzeHouseClusters(chart: Chart): string {
+  const lines: string[] = [];
+  const favHouses = [1, 3, 6, 10, 11];
+  const challHouses = [7, 9, 12, 4, 5];
+
+  const favPlanets = Object.values(chart).filter(p => p.house && favHouses.includes(p.house));
+  const challPlanets = Object.values(chart).filter(p => p.house && challHouses.includes(p.house));
+
+  const formatPlanet = (p: PlanetPlacement) => {
+    let desc = `${p.planet}(H${p.house}/${p.sign}/${p.degree}°)`;
+    if (p.rx) desc += "[Rx]";
+    if (p.combust) desc += "[Combust]";
+    if (p.cazimi) desc += "[Cazimi]";
+    return desc;
+  };
+
+  lines.push("╔════════════════════════════════════════════════════════════════╗");
+  lines.push("║ HOUSE CLUSTER ANALYSIS (FAVORITE vs CHALLENGER)               ║");
+  lines.push("╚════════════════════════════════════════════════════════════════╝\n");
+
+  lines.push("┌─ FAVORITE (H1, H3, H6, H10, H11) ─────────────────────────────");
+  if (favPlanets.length === 0) {
+    lines.push("   (no planets in cluster)");
+  } else {
+    favPlanets.forEach(p => lines.push(`   ${formatPlanet(p)}`));
+  }
+  lines.push("");
+
+  lines.push("┌─ CHALLENGER (H7, H9, H12, H4, H5) ───────────────────────────");
+  if (challPlanets.length === 0) {
+    lines.push("   (no planets in cluster)");
+  } else {
+    challPlanets.forEach(p => lines.push(`   ${formatPlanet(p)}`));
+  }
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 /** Render the key engine inputs as readable lines for the prompt. */
 function summarizeFacts(c: SportsHoraryChart): string {
   const lordLine = (label: string, l: LordFacts) => {
@@ -372,7 +666,7 @@ export async function sportsHoraryLayer(
     return {
       answer:
         "I couldn't resolve enough placements to cast the sports chart — I need at least the seven classical planets with signs and houses. Paste a full chart and try again.",
-      score: { score: 0, verdict: "Even", flags: ["insufficient_data"] },
+      score: { score: 0, verdict: "Even", flags: ["insufficient_data"], breakdown: [] },
       usedChart,
     };
   }

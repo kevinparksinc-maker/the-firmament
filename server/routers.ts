@@ -14,6 +14,7 @@ import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { horaryLayer } from "./horary";
 import { sportsHoraryLayer } from "./sportsHoraryReading";
+import { sportsHoraryV2Layer } from "./sportsHoraryV2Reading";
 
 import {
   detectFixedStarConjunctions,
@@ -632,6 +633,41 @@ const sportsHoraryRouter = router({
         score: result.score.score,
         verdict: result.score.verdict,
         flags: result.score.flags,
+        usedChart: result.usedChart,
+      };
+    }),
+  askV2: publicProcedure
+    .input(
+      z.object({
+        question: z.string().min(1),
+        natalPlacements: z.string().optional(),
+        transitPlacements: z.string().optional(),
+        favoriteName: z.string().optional(),
+        challengerName: z.string().optional(),
+        history: z
+          .array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string(),
+            })
+          )
+          .optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const result = await sportsHoraryV2Layer({
+        question: input.question,
+        natalText: input.natalPlacements ?? "",
+        transitText: input.transitPlacements ?? "",
+        favoriteName: input.favoriteName,
+        challengerName: input.challengerName,
+        history: input.history as any,
+      });
+      return {
+        answer: result.answer,
+        score: result.score,
+        verdict: result.verdict,
+        flags: result.flags,
         usedChart: result.usedChart,
       };
     }),
