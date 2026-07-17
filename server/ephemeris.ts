@@ -139,7 +139,7 @@ function lonToSignDeg(lon: number): {
 
 function calcHouseCusps(
   date: Date,
-  observer: ObserverLocationLocation,
+  observer: ObserverLocation,
   ayanamsa: number
 ): HouseCusps {
   const astroObs = new Observer(
