@@ -14,6 +14,7 @@ import {
 import { calculateCompositeScore, type SportsScore } from "./sportsHorary";
 import { buildSportsHoraryChartViaLLM } from "./sportsHoraryReading";
 import { calculateSportsHoraryV2, generateSportsHoraryV2Report } from "./sportsHoraryV2";
+import { runHybridPrediction, formatHybridReport } from "./sportsHoraryHybrid";
 
 type Chart = Record<string, PlanetPlacement>;
 
@@ -142,6 +143,31 @@ export async function sportsHoraryV2Layer(
     },
     chartFacts
   );
+
+  // Try to also run hybrid system (10-house cluster + V2)
+  let hybridReport = "";
+  try {
+    const rawChart = usedChart === "transit" ? transits : natal;
+    // Extract house cusps from result if available
+    const houseCusps: Record<number, { sign: string; degree: number }> = {};
+    if (result?.houseCusps) {
+      Object.assign(houseCusps, result.houseCusps);
+    }
+
+    if (Object.keys(houseCusps).length >= 10) {
+      const hybridResult = runHybridPrediction(
+        chartFacts,
+        rawChart,
+        houseCusps,
+        input.favoriteName || "Favorite",
+        input.challengerName || "Challenger"
+      );
+      hybridReport = formatHybridReport(hybridResult, "", v2Report, input.favoriteName, input.challengerName);
+    }
+  } catch (e) {
+    // If hybrid system fails, just continue with V2
+    // console.error("Hybrid system error:", e);
+  }
 
   const systemPrompt = buildReadingPrompt(input, calculateCompositeScore(chartFacts), summarizeFacts(chartFacts));
 
