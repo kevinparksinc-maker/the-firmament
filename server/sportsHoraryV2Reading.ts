@@ -134,10 +134,14 @@ export async function sportsHoraryV2Layer(
 
   // Use V2 engine (layered) instead of flat V1
   const v2Results = calculateSportsHoraryV2(chartFacts);
-  const v2Report = generateSportsHoraryV2Report(v2Results, {
-    favoriteTeam: input.favoriteName || "Favorite",
-    challengerTeam: input.challengerName || "Challenger",
-  });
+  const v2Report = generateSportsHoraryV2Report(
+    v2Results,
+    {
+      favoriteTeam: input.favoriteName || "Favorite",
+      challengerTeam: input.challengerName || "Challenger",
+    },
+    chartFacts
+  );
 
   const systemPrompt = buildReadingPrompt(input, calculateCompositeScore(chartFacts), summarizeFacts(chartFacts));
 

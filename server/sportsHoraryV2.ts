@@ -174,7 +174,11 @@ function scoreToProbability(score: number): number {
   return 50;
 }
 
-export function generateSportsHoraryV2Report(results: EngineResults, chart: { favoriteTeam: string; challengerTeam: string }): string {
+export function generateSportsHoraryV2Report(
+  results: EngineResults,
+  chart: { favoriteTeam: string; challengerTeam: string },
+  fullChart?: any
+): string {
   const lines: string[] = [];
 
   lines.push("════════════════════════════════════════════════════════════════");
@@ -188,6 +192,35 @@ export function generateSportsHoraryV2Report(results: EngineResults, chart: { fa
   lines.push(`SCORE: ${results.dominance.dominanceScore}`);
   lines.push(`WIN PROBABILITY: ${results.prediction.winProbability}%`);
   lines.push(`DOMINANCE: ${results.dominance.classification}\n`);
+
+  // House cluster analysis (if chart data provided)
+  if (fullChart && fullChart.planets && Array.isArray(fullChart.planets)) {
+    const favCluster = [1, 3, 6, 10, 11];
+    const challCluster = [7, 9, 12, 4, 5];
+
+    const favPlanets = fullChart.planets.filter((p: any) => favCluster.includes(p.house));
+    const challPlanets = fullChart.planets.filter((p: any) => challCluster.includes(p.house));
+
+    if (favPlanets.length > 0 || challPlanets.length > 0) {
+      lines.push("HOUSE CLUSTER ANALYSIS:\n");
+
+      if (favPlanets.length > 0) {
+        lines.push(`  ASCENDANT CLUSTER (H1, H3, H6, H10, H11) - ${chart.favoriteTeam}`);
+        favPlanets.forEach((p: any) => {
+          lines.push(`    ${p.planet} in H${p.house} (${p.sign}, ${p.dignity}${p.combust ? ", combust" : ""})`);
+        });
+        lines.push("");
+      }
+
+      if (challPlanets.length > 0) {
+        lines.push(`  DESCENDANT CLUSTER (H7, H9, H12, H4, H5) - ${chart.challengerTeam}`);
+        challPlanets.forEach((p: any) => {
+          lines.push(`    ${p.planet} in H${p.house} (${p.sign}, ${p.dignity}${p.combust ? ", combust" : ""})`);
+        });
+        lines.push("");
+      }
+    }
+  }
 
   lines.push("LAYER CONTRIBUTIONS:");
   const layers: Array<[string, any]> = [
