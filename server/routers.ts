@@ -25,6 +25,7 @@ import {
 } from "./fixedStars";
 import { getNakshatraAt } from "./nakshatra";
 import { getDecanFlavor } from "./decan";
+import { calculateArabicLots } from "./arabicLotsCalculator";
 
 // ─── Core Cosmology Framework ─────────────────────────────────────────────────
 // This is the foundation of every reading in this app.
@@ -122,7 +123,22 @@ function enrichChartData(
   const conjunctions = detectFixedStarConjunctions(placementsForStars);
   const starText = formatStarConjunctions(conjunctions);
 
-  return lines.join("\n") + "\n\nFIXED STAR CONJUNCTIONS:\n" + starText;
+  // Calculate Arabic Lots
+  const lots = calculateArabicLots(planets as any, false);
+  const lotsText = lots
+    .map(
+      (lot) =>
+        `${lot.name}: ${lot.degree}° ${lot.sign} | ${lot.meaning}`
+    )
+    .join("\n");
+
+  return (
+    lines.join("\n") +
+    "\n\nFIXED STAR CONJUNCTIONS:\n" +
+    starText +
+    "\n\nARABIC LOTS:\n" +
+    lotsText
+  );
 }
 
 // ─── OCR Router ───────────────────────────────────────────────────────────────
