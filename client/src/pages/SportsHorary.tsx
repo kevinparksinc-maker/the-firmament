@@ -220,11 +220,13 @@ export default function SportsHorary() {
       // Parse time: default to noon if empty or invalid
       let hours = 12;
       let minutes = 0;
+      let timeProvided = false;
 
       if (eventHour) {
         const h = parseInt(eventHour);
         if (!isNaN(h) && h >= 0 && h <= 23) {
           hours = h;
+          timeProvided = true;
         }
       }
 
@@ -232,7 +234,18 @@ export default function SportsHorary() {
         const m = parseInt(eventMinute);
         if (!isNaN(m) && m >= 0 && m <= 59) {
           minutes = m;
+          timeProvided = true;
         }
+      }
+
+      if (!timeProvided) {
+        setMessages(prev => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `No event time provided — using noon (12:00 UTC) as default. For better accuracy, enter the actual event time.`,
+          },
+        ]);
       }
 
       // Get coordinates
