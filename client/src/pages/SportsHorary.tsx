@@ -252,6 +252,10 @@ export default function SportsHorary() {
       const city = MAJOR_CITIES[selectedCity as keyof typeof MAJOR_CITIES];
       const coords = city || { lat: 40.7128, lon: -74.006 };
 
+      console.log("[SportsHorary DEBUG] hours type:", typeof hours, "value:", hours);
+      console.log("[SportsHorary DEBUG] minutes type:", typeof minutes, "value:", minutes);
+      console.log("[SportsHorary DEBUG] eventHour:", eventHour, "eventMinute:", eventMinute);
+
       const payload = {
         year,
         month,
@@ -263,7 +267,7 @@ export default function SportsHorary() {
         altitude: 0,
       };
 
-      console.log("[SportsHorary] Sending calculate-chart payload:", payload);
+      console.log("[SportsHorary] Sending calculate-chart payload:", JSON.stringify(payload));
       calculateChart.mutate(payload);
     } catch (err) {
       setMessages(prev => [
