@@ -121,7 +121,8 @@ export default function SportsHorary() {
   const [favorite, setFavorite] = useState("");
   const [challenger, setChallenger] = useState("");
   const [eventDate, setEventDate] = useState("");
-  const [eventTime, setEventTime] = useState("");
+  const [eventHour, setEventHour] = useState("");
+  const [eventMinute, setEventMinute] = useState("");
   const [selectedCity, setSelectedCity] = useState("New York");
   const [customLocation, setCustomLocation] = useState("");
   const [transitInput, setTransitInput] = useState("");
@@ -209,10 +210,9 @@ export default function SportsHorary() {
 
       // Parse time: default to noon if empty
       let hours = 12, minutes = 0;
-      if (eventTime && eventTime.trim().length > 0) {
-        const timeParts = eventTime.trim().split(":");
-        const h = parseInt(timeParts[0]);
-        const m = parseInt(timeParts[1]);
+      if (eventHour || eventMinute) {
+        const h = parseInt(eventHour);
+        const m = parseInt(eventMinute);
         hours = !isNaN(h) && h >= 0 && h <= 23 ? h : 12;
         minutes = !isNaN(m) && m >= 0 && m <= 59 ? m : 0;
       }
@@ -350,12 +350,8 @@ export default function SportsHorary() {
           />
           <input
             type="number"
-            value={eventTime.split(":")[0] || ""}
-            onChange={e => {
-              const h = e.target.value;
-              const m = eventTime.split(":")[1] || "00";
-              setEventTime(h ? `${h}:${m}` : "");
-            }}
+            value={eventHour}
+            onChange={e => setEventHour(e.target.value)}
             placeholder="Hour (0–23)"
             min="0"
             max="23"
@@ -363,12 +359,8 @@ export default function SportsHorary() {
           />
           <input
             type="number"
-            value={eventTime.split(":")[1] || ""}
-            onChange={e => {
-              const h = eventTime.split(":")[0] || "12";
-              const m = e.target.value;
-              setEventTime(h ? `${h}:${m}` : "12:00");
-            }}
+            value={eventMinute}
+            onChange={e => setEventMinute(e.target.value)}
             placeholder="Minute"
             min="0"
             max="59"
