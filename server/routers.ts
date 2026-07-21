@@ -10,11 +10,14 @@ import {
   formatChartForReading,
   getHouseCuspInfo,
 } from "./ephemeris";
+import { transformChartToFlatPlane } from "./coordinateTransformer";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { horaryLayer } from "./horary";
 import { sportsHoraryLayer } from "./sportsHoraryReading";
 import { sportsHoraryV2Layer } from "./sportsHoraryV2Reading";
+import { calculateTerritorialControl, formatTerritorialReport } from "./territorialControlEngine";
+import { SIGN_RULERS } from "./astroEngine";
 
 import {
   detectFixedStarConjunctions,
@@ -349,21 +352,47 @@ const ephemerisRouter = router({
       };
 
       const result = await calculateChart(date, observer);
-      const readingText = formatChartForReading(result);
 
-      const houseCusps = getHouseCuspInfo(result);
-      const asc = result.houses.ascendant;
-      const desc = (asc + 180) % 360;
+      // Use the correct tropical Ascendant from the astronomy library
+      // (NOT from coordinateTransformer, which is for visualization only)
+      const tropicalAsc = result.houses.ascendant;
       const mc = result.houses.mc;
+      const desc = (tropicalAsc + 180) % 360;
       const ic = (mc + 180) % 360;
+
+      // Generate 12 equal house cusps from the correct topocentric Ascendant
+      const houseCusps = [];
+      for (let i = 0; i < 12; i++) {
+        houseCusps.push((tropicalAsc + i * 30) % 360);
+      }
+
+      const readingText = formatChartForReading(result);
+      const enrichedText = enrichChartData(
+        result.planets.reduce(
+          (acc, p) => ({
+            ...acc,
+            [p.name]: {
+              sign: p.sign,
+              degree: p.degreeInSign,
+              house: p.house,
+              absolute: (["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"].indexOf(p.sign) * 30 + p.degreeInSign),
+            },
+          }),
+          {} as Record<string, any>
+        )
+      );
 
       return {
         planets: result.planets,
-        houses: result.houses,
-        houseCusps,
-        angles: { asc, desc, mc, ic },
+        houses: {
+          cusps: houseCusps,
+          ascendant: tropicalAsc,
+          mc: mc,
+        },
+        angles: { asc: tropicalAsc, desc, mc, ic },
         ayanamsa: result.ayanamsa,
         readingText,
+        enrichedText,
       };
     }),
 });
@@ -669,6 +698,87 @@ const sportsHoraryRouter = router({
         verdict: result.verdict,
         flags: result.flags,
         usedChart: result.usedChart,
+        territorialControl: result.territorialControl,
+      };
+    }),
+  askWithChart: publicProcedure
+    .input(
+      z.object({
+        question: z.string().min(1),
+        planets: z.array(
+          z.object({
+            planet: z.string(),
+            degree: z.number(),
+            sign: z.string(),
+            house: z.number().nullable(),
+            rx: z.boolean().default(false),
+            absolute: z.number().nullable(),
+          })
+        ),
+        houseCusps: z.array(z.number()),
+        favoriteName: z.string().optional(),
+        challengerName: z.string().optional(),
+        history: z
+          .array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string(),
+            })
+          )
+          .optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Convert planets array to record
+      const planetsRecord: Record<string, any> = {};
+      input.planets.forEach(p => {
+        planetsRecord[p.planet] = p;
+      });
+
+      // Calculate house lords from cusps
+      const houseLords = new Map<number, string>();
+      const zodiacSigns = [
+        "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+        "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+      ];
+
+      for (let i = 0; i < 12 && i < input.houseCusps.length; i++) {
+        const lon = input.houseCusps[i];
+        const signIndex = Math.floor(lon / 30);
+        const sign = zodiacSigns[signIndex] || "Aries";
+        const ruler = SIGN_RULERS[sign];
+        if (ruler) {
+          houseLords.set(i + 1, ruler);
+        }
+      }
+
+      // Calculate territorial control
+      const territorialResult = calculateTerritorialControl(planetsRecord, houseLords);
+
+      // Get V2 reading for context
+      const result = await sportsHoraryV2Layer({
+        question: input.question,
+        natalText: "",
+        transitText: "",
+        favoriteName: input.favoriteName,
+        challengerName: input.challengerName,
+        history: input.history as any,
+      });
+
+      return {
+        answer: result.answer,
+        score: result.score,
+        verdict: result.verdict,
+        flags: result.flags,
+        usedChart: result.usedChart,
+        territorialControl: {
+          sideATotal: territorialResult.sideATotal,
+          sideBTotal: territorialResult.sideBTotal,
+          swing: territorialResult.sideBTotal - territorialResult.sideATotal,
+          summary: territorialResult.summary,
+          arabicLots: territorialResult.arabicLots,
+          fullReport: formatTerritorialReport(territorialResult),
+        },
       };
     }),
 });

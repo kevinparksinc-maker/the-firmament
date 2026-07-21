@@ -132,10 +132,15 @@ export default function SportsHorary() {
     flags: string[];
   } | null>(null);
   const [isSpeakingAnswer, setIsSpeakingAnswer] = useState(false);
+  const [calculatedChart, setCalculatedChart] = useState<any>(null);
 
   const calculateChart = trpc.ephemeris.calculate.useMutation({
     onSuccess: data => {
-      const chartText = Object.entries(data.planets)
+      // Store the full chart data for territorial control
+      setCalculatedChart(data);
+
+      // Use enriched text (with nakshatras, decans, fixed stars) if available, otherwise fall back to basic format
+      const chartText = data.enrichedText || Object.entries(data.planets)
         .map(([planet, info]: [string, any]) => {
           const house = info.house ? `, ${info.house}th house` : "";
           const retrograde = info.retrograde ? " Rx" : "";
@@ -169,6 +174,24 @@ export default function SportsHorary() {
     },
   });
 
+  const askWithChart = trpc.sportsHorary.askWithChart.useMutation({
+    onSuccess: data => {
+      const tcReport = data.territorialControl?.fullReport ? `\n\n**TERRITORIAL CONTROL**\n${data.territorialControl.fullReport}` : "";
+      setMessages(prev => [...prev, { role: "assistant", content: data.answer + tcReport }]);
+      setResult({
+        verdict: data.verdict as Verdict,
+        score: data.score,
+        flags: data.flags,
+      });
+    },
+    onError: err => {
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: `The sky is clouded: ${err.message}` },
+      ]);
+    },
+  });
+
   const handleCalculateChart = () => {
     if (!eventDate) {
       setMessages(prev => [
@@ -177,33 +200,47 @@ export default function SportsHorary() {
       ]);
       return;
     }
-    const [year, month, day] = eventDate.split("-");
 
-    // Parse time format: default to noon (12:00) if empty
-    let hours = 12, minutes = 0;
+    try {
+      const dateParts = eventDate.split("-");
+      const year = parseInt(dateParts[0]) || new Date().getFullYear();
+      const month = parseInt(dateParts[1]) || 1;
+      const day = parseInt(dateParts[2]) || 1;
 
-    if (eventTime && eventTime.trim().length > 0) {
-      const timeStr = eventTime.trim();
-      const [h, m] = timeStr.split(":");
-      hours = parseInt(h) || 12;
-      minutes = parseInt(m) || 0;
+      // Parse time: default to noon if empty
+      let hours = 12, minutes = 0;
+      if (eventTime && eventTime.trim().length > 0) {
+        const timeParts = eventTime.trim().split(":");
+        const h = parseInt(timeParts[0]);
+        const m = parseInt(timeParts[1]);
+        hours = !isNaN(h) && h >= 0 && h <= 23 ? h : 12;
+        minutes = !isNaN(m) && m >= 0 && m <= 59 ? m : 0;
+      }
+
+      // Get coordinates
+      const city = MAJOR_CITIES[selectedCity as keyof typeof MAJOR_CITIES];
+      const coords = city || { lat: 40.7128, lon: -74.006 };
+
+      const payload = {
+        year: Number(year),
+        month: Number(month),
+        day: Number(day),
+        hour: Number(hours),
+        minute: Number(minutes),
+        latitude: Number(coords.lat),
+        longitude: Number(coords.lon),
+        altitude: 0,
+      };
+
+      console.log("[SportsHorary] Sending calculate-chart payload:", payload);
+      alert(`Sending: year=${payload.year}, month=${payload.month}, day=${payload.day}, hour=${payload.hour}, minute=${payload.minute}, lat=${payload.latitude}, lon=${payload.longitude}`);
+      calculateChart.mutate(payload);
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: "Error parsing date/time. Try again." },
+      ]);
     }
-
-    const city = MAJOR_CITIES[selectedCity as keyof typeof MAJOR_CITIES];
-    const coords = city || { lat: 40.7128, lon: -74.006 };
-
-    calculateChart.mutate({
-      year: parseInt(year),
-      month: parseInt(month),
-      day: parseInt(day),
-      hours,
-      minutes,
-      seconds: 0,
-      latitude: coords.lat,
-      longitude: coords.lon,
-      timezone: "UTC",
-      locationName: customLocation || selectedCity,
-    });
   };
 
   const handleSend = (content: string) => {
@@ -221,15 +258,36 @@ export default function SportsHorary() {
     }
     const next: Message[] = [...messages, { role: "user", content }];
     setMessages(next);
-    ask.mutate({
-      question: content,
-      transitPlacements: transitInput,
-      favoriteName: favorite || undefined,
-      challengerName: challenger || undefined,
-      history: messages
+
+    // If we have a calculated chart, use the full territorial control analysis
+    if (calculatedChart && calculatedChart.planets && calculatedChart.houses?.cusps) {
+      askWithChart.mutate({
+        question: content,
+        planets: calculatedChart.planets.map((p: any) => ({
+          planet: p.name,
+          degree: p.degree,
+          sign: p.sign,
+          house: p.house || null,
+          rx: p.retrograde || false,
+          absolute: p.absolute || null,
+        })),
+        houseCusps: calculatedChart.houses.cusps,
+        favoriteName: favorite || undefined,
+        challengerName: challenger || undefined,
+        history: messages,
+      });
+    } else {
+      // Fall back to text-based analysis
+      ask.mutate({
+        question: content,
+        transitPlacements: transitInput,
+        favoriteName: favorite || undefined,
+        challengerName: challenger || undefined,
+        history: messages
         .filter(m => m.role !== "system")
         .map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
-    });
+      });
+    }
   };
 
   const handleListen = () => {
@@ -282,7 +340,7 @@ export default function SportsHorary() {
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-4 gap-3 mb-3">
           <input
             type="date"
             value={eventDate}
@@ -291,10 +349,29 @@ export default function SportsHorary() {
             className="rounded-lg border-2 border-border bg-card p-2 text-sm"
           />
           <input
-            type="time"
-            value={eventTime}
-            onChange={e => setEventTime(e.target.value)}
-            placeholder="Event Time (optional, defaults to noon)"
+            type="number"
+            value={eventTime.split(":")[0] || ""}
+            onChange={e => {
+              const h = e.target.value;
+              const m = eventTime.split(":")[1] || "00";
+              setEventTime(h ? `${h}:${m}` : "");
+            }}
+            placeholder="Hour (0–23)"
+            min="0"
+            max="23"
+            className="rounded-lg border-2 border-border bg-card p-2 text-sm"
+          />
+          <input
+            type="number"
+            value={eventTime.split(":")[1] || ""}
+            onChange={e => {
+              const h = eventTime.split(":")[0] || "12";
+              const m = e.target.value;
+              setEventTime(h ? `${h}:${m}` : "12:00");
+            }}
+            placeholder="Minute"
+            min="0"
+            max="59"
             className="rounded-lg border-2 border-border bg-card p-2 text-sm"
           />
           <select
