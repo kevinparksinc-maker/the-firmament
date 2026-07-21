@@ -367,6 +367,7 @@ const ephemerisRouter = router({
       }
 
       const readingText = formatChartForReading(result);
+      const ZODIAC_SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
       const enrichedText = enrichChartData(
         result.planets.reduce(
           (acc, p) => ({
@@ -375,7 +376,7 @@ const ephemerisRouter = router({
               sign: p.sign,
               degree: p.degreeInSign,
               house: p.house,
-              absolute: (["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"].indexOf(p.sign) * 30 + p.degreeInSign),
+              absolute: ZODIAC_SIGNS.indexOf(p.sign) * 30 + p.degreeInSign,
             },
           }),
           {} as Record<string, any>
