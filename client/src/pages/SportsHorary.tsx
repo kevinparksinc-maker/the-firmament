@@ -433,7 +433,13 @@ export default function SportsHorary() {
           value={transitInput}
           onChange={e => setTransitInput(e.target.value)}
           placeholder={TRANSIT_PLACEHOLDER}
-          className="w-full rounded-lg border-2 border-border bg-card p-3 text-sm min-h-[160px] font-mono mb-4"
+          className="w-full rounded-lg border-2 border-primary bg-background p-4 text-foreground text-sm min-h-[240px] font-mono mb-4"
+          style={{
+            background: "var(--background)",
+            color: "var(--foreground)",
+            borderColor: "var(--primary)",
+            lineHeight: "1.6",
+          }}
         />
 
         {result && (
