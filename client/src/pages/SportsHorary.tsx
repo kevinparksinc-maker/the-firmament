@@ -202,19 +202,37 @@ export default function SportsHorary() {
       return;
     }
 
+    // Validate date
+    if (!eventDate) {
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: "I need the event date to calculate the chart." },
+      ]);
+      return;
+    }
+
     try {
       const dateParts = eventDate.split("-");
       const year = parseInt(dateParts[0]) || new Date().getFullYear();
       const month = parseInt(dateParts[1]) || 1;
       const day = parseInt(dateParts[2]) || 1;
 
-      // Parse time: default to noon if empty
-      let hours = 12, minutes = 0;
-      if (eventHour || eventMinute) {
+      // Parse time: default to noon if empty or invalid
+      let hours = 12;
+      let minutes = 0;
+
+      if (eventHour) {
         const h = parseInt(eventHour);
+        if (!isNaN(h) && h >= 0 && h <= 23) {
+          hours = h;
+        }
+      }
+
+      if (eventMinute) {
         const m = parseInt(eventMinute);
-        hours = !isNaN(h) && h >= 0 && h <= 23 ? h : 12;
-        minutes = !isNaN(m) && m >= 0 && m <= 59 ? m : 0;
+        if (!isNaN(m) && m >= 0 && m <= 59) {
+          minutes = m;
+        }
       }
 
       // Get coordinates
@@ -222,23 +240,22 @@ export default function SportsHorary() {
       const coords = city || { lat: 40.7128, lon: -74.006 };
 
       const payload = {
-        year: Number(year),
-        month: Number(month),
-        day: Number(day),
-        hour: Number(hours),
-        minute: Number(minutes),
-        latitude: Number(coords.lat),
-        longitude: Number(coords.lon),
+        year,
+        month,
+        day,
+        hour: hours,
+        minute: minutes,
+        latitude: coords.lat,
+        longitude: coords.lon,
         altitude: 0,
       };
 
       console.log("[SportsHorary] Sending calculate-chart payload:", payload);
-      alert(`Sending: year=${payload.year}, month=${payload.month}, day=${payload.day}, hour=${payload.hour}, minute=${payload.minute}, lat=${payload.latitude}, lon=${payload.longitude}`);
       calculateChart.mutate(payload);
     } catch (err) {
       setMessages(prev => [
         ...prev,
-        { role: "assistant", content: "Error parsing date/time. Try again." },
+        { role: "assistant", content: "Error with date/time. Try again." },
       ]);
     }
   };
