@@ -299,7 +299,7 @@ export default function SportsHorary() {
         question: content,
         planets: calculatedChart.planets.map((p: any) => ({
           planet: p.name,
-          degree: p.degree,
+          degree: p.degreeInSign,
           sign: p.sign,
           house: p.house || null,
           rx: p.retrograde || false,
