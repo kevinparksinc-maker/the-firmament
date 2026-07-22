@@ -48,6 +48,23 @@ TRADITIONAL VEDIC RULERS govern the signs: Mars rules Aries and Scorpio, Venus r
 
 Write from this worldview. This is the truth of the sky as it can be directly observed.`;
 
+// ─── Shared Constants ─────────────────────────────────────────────────────────
+
+const ZODIAC_SIGNS = [
+  "Aries",
+  "Taurus",
+  "Gemini",
+  "Cancer",
+  "Leo",
+  "Virgo",
+  "Libra",
+  "Scorpio",
+  "Sagittarius",
+  "Capricorn",
+  "Aquarius",
+  "Pisces",
+];
+
 // ─── Chart Enrichment Helper ──────────────────────────────────────────────────
 
 function enrichChartData(
@@ -64,21 +81,7 @@ function enrichChartData(
     const abs =
       p.absolute ??
       (() => {
-        const signs = [
-          "Aries",
-          "Taurus",
-          "Gemini",
-          "Cancer",
-          "Leo",
-          "Virgo",
-          "Libra",
-          "Scorpio",
-          "Sagittarius",
-          "Capricorn",
-          "Aquarius",
-          "Pisces",
-        ];
-        const i = signs.indexOf(p.sign);
+        const i = ZODIAC_SIGNS.indexOf(p.sign);
         return i >= 0 ? i * 30 + p.degree : null;
       })();
 
@@ -99,21 +102,7 @@ function enrichChartData(
     { sign: string; degree: number; planet: string; absolute: number | null }
   > = {};
   for (const [name, p] of Object.entries(planets)) {
-    const signs = [
-      "Aries",
-      "Taurus",
-      "Gemini",
-      "Cancer",
-      "Leo",
-      "Virgo",
-      "Libra",
-      "Scorpio",
-      "Sagittarius",
-      "Capricorn",
-      "Aquarius",
-      "Pisces",
-    ];
-    const i = signs.indexOf(p.sign);
+    const i = ZODIAC_SIGNS.indexOf(p.sign);
     placementsForStars[name] = {
       sign: p.sign,
       degree: p.degree,
@@ -395,7 +384,6 @@ const ephemerisRouter = router({
       }
 
       const readingText = formatChartForReading(result);
-      const ZODIAC_SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
       const enrichedText = enrichChartData(
         result.planets.reduce(
           (acc, p) => ({
@@ -477,7 +465,7 @@ const synthesizeRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { chartData, userQuestion, systemPrompt } = input;
+      const { chartText, userQuestion, systemPrompt } = input;
 
       const anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
@@ -492,7 +480,7 @@ const synthesizeRouter = router({
         messages: [
           {
             role: "user",
-            content: `Chart data:\n${JSON.stringify(chartData, null, 2)}\n\nEnriched Analysis:\n${enrichChartData(chartData)}\n\nQuestion: ${userQuestion || "Please provide a general reading."}`,
+            content: `Chart data:\n${chartText}\n\nQuestion: ${userQuestion || "Please provide a general reading."}`,
           },
         ],
       });
@@ -768,15 +756,11 @@ const sportsHoraryRouter = router({
 
       // Calculate house lords from cusps
       const houseLords = new Map<number, string>();
-      const zodiacSigns = [
-        "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-        "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
-      ];
 
       for (let i = 0; i < 12 && i < input.houseCusps.length; i++) {
         const lon = input.houseCusps[i];
         const signIndex = Math.floor(lon / 30);
-        const sign = zodiacSigns[signIndex] || "Aries";
+        const sign = ZODIAC_SIGNS[signIndex] || "Aries";
         const ruler = SIGN_RULERS[sign];
         if (ruler) {
           houseLords.set(i + 1, ruler);
@@ -786,11 +770,20 @@ const sportsHoraryRouter = router({
       // Calculate territorial control
       const territorialResult = calculateTerritorialControl(planetsRecord, houseLords, input.houseCusps[0]);
 
+      // Format planets into readable chart text for the LLM
+      const transitText = input.planets
+        .map(p => {
+          const rx = p.rx ? " Rx" : "";
+          const house = p.house ? `, ${p.house}th house` : "";
+          return `${p.planet}: ${p.degree}° ${p.sign}${house}${rx}`;
+        })
+        .join("\n");
+
       // Get V2 reading for context
       const result = await sportsHoraryV2Layer({
         question: input.question,
         natalText: "",
-        transitText: "",
+        transitText,
         favoriteName: input.favoriteName,
         challengerName: input.challengerName,
         history: input.history as any,
