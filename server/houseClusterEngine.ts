@@ -28,6 +28,7 @@ import { calculateTerritorialControl } from "./territorialControlEngine";
 import { getNakshatraAt } from "./nakshatra";
 import { getNakshatraLord } from "./nakshatraStarEngine";
 import { getSignNakshatraFriction, type PlanetName } from "./planetRelationships";
+import { buildPlanarHouseSystem, getPlanarHouse } from "./planarHouseSystem";
 
 type Chart = Record<string, PlanetPlacement>;
 
@@ -499,4 +500,29 @@ export function formatClusterReport(
   lines.push("════════════════════════════════════════════════════════════════");
 
   return lines.join("\n");
+}
+
+/**
+ * Evaluate cluster using planar equal-house system (date/location based).
+ * When you have exact event time and location, use this for accurate house cusps.
+ */
+export function evaluateClusterWithPlanarHouses(
+  chart: Chart,
+  date: Date,
+  latitude: number,
+  longitude: number,
+  sideAName: string = "Side A",
+  sideBName: string = "Side B"
+): ClusterResult {
+  const planarSystem = buildPlanarHouseSystem(date, latitude, longitude);
+
+  // Convert cusps to the map format expected by evaluateCluster
+  const cuspsMap: Record<number, { sign: string; degree: number }> = {};
+  planarSystem.houseSigns.forEach((sign, i) => {
+    const cusp = planarSystem.cusps[i];
+    const degree = Math.floor(cusp % 30);
+    cuspsMap[i + 1] = { sign, degree };
+  });
+
+  return evaluateCluster(chart, cuspsMap, sideAName, sideBName);
 }

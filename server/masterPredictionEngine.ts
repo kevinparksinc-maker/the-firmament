@@ -20,6 +20,7 @@ import {
   findFixedStarConjunctions,
 } from "./nakshatraStarEngine";
 import { getSignNakshatraFriction, PlanetName } from "./planetRelationships";
+import { buildPlanarHouseSystem } from "./planarHouseSystem";
 
 // ─────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -383,4 +384,53 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     confidence: Math.round(confidence * 100) / 100,
     volatilityWarning,
   };
+}
+
+/**
+ * Calculate prediction using planar equal-house system (date/location based).
+ * When you have exact event time and location, use this for accurate house cusps.
+ */
+export function calculateFullPredictionWithPlanarHouses(
+  chart: ChartData,
+  config: ClusterConfig,
+  date: Date,
+  latitude: number,
+  longitude: number
+): PredictionResult {
+  const planarSystem = buildPlanarHouseSystem(date, latitude, longitude);
+
+  // Rebuild house lords using planar houses
+  const updatedHouseLords = chart.houseLords.map((lord) => {
+    const siderealLon = lord.placement.siderealLon;
+    const planarHouse = getPlanarHouseFromCusps(siderealLon, planarSystem.cusps);
+
+    return {
+      ...lord,
+      placement: {
+        ...lord.placement,
+        house: planarHouse,
+      },
+    };
+  });
+
+  const updatedChart: ChartData = {
+    ...chart,
+    houseLords: updatedHouseLords,
+  };
+
+  return calculateFullPrediction(updatedChart, config);
+}
+
+/** Helper: get house number from planar cusps */
+function getPlanarHouseFromCusps(siderealLon: number, cusps: number[]): number {
+  for (let i = 0; i < 12; i++) {
+    const start = cusps[i];
+    const end = cusps[(i + 1) % 12];
+    if (start <= end) {
+      if (siderealLon >= start && siderealLon < end) return i + 1;
+    } else {
+      if (siderealLon >= start || siderealLon < end) return i + 1;
+    }
+  }
+  return 1;
 }
