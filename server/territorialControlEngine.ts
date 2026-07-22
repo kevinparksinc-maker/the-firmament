@@ -336,75 +336,72 @@ export function formatTerritorialReport(
   result: TerritorialControlResult
 ): string {
   const lines: string[] = [];
+  const swing = result.sideBTotal - result.sideATotal;
+  const winner = swing > 0 ? "Side B" : swing < 0 ? "Side A" : "Tied";
 
-  lines.push("─── ASCENDANT CLUSTER (Side A) ───");
+  // VERDICT at top
+  lines.push("╔════════════════════════════════════════════╗");
+  lines.push(`║  VERDICT: ${winner.padEnd(32)}║`);
+  lines.push(`║  Score: A(${result.sideATotal.toFixed(1).padStart(6)}) vs B(${result.sideBTotal.toFixed(1).padStart(6)})  ║`);
+  lines.push("╚════════════════════════════════════════════╝");
+  lines.push("");
+
+  // SIDE A
+  lines.push("ASCENDANT (Side A) — Favorable Houses");
   if (result.sideAEvals.length === 0) {
-    lines.push("(no lords in cluster)");
+    lines.push("  (no lords)");
   } else {
     for (const e of result.sideAEvals) {
-      const lordHouseStr = e.lordHouse ? `H${e.lordHouse}` : "unhoused";
-      const breakdown = [
-        `base:${e.baseScore > 0 ? "+" : ""}${e.baseScore}`,
-        `nak:${e.nakshatraModifier > 0 ? "+" : ""}${e.nakshatraModifier.toFixed(2)}`,
-        `dign:${e.dignityScore > 0 ? "+" : ""}${e.dignityScore}`,
-        `lots:${e.arabicLotsScore > 0 ? "+" : ""}${e.arabicLotsScore}`,
-        `war:${e.planetaryWarScore > 0 ? "+" : ""}${e.planetaryWarScore}`,
-      ].join(" ");
+      const lordHouseStr = e.lordHouse ? `H${e.lordHouse}` : "—";
       lines.push(
-        `  H${e.houseNumber} → ${e.lord.padEnd(9)} (${e.lordSign} in ${lordHouseStr}) [${breakdown}] = ${e.totalScore > 0 ? "+" : ""}${e.totalScore.toFixed(2)}`
+        `  H${e.houseNumber} ${e.lord.padEnd(9)} ${e.lordSign.padEnd(9)} (${lordHouseStr}) = ${e.totalScore > 0 ? "+" : ""}${e.totalScore.toFixed(1)}`
       );
     }
   }
-
   lines.push("");
-  lines.push("─── DESCENDANT CLUSTER (Side B) ───");
+
+  // SIDE B
+  lines.push("DESCENDANT (Side B) — Favorable Houses");
   if (result.sideBEvals.length === 0) {
-    lines.push("(no lords in cluster)");
+    lines.push("  (no lords)");
   } else {
     for (const e of result.sideBEvals) {
-      const lordHouseStr = e.lordHouse ? `H${e.lordHouse}` : "unhoused";
-      const breakdown = [
-        `base:${e.baseScore > 0 ? "+" : ""}${e.baseScore}`,
-        `nak:${e.nakshatraModifier > 0 ? "+" : ""}${e.nakshatraModifier.toFixed(2)}`,
-        `dign:${e.dignityScore > 0 ? "+" : ""}${e.dignityScore}`,
-        `lots:${e.arabicLotsScore > 0 ? "+" : ""}${e.arabicLotsScore}`,
-        `war:${e.planetaryWarScore > 0 ? "+" : ""}${e.planetaryWarScore}`,
-      ].join(" ");
+      const lordHouseStr = e.lordHouse ? `H${e.lordHouse}` : "—";
       lines.push(
-        `  H${e.houseNumber} → ${e.lord.padEnd(9)} (${e.lordSign} in ${lordHouseStr}) [${breakdown}] = ${e.totalScore > 0 ? "+" : ""}${e.totalScore.toFixed(2)}`
+        `  H${e.houseNumber} ${e.lord.padEnd(9)} ${e.lordSign.padEnd(9)} (${lordHouseStr}) = ${e.totalScore > 0 ? "+" : ""}${e.totalScore.toFixed(1)}`
       );
     }
   }
-
   lines.push("");
-  lines.push("─── PLANETARY WARS ───");
+
+  // LOTS
+  lines.push("ARABIC LOTS");
+  if (result.arabicLots && result.arabicLots.length > 0) {
+    const lotsA = result.arabicLots.filter(l => l.sideInfluence === "A");
+    const lotsB = result.arabicLots.filter(l => l.sideInfluence === "B");
+    if (lotsA.length > 0) lines.push(`  Side A: ${lotsA.map(l => l.name).join(", ")}`);
+    if (lotsB.length > 0) lines.push(`  Side B: ${lotsB.map(l => l.name).join(", ")}`);
+  } else {
+    lines.push("  (none)");
+  }
+  lines.push("");
+
+  // WARS
+  lines.push("PLANETARY WARS");
   if (result.planetaryWars.length === 0) {
-    lines.push("(none detected)");
+    lines.push("  (none detected)");
   } else {
     for (const war of result.planetaryWars) {
-      lines.push(
-        `  ${war.winner} defeats ${war.loser} (${war.degreeDiff.toFixed(2)}°)`
-      );
+      lines.push(`  ${war.winner} defeats ${war.loser}`);
     }
   }
-
   lines.push("");
-  lines.push("─── ARABIC LOTS ───");
-  if (result.arabicLots && result.arabicLots.length > 0) {
-    for (const lot of result.arabicLots) {
-      const influence = lot.sideInfluence === "A" ? "Side A ✓" : lot.sideInfluence === "B" ? "Side B ✓" : "(neutral)";
-      lines.push(`  ${lot.name.padEnd(20)} in ${lot.sign.padEnd(11)} → ${influence}`);
-    }
-  } else {
-    lines.push("(none calculated)");
-  }
 
-  lines.push("");
-  lines.push("═══════════════════════════════════════════");
-  lines.push(`TOTAL: Side A = ${result.sideATotal > 0 ? "+" : ""}${result.sideATotal}`);
-  lines.push(`TOTAL: Side B = ${result.sideBTotal > 0 ? "+" : ""}${result.sideBTotal}`);
-  lines.push(`SWING: ${(result.sideBTotal - result.sideATotal > 0 ? "+" : "")}${(result.sideBTotal - result.sideATotal).toFixed(2)} (Side B favor)`);
-  lines.push("═══════════════════════════════════════════");
+  // FINAL TALLY
+  lines.push("─────────────────────────────────────────────");
+  lines.push(`Side A Total: ${result.sideATotal > 0 ? "+" : ""}${result.sideATotal.toFixed(1)}`);
+  lines.push(`Side B Total: ${result.sideBTotal > 0 ? "+" : ""}${result.sideBTotal.toFixed(1)}`);
+  lines.push(`─────────────────────────────────────────────`);
 
   return lines.join("\n");
 }
