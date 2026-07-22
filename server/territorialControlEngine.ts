@@ -58,17 +58,17 @@ function getSide(house: number): "A" | "B" | null {
 // ─── HELPER: Convert nakshatra profile to additive modifier ─────────────────
 
 function getNakshatraAdditiveModifier(profile: NakshatraProfile): number {
-  // Map trait levels to point values
+  // Map trait levels to point values (increased weight for greater impact)
   const traitToPoints = (trait: string): number => {
     switch (trait) {
       case "Excellent":
-        return 0.4;
+        return 1.5;
       case "High":
-        return 0.2;
+        return 0.75;
       case "Medium":
         return 0;
       case "Low":
-        return -0.2;
+        return -0.75;
       default:
         return 0;
     }
