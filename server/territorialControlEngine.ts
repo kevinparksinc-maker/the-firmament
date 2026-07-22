@@ -273,7 +273,7 @@ export function calculateTerritorialControl(
 
     const arabicLotsScore = getArabicLotsModifier(
       planets,
-      ascendant,
+      asc,
       houseLords,
       house
     );
