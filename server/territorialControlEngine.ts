@@ -342,66 +342,71 @@ export function formatTerritorialReport(
   // VERDICT at top
   lines.push("╔════════════════════════════════════════════╗");
   lines.push(`║  VERDICT: ${winner.padEnd(32)}║`);
-  lines.push(`║  Score: A(${result.sideATotal.toFixed(1).padStart(6)}) vs B(${result.sideBTotal.toFixed(1).padStart(6)})  ║`);
+  lines.push(`║  A: ${result.sideATotal.toFixed(1).padStart(6)} | B: ${result.sideBTotal.toFixed(1).padStart(6)} | Swing: ${swing.toFixed(1).padStart(6)}  ║`);
   lines.push("╚════════════════════════════════════════════╝");
   lines.push("");
 
   // SIDE A
-  lines.push("ASCENDANT (Side A) — Favorable Houses");
+  lines.push("▌ ASCENDANT CLUSTER (Side A)");
   if (result.sideAEvals.length === 0) {
     lines.push("  (no lords)");
   } else {
     for (const e of result.sideAEvals) {
       const lordHouseStr = e.lordHouse ? `H${e.lordHouse}` : "—";
+      const breakdown = `[base:${e.baseScore > 0 ? "+" : ""}${e.baseScore.toFixed(0)} nak:${e.nakshatraModifier > 0 ? "+" : ""}${e.nakshatraModifier.toFixed(2)} dign:${e.dignityScore > 0 ? "+" : ""}${e.dignityScore} lots:${e.arabicLotsScore > 0 ? "+" : ""}${e.arabicLotsScore} war:${e.planetaryWarScore > 0 ? "+" : ""}${e.planetaryWarScore}]`;
       lines.push(
-        `  H${e.houseNumber} ${e.lord.padEnd(9)} ${e.lordSign.padEnd(9)} (${lordHouseStr}) = ${e.totalScore > 0 ? "+" : ""}${e.totalScore.toFixed(1)}`
+        `  H${e.houseNumber} ${e.lord.padEnd(9)} ${e.lordSign.padEnd(9)} (${lordHouseStr}) ${breakdown}`
       );
+      lines.push(`       TOTAL = ${e.totalScore > 0 ? "+" : ""}${e.totalScore.toFixed(2)}`);
     }
   }
   lines.push("");
 
   // SIDE B
-  lines.push("DESCENDANT (Side B) — Favorable Houses");
+  lines.push("▌ DESCENDANT CLUSTER (Side B)");
   if (result.sideBEvals.length === 0) {
     lines.push("  (no lords)");
   } else {
     for (const e of result.sideBEvals) {
       const lordHouseStr = e.lordHouse ? `H${e.lordHouse}` : "—";
+      const breakdown = `[base:${e.baseScore > 0 ? "+" : ""}${e.baseScore.toFixed(0)} nak:${e.nakshatraModifier > 0 ? "+" : ""}${e.nakshatraModifier.toFixed(2)} dign:${e.dignityScore > 0 ? "+" : ""}${e.dignityScore} lots:${e.arabicLotsScore > 0 ? "+" : ""}${e.arabicLotsScore} war:${e.planetaryWarScore > 0 ? "+" : ""}${e.planetaryWarScore}]`;
       lines.push(
-        `  H${e.houseNumber} ${e.lord.padEnd(9)} ${e.lordSign.padEnd(9)} (${lordHouseStr}) = ${e.totalScore > 0 ? "+" : ""}${e.totalScore.toFixed(1)}`
+        `  H${e.houseNumber} ${e.lord.padEnd(9)} ${e.lordSign.padEnd(9)} (${lordHouseStr}) ${breakdown}`
       );
+      lines.push(`       TOTAL = ${e.totalScore > 0 ? "+" : ""}${e.totalScore.toFixed(2)}`);
+    }
+  }
+  lines.push("");
+
+  // WARS
+  lines.push("▌ PLANETARY WARS");
+  if (result.planetaryWars.length === 0) {
+    lines.push("  (none detected)");
+  } else {
+    for (const war of result.planetaryWars) {
+      lines.push(`  ${war.winner} defeats ${war.loser} (${war.degreeDiff.toFixed(2)}°)`);
     }
   }
   lines.push("");
 
   // LOTS
-  lines.push("ARABIC LOTS");
+  lines.push("▌ ARABIC LOTS");
   if (result.arabicLots && result.arabicLots.length > 0) {
-    const lotsA = result.arabicLots.filter(l => l.sideInfluence === "A");
-    const lotsB = result.arabicLots.filter(l => l.sideInfluence === "B");
-    if (lotsA.length > 0) lines.push(`  Side A: ${lotsA.map(l => l.name).join(", ")}`);
-    if (lotsB.length > 0) lines.push(`  Side B: ${lotsB.map(l => l.name).join(", ")}`);
-  } else {
-    lines.push("  (none)");
-  }
-  lines.push("");
-
-  // WARS
-  lines.push("PLANETARY WARS");
-  if (result.planetaryWars.length === 0) {
-    lines.push("  (none detected)");
-  } else {
-    for (const war of result.planetaryWars) {
-      lines.push(`  ${war.winner} defeats ${war.loser}`);
+    for (const lot of result.arabicLots) {
+      const influence = lot.sideInfluence === "A" ? "→ A ✓" : lot.sideInfluence === "B" ? "→ B ✓" : "→ neutral";
+      lines.push(`  ${lot.name.padEnd(18)} in ${lot.sign.padEnd(11)} ${influence}`);
     }
+  } else {
+    lines.push("  (none calculated)");
   }
   lines.push("");
 
   // FINAL TALLY
-  lines.push("─────────────────────────────────────────────");
-  lines.push(`Side A Total: ${result.sideATotal > 0 ? "+" : ""}${result.sideATotal.toFixed(1)}`);
-  lines.push(`Side B Total: ${result.sideBTotal > 0 ? "+" : ""}${result.sideBTotal.toFixed(1)}`);
-  lines.push(`─────────────────────────────────────────────`);
+  lines.push("═══════════════════════════════════════════════");
+  lines.push(`  SIDE A TOTAL: ${result.sideATotal > 0 ? "+" : ""}${result.sideATotal.toFixed(2)}`);
+  lines.push(`  SIDE B TOTAL: ${result.sideBTotal > 0 ? "+" : ""}${result.sideBTotal.toFixed(2)}`);
+  lines.push(`  SWING: ${(swing > 0 ? "+" : "")}${swing.toFixed(2)} (${winner} favored)`);
+  lines.push("═══════════════════════════════════════════════");
 
   return lines.join("\n");
 }
