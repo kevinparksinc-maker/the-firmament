@@ -135,6 +135,7 @@ export interface ReadingResult {
   natal: Record<string, PlanetPlacement>;
   transits: Record<string, PlanetPlacement>;
   context: string;
+  ascendant: number | null; // absolute sidereal longitude from Asc placement
 }
 
 function titleCase(str: string): string {
@@ -498,6 +499,9 @@ export function runAstroReading(
   const soulResult = scorePillar('soul', effectiveNatal, effectiveTransits, activations);
   const spiritResult = scorePillar('spirit', effectiveNatal, effectiveTransits, activations);
 
+  // Extract ascendant from the effective natal chart
+  const ascendant = effectiveNatal.Asc?.absolute ?? null;
+
   return {
     result: {
       mind: summarizePillar('mind', mindResult, effectiveNatal, activations),
@@ -506,7 +510,8 @@ export function runAstroReading(
       activations,
       natal: effectiveNatal,
       transits: effectiveTransits,
-      context
+      context,
+      ascendant
     },
     error: null,
     mode

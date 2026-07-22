@@ -25,6 +25,17 @@ export interface SportsHoraryOutput {
   usedChart: "transit" | "natal";
 }
 
+function buildEqualHouseCusps(ascendant: number): Record<number, { sign: string; degree: number }> {
+  const cusps: Record<number, { sign: string; degree: number }> = {};
+  for (let i = 0; i < 12; i++) {
+    const lon = (ascendant + i * 30) % 360;
+    const signIdx = Math.floor(lon / 30) % 12;
+    const degree = Math.floor(lon % 30);
+    cusps[i + 1] = { sign: SIGN_ORDER[signIdx], degree };
+  }
+  return cusps;
+}
+
 function buildChartData(chart: Chart, ascendant?: number): ChartData {
   const houseLords: ChartData["houseLords"] = [];
   const planetsInHouses: ChartData["planetsInHouses"] = [];
@@ -55,20 +66,12 @@ function buildChartData(chart: Chart, ascendant?: number): ChartData {
     }
   }
 
-  // Calculate Arabic Lots if we have Ascendant (assumes daytime by default)
+  // Calculate Arabic Lots with proper house assignment
   let lots: ChartData["lots"] = [];
   if (ascendant !== undefined) {
     const rawLots = calculateArabicLots(chart, ascendant, false);
-    // Convert to house-assigned lots (need cusps for this)
-    lots = rawLots.map((lot) => ({
-      name: lot.name,
-      house: 1, // default; will be recalculated later with house cusps if available
-      sign: lot.sign,
-      degree: lot.degree,
-      longitude: lot.longitude,
-      meaning: lot.meaning,
-      formula: lot.formula,
-    }));
+    const houseCusps = buildEqualHouseCusps(ascendant);
+    lots = assignHousesToLots(rawLots, houseCusps);
   }
 
   return {
@@ -112,32 +115,40 @@ function buildReadingPrompt(
         ? chall
         : "Neither — too close to call";
 
-  return `You are the Firmament oracle — master of the fixed dome, Vedic rulers, territorial control, and fixed stars.
+  const margin = Math.abs(prediction.margin);
+  const favTotal = prediction.sideATotal;
+  const challTotal = prediction.sideBTotal;
+  const isCloseCall = margin < 10;
 
-The MASTER PREDICTION ENGINE has judged this chart by analyzing all 10 cluster houses (both sides). Its verdict is FINAL. Your role is to EXPLAIN and NARRATE that call.
+  return `You are the Firmament oracle — master of territorial control and celestial verdict.
 
-CONTEST:
-- FAVORITE: ${fav}
-- CHALLENGER: ${chall}
-- QUESTION: ${input.question}
+CRITICAL: Do NOT generate template prose. Do NOT say "dead even" or "both hands empty" if the data shows a clear winner.
 
-ENGINE VERDICT:
-- Side A (${fav}) Total: ${prediction.sideATotal}
-- Side B (${chall}) Total: ${prediction.sideBTotal}
-- Margin: ${prediction.margin} points
+ACTUAL ENGINE COMPUTED DATA (reference these exact values in your narration):
+- ${fav} (Side A) Total: ${favTotal.toFixed(2)} points
+- ${chall} (Side B) Total: ${challTotal.toFixed(2)} points
+- Margin: ${margin.toFixed(2)} points
 - Confidence: ${prediction.confidence}%
-- WINNER: ${winner}
+- Verdict: ${winner}
+- Call Type: ${isCloseCall ? "Close call" : "Clear call"}
 
-TERRITORIAL SCORING LAYERS:
+SCORING BREAKDOWN (cite these in your reading):
 ${breakdown}
 
-WRITE THE READING:
-1. START with the verdict plainly — who wins or if it's too close to call.
-2. EXPLAIN the territorial advantage — which cluster dominates and why.
-3. Highlight any major reversals (displaced lords, territorial invasions, friction multipliers).
-4. CONFIDENCE: a wide margin means a strong call; a narrow margin means genuine uncertainty.
+MANDATORY INSTRUCTIONS:
+1. **NEVER say "dead even" if margin is NOT zero.** If margin is ${margin}, explicitly state the gap.
+2. **Reference the actual totals.** Example: "${fav} accumulated ${favTotal.toFixed(1)} points across the cluster, while ${chall} registered ${challTotal.toFixed(1)} — a swing of ${margin.toFixed(1)} in favor of ${favTotal > challTotal ? fav : chall}."
+3. **If lots are scored, reference them.** Don't say "both hands empty" — say which lots landed where and what side they favor.
+4. **Confidence language:** Margin < 5 = "genuine uncertainty"; 5–15 = "moderate edge"; > 15 = "clear advantage"
+5. **No generic templates.** Every sentence must trace to the specific numbers above.
 
-TONE: Wise, direct oracle. No hedging. Every word traces to a house lord position and territorial control. Use Markdown headers.`;
+STRUCTURE:
+- **The Verdict** (state the winner plainly, cite the margin)
+- **Why** (which houses/lords dominated, reference the breakdown)
+- **Confidence** (tie it to the margin value — don't invent a generic percentage)
+- **Final Word** (one sentence oracle wisdom)
+
+TONE: Direct, specific, data-grounded oracle. Every claim is traceable to a named placement or scored layer above.`;
 }
 
 export async function sportsHoraryLayer(input: {
@@ -152,6 +163,7 @@ export async function sportsHoraryLayer(input: {
 
   const transits = result?.transits ?? {};
   const natal = result?.natal ?? {};
+  const ascendant = result?.ascendant ?? undefined;
   const usedChart: "transit" | "natal" =
     Object.keys(transits).length >= 5 ? "transit" : "natal";
 
@@ -159,7 +171,8 @@ export async function sportsHoraryLayer(input: {
   const chartData = await buildSportsHoraryChartViaLLM(
     chart,
     input.favoriteName || "Favorite",
-    input.challengerName || "Challenger"
+    input.challengerName || "Challenger",
+    ascendant
   );
 
   if (!chartData || chartData.houseLords.length === 0) {
