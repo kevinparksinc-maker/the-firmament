@@ -124,7 +124,6 @@ export default function SportsHorary() {
   const [eventHour, setEventHour] = useState("");
   const [eventMinute, setEventMinute] = useState("");
   const [selectedCity, setSelectedCity] = useState("New York");
-  const [customLocation, setCustomLocation] = useState("");
   const [transitInput, setTransitInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [result, setResult] = useState<{
@@ -202,15 +201,6 @@ export default function SportsHorary() {
       return;
     }
 
-    // Validate date
-    if (!eventDate) {
-      setMessages(prev => [
-        ...prev,
-        { role: "assistant", content: "I need the event date to calculate the chart." },
-      ]);
-      return;
-    }
-
     try {
       const dateParts = eventDate.split("-");
       const year = parseInt(dateParts[0]) || new Date().getFullYear();
@@ -243,7 +233,7 @@ export default function SportsHorary() {
           ...prev,
           {
             role: "assistant",
-            content: `No event time provided — using noon (12:00 UTC) as default. For better accuracy, enter the actual event time.`,
+            content: `No event time provided — using noon as default. For better accuracy, enter the actual event time.`,
           },
         ]);
       }
@@ -251,10 +241,6 @@ export default function SportsHorary() {
       // Get coordinates
       const city = MAJOR_CITIES[selectedCity as keyof typeof MAJOR_CITIES];
       const coords = city || { lat: 40.7128, lon: -74.006 };
-
-      console.log("[SportsHorary DEBUG] hours type:", typeof hours, "value:", hours);
-      console.log("[SportsHorary DEBUG] minutes type:", typeof minutes, "value:", minutes);
-      console.log("[SportsHorary DEBUG] eventHour:", eventHour, "eventMinute:", eventMinute);
 
       const payload = {
         year,
@@ -266,8 +252,6 @@ export default function SportsHorary() {
         longitude: coords.lon,
         altitude: 0,
       };
-
-      console.log("[SportsHorary] Sending calculate-chart payload:", JSON.stringify(payload));
       calculateChart.mutate(payload);
     } catch (err) {
       setMessages(prev => [
@@ -311,7 +295,9 @@ export default function SportsHorary() {
         houseCusps: calculatedChart.houses.cusps,
         favoriteName: favorite || undefined,
         challengerName: challenger || undefined,
-        history: messages,
+        history: messages
+          .filter(m => m.role !== "system")
+          .map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
       });
     } else {
       // Fall back to text-based analysis
@@ -321,8 +307,8 @@ export default function SportsHorary() {
         favoriteName: favorite || undefined,
         challengerName: challenger || undefined,
         history: messages
-        .filter(m => m.role !== "system")
-        .map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+          .filter(m => m.role !== "system")
+          .map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
       });
     }
   };
@@ -416,14 +402,6 @@ export default function SportsHorary() {
           </select>
         </div>
 
-        <input
-          type="text"
-          value={customLocation}
-          onChange={e => setCustomLocation(e.target.value)}
-          placeholder="Custom location (optional, overrides city selection)"
-          className="w-full rounded-lg border-2 border-border bg-card p-2 text-sm mb-3"
-        />
-
         <button
           onClick={handleCalculateChart}
           disabled={calculateChart.isPending || !eventDate}
@@ -485,7 +463,7 @@ export default function SportsHorary() {
         <AIChatBox
           messages={messages}
           onSendMessage={handleSend}
-          isLoading={ask.isPending}
+          isLoading={ask.isPending || askWithChart.isPending}
           height="520px"
           placeholder="Ask the oracle: who wins tonight?"
           emptyStateMessage="Enter the chart above, then ask who takes the contest."
