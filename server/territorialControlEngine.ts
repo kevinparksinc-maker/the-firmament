@@ -168,19 +168,20 @@ function getArabicLotsModifier(
 
 export function calculateTerritorialControl(
   planets: Record<string, PlanetPlacement>,
-  houseLords: Map<number, string>
+  houseLords: Map<number, string>,
+  ascendant?: number
 ): TerritorialControlResult {
   const sideAEvals: HouseLordEvaluation[] = [];
   const sideBEvals: HouseLordEvaluation[] = [];
 
-  // Get ascendant for Arabic lots calculation (assume it's in house 1 cusp)
-  const ascendant = planets.Sun ? planets.Sun.absolute ?? 0 : 0;
+  // Use provided ascendant, or fall back to first house cusp
+  const asc = ascendant ?? 0;
 
   // Calculate Arabic lots
   let arabicLots: Array<{ name: string; sign: string; sideInfluence: "A" | "B" | "neutral" }> = [];
   try {
     const isNight = planets.Sun && planets.Sun.house ? planets.Sun.house > 6 : false;
-    const lots = calculateArabicLots(planets as any, ascendant, isNight);
+    const lots = calculateArabicLots(planets as any, asc, isNight);
 
     const zodiac = [
       "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",

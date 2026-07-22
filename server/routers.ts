@@ -784,7 +784,7 @@ const sportsHoraryRouter = router({
       }
 
       // Calculate territorial control
-      const territorialResult = calculateTerritorialControl(planetsRecord, houseLords);
+      const territorialResult = calculateTerritorialControl(planetsRecord, houseLords, input.houseCusps[0]);
 
       // Get V2 reading for context
       const result = await sportsHoraryV2Layer({
