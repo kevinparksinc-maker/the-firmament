@@ -117,46 +117,17 @@ function getArabicLotsModifier(
   let lotsScore = 0;
 
   for (const lot of lots) {
-    // Determine which cluster the lot falls in by its sign
-    // Map sign to a house-like concept (simplification: sign index 0-3 = houses 1-4, etc.)
-    const zodiac = [
-      "Aries",
-      "Taurus",
-      "Gemini",
-      "Cancer",
-      "Leo",
-      "Virgo",
-      "Libra",
-      "Scorpio",
-      "Sagittarius",
-      "Capricorn",
-      "Aquarius",
-      "Pisces",
-    ];
-    const signIdx = zodiac.indexOf(lot.sign);
+    // Compute the lot's actual house placement using whole-sign system
+    // House = floor((lotDegree - ascendant + 360) % 360 / 30) + 1
+    const lotHouseDelta = ((lot.longitude - ascendant + 360) % 360) / 30;
+    const lotHouse = Math.floor(lotHouseDelta) + 1;
 
-    // For simplicity, map sign index to conceptual house preference
-    // This is a heuristic since lots are not literally "in houses"
-    // Lots in Side A signs (+) vs Side B signs (-)
-    const sideACharcteristicSigns = [
-      "Aries",
-      "Leo",
-      "Sagittarius",
-      "Capricorn",
-      "Aquarius",
-    ]; // Fire/Air/Capricorn (assertive)
-    const sideBCharacteristicSigns = [
-      "Cancer",
-      "Scorpio",
-      "Pisces",
-      "Taurus",
-      "Libra",
-    ]; // Water/Venus ruled (receptive)
+    // Determine which territorial control side the lot's house belongs to
+    const lotSide = getSide(lotHouse);
 
-    if (sideACharcteristicSigns.includes(lot.sign)) {
-      lotsScore += evalSide === "A" ? 1 : -1;
-    } else if (sideBCharacteristicSigns.includes(lot.sign)) {
-      lotsScore += evalSide === "B" ? 1 : -1;
+    // Score: +1 if lot's house agrees with evaluation side, -1 if not
+    if (lotSide) {
+      lotsScore += lotSide === evalSide ? 1 : -1;
     }
   }
 
@@ -182,27 +153,18 @@ export function calculateTerritorialControl(
     const isNight = planets.Sun && planets.Sun.house ? planets.Sun.house > 6 : false;
     const lots = calculateArabicLots(planets as any, asc, isNight);
 
-    const zodiac = [
-      "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-      "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
-    ];
+    arabicLots = lots.map(lot => {
+      // Compute the lot's actual house placement using whole-sign system
+      const lotHouseDelta = ((lot.longitude - asc + 360) % 360) / 30;
+      const lotHouse = Math.floor(lotHouseDelta) + 1;
+      const lotSide = getSide(lotHouse);
 
-    const sideACharcteristicSigns = [
-      "Aries", "Leo", "Sagittarius", "Capricorn", "Aquarius"
-    ];
-    const sideBCharacteristicSigns = [
-      "Cancer", "Scorpio", "Pisces", "Taurus", "Libra"
-    ];
-
-    arabicLots = lots.map(lot => ({
-      name: lot.name,
-      sign: lot.sign,
-      sideInfluence: sideACharcteristicSigns.includes(lot.sign)
-        ? "A"
-        : sideBCharacteristicSigns.includes(lot.sign)
-          ? "B"
-          : "neutral",
-    }));
+      return {
+        name: lot.name,
+        sign: lot.sign,
+        sideInfluence: lotSide ?? "neutral",
+      };
+    });
   } catch (e) {
     // Lots calculation failed, continue without them
   }
