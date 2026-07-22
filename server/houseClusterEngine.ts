@@ -23,8 +23,50 @@ import {
   ASPECT_ORBS,
   TOO_CLOSE_TO_CALL_MARGIN,
 } from "./houseScoringConstants";
+import type { HouseCusps } from "./ephemeris";
+import { calculateTerritorialControl } from "./territorialControlEngine";
+import { getNakshatraAt } from "./nakshatra";
+import { getNakshatraLord } from "./nakshatraStarEngine";
+import { getSignNakshatraFriction, type PlanetName } from "./planetRelationships";
 
 type Chart = Record<string, PlanetPlacement>;
+
+/**
+ * Convert sidereal longitude to sign/degree format
+ */
+function lonToSignDeg(lon: number): { sign: string; degree: number } {
+  const ZODIAC_SIGNS = [
+    "Aries",
+    "Taurus",
+    "Gemini",
+    "Cancer",
+    "Leo",
+    "Virgo",
+    "Libra",
+    "Scorpio",
+    "Sagittarius",
+    "Capricorn",
+    "Aquarius",
+    "Pisces",
+  ];
+  const signIndex = Math.floor(lon / 30);
+  const degree = Math.floor(lon % 30);
+  return { sign: ZODIAC_SIGNS[signIndex] ?? "Aries", degree };
+}
+
+/**
+ * Convert HouseCusps (array of longitudes) to map format
+ */
+function convertHouseCusps(
+  houses: HouseCusps
+): Record<number, { sign: string; degree: number }> {
+  const result: Record<number, { sign: string; degree: number }> = {};
+  for (let i = 0; i < 12; i++) {
+    const lon = houses.cusps[i]!;
+    result[i + 1] = lonToSignDeg(lon);
+  }
+  return result;
+}
 
 interface HouseEvaluation {
   houseNumber: number;
@@ -40,6 +82,9 @@ interface HouseEvaluation {
   placementStatus: string;
   aspectPoints: number;
   aspectDetails: string[];
+  frictionMultiplier: number;
+  frictionStatus: string;
+  pointsBeforeFriction: number;
   totalPoints: number;
   reasoning: string;
 }
@@ -49,6 +94,10 @@ interface ClusterResult {
   sideBHouses: HouseEvaluation[];
   sideATotal: number;
   sideBTotal: number;
+  sideATerritorial: number;
+  sideBTerritorial: number;
+  sideAGrandTotal: number;
+  sideBGrandTotal: number;
   margin: number;
   prediction: "Side A" | "Side B" | "Too close to call";
   confidence: number;
@@ -61,6 +110,30 @@ function getLongitude(p: PlanetPlacement): number {
   if (p.absolute != null) return ((p.absolute % 360) + 360) % 360;
   const idx = SIGN_ORDER.indexOf(p.sign);
   return idx >= 0 ? idx * 30 + p.degree : 0;
+}
+
+/**
+ * Get friction multiplier between sign lord and nakshatra lord
+ */
+function getFrictionMultiplier(
+  lordPlanet: string,
+  lordSign: string
+): { multiplier: number; status: string } {
+  const signLord = SIGN_RULERS[lordSign];
+  if (!signLord) {
+    return { multiplier: 1.0, status: "Unknown sign" };
+  }
+
+  try {
+    const lon = SIGN_ORDER.indexOf(lordSign) * 30 + 15; // Mid-sign longitude
+    const nakshatraData = getNakshatraAt(lon);
+    const nakshatraLord = getNakshatraLord(nakshatraData.nakshatra.name);
+
+    const friction = getSignNakshatraFriction(signLord as PlanetName, nakshatraLord as PlanetName);
+    return { multiplier: friction.multiplier, status: friction.status };
+  } catch (e) {
+    return { multiplier: 1.0, status: "Error computing friction" };
+  }
 }
 
 /**
@@ -97,6 +170,9 @@ function evaluateHouse(
       placementStatus: "Unknown",
       aspectPoints: 0,
       aspectDetails: [],
+      frictionMultiplier: 1.0,
+      frictionStatus: "Unknown",
+      pointsBeforeFriction: 0,
       totalPoints: 0,
       reasoning: "House cusp not found",
     };
@@ -121,6 +197,9 @@ function evaluateHouse(
       placementStatus: "Unknown",
       aspectPoints: 0,
       aspectDetails: [],
+      frictionMultiplier: 1.0,
+      frictionStatus: "Unknown",
+      pointsBeforeFriction: 0,
       totalPoints: 0,
       reasoning: "Lord not in chart",
     };
@@ -185,7 +264,7 @@ function evaluateHouse(
 
   // 5. Placement bonus
   let placementStatus = "cadent";
-  let placementPts = PLACEMENT_POINTS.CADENT;
+  let placementPts: number = PLACEMENT_POINTS.CADENT;
 
   if (ANGULAR_HOUSES.includes(lordPlacement.house || 0)) {
     placementStatus = "angular";
@@ -252,6 +331,16 @@ function evaluateHouse(
     reasons.push(`aspects: ${aspectPts > 0 ? "+" : ""}${aspectPts}`);
   }
 
+  // 7. Apply planet relationship friction multiplier (sign lord ↔ nakshatra lord)
+  const pointsBeforeFriction = points;
+  const frictionData = getFrictionMultiplier(lordName, lordPlacement.sign);
+  const frictionMultiplier = frictionData.multiplier;
+  const finalPoints = Math.round(points * frictionMultiplier);
+
+  if (frictionMultiplier !== 1.0) {
+    reasons.push(`friction (${frictionData.status}): ${frictionMultiplier.toFixed(2)}x → ${finalPoints}`);
+  }
+
   return {
     houseNumber,
     side,
@@ -266,24 +355,33 @@ function evaluateHouse(
     placementStatus,
     aspectPoints: aspectPts,
     aspectDetails,
-    totalPoints: points,
+    frictionMultiplier,
+    frictionStatus: frictionData.status,
+    pointsBeforeFriction,
+    totalPoints: finalPoints,
     reasoning: reasons.join(", ") || "Neutral",
   };
 }
 
 /**
  * Main engine: evaluate all 10 houses and generate prediction
+ * Accepts either old format (Record) or new ephemeris format (HouseCusps)
  */
 export function evaluateCluster(
   chart: Chart,
-  houseCusps: Record<number, { sign: string; degree: number }>,
+  houseCusps: Record<number, { sign: string; degree: number }> | HouseCusps,
   sideAName: string = "Side A",
   sideBName: string = "Side B"
 ): ClusterResult {
+  // Convert HouseCusps format to map if needed
+  const cuspsMap =
+    "cusps" in houseCusps
+      ? convertHouseCusps(houseCusps)
+      : (houseCusps as Record<number, { sign: string; degree: number }>);
   const allHouses = [...SIDE_A_HOUSES, ...SIDE_B_HOUSES];
   const evaluations = allHouses.map((house) => {
     const side = SIDE_A_HOUSES.includes(house) ? "A" : "B";
-    return evaluateHouse(house, side, chart, houseCusps);
+    return evaluateHouse(house as number, side, chart, cuspsMap);
   });
 
   const sideAEvals = evaluations.filter((e) => e.side === "A").sort((a, b) => a.houseNumber - b.houseNumber);
@@ -292,12 +390,49 @@ export function evaluateCluster(
   const sideATotal = sideAEvals.reduce((sum, e) => sum + e.totalPoints, 0);
   const sideBTotal = sideBEvals.reduce((sum, e) => sum + e.totalPoints, 0);
 
-  const margin = Math.abs(sideATotal - sideBTotal);
+  // Build house lords map from cusps
+  const ZODIAC_SIGNS = [
+    "Aries",
+    "Taurus",
+    "Gemini",
+    "Cancer",
+    "Leo",
+    "Virgo",
+    "Libra",
+    "Scorpio",
+    "Sagittarius",
+    "Capricorn",
+    "Aquarius",
+    "Pisces",
+  ];
+  const houseLords = new Map<number, string>();
+  for (let i = 0; i < 12; i++) {
+    const lon = cuspsMap[i + 1] ?
+      SIGN_ORDER.indexOf(cuspsMap[i + 1]!.sign) * 30 + cuspsMap[i + 1]!.degree :
+      i * 30;
+    const signIndex = Math.floor(lon / 30);
+    const sign = ZODIAC_SIGNS[signIndex] ?? "Aries";
+    const ruler = SIGN_RULERS[sign];
+    if (ruler) {
+      houseLords.set(i + 1, ruler);
+    }
+  }
+
+  // Calculate territorial control
+  const territorialResult = calculateTerritorialControl(chart, houseLords);
+  const sideATerritorial = territorialResult.sideATotal;
+  const sideBTerritorial = territorialResult.sideBTotal;
+
+  // Grand totals including territorial control
+  const sideAGrandTotal = sideATotal + sideATerritorial;
+  const sideBGrandTotal = sideBTotal + sideBTerritorial;
+
+  const margin = Math.abs(sideAGrandTotal - sideBGrandTotal);
   let prediction: "Side A" | "Side B" | "Too close to call";
   if (margin < TOO_CLOSE_TO_CALL_MARGIN) {
     prediction = "Too close to call";
   } else {
-    prediction = sideATotal > sideBTotal ? "Side A" : "Side B";
+    prediction = sideAGrandTotal > sideBGrandTotal ? "Side A" : "Side B";
   }
 
   const confidence = margin < TOO_CLOSE_TO_CALL_MARGIN ? 30 : Math.min(95, 50 + margin * 5);
@@ -307,6 +442,10 @@ export function evaluateCluster(
     sideBHouses: sideBEvals,
     sideATotal,
     sideBTotal,
+    sideATerritorial,
+    sideBTerritorial,
+    sideAGrandTotal,
+    sideBGrandTotal,
     margin,
     prediction,
     confidence,
@@ -332,20 +471,26 @@ export function formatClusterReport(
   // Side A houses
   lines.push(`${sideAName} CLUSTER (H1, H3, H6, H10, H11):`);
   result.sideAHouses.forEach((e) => {
+    const frictionNote = e.frictionMultiplier !== 1.0 ? ` [friction: ${e.frictionMultiplier.toFixed(2)}x ${e.frictionStatus}]` : "";
     lines.push(
-      `  H${e.houseNumber}  ${e.lordPlanet.padEnd(8)} in ${e.lordSign} (H${e.lordHouse}) ${e.totalPoints > 0 ? "+" : ""}${e.totalPoints.toString().padStart(2)}  [${e.reasoning}]`
+      `  H${e.houseNumber}  ${e.lordPlanet.padEnd(8)} in ${e.lordSign} (H${e.lordHouse}) ${e.pointsBeforeFriction > 0 ? "+" : ""}${e.pointsBeforeFriction}${frictionNote} = ${e.totalPoints > 0 ? "+" : ""}${e.totalPoints.toString().padStart(2)}`
     );
   });
-  lines.push(`  TOTAL: ${result.sideATotal > 0 ? "+" : ""}${result.sideATotal}\n`);
+  lines.push(`  Dignity/Placement Total: ${result.sideATotal > 0 ? "+" : ""}${result.sideATotal}`);
+  lines.push(`  Territorial Control:     ${result.sideATerritorial > 0 ? "+" : ""}${result.sideATerritorial}`);
+  lines.push(`  GRAND TOTAL: ${result.sideAGrandTotal > 0 ? "+" : ""}${result.sideAGrandTotal}\n`);
 
   // Side B houses
   lines.push(`${sideBName} CLUSTER (H7, H9, H12, H4, H5):`);
   result.sideBHouses.forEach((e) => {
+    const frictionNote = e.frictionMultiplier !== 1.0 ? ` [friction: ${e.frictionMultiplier.toFixed(2)}x ${e.frictionStatus}]` : "";
     lines.push(
-      `  H${e.houseNumber}  ${e.lordPlanet.padEnd(8)} in ${e.lordSign} (H${e.lordHouse}) ${e.totalPoints > 0 ? "+" : ""}${e.totalPoints.toString().padStart(2)}  [${e.reasoning}]`
+      `  H${e.houseNumber}  ${e.lordPlanet.padEnd(8)} in ${e.lordSign} (H${e.lordHouse}) ${e.pointsBeforeFriction > 0 ? "+" : ""}${e.pointsBeforeFriction}${frictionNote} = ${e.totalPoints > 0 ? "+" : ""}${e.totalPoints.toString().padStart(2)}`
     );
   });
-  lines.push(`  TOTAL: ${result.sideBTotal > 0 ? "+" : ""}${result.sideBTotal}\n`);
+  lines.push(`  Dignity/Placement Total: ${result.sideBTotal > 0 ? "+" : ""}${result.sideBTotal}`);
+  lines.push(`  Territorial Control:     ${result.sideBTerritorial > 0 ? "+" : ""}${result.sideBTerritorial}`);
+  lines.push(`  GRAND TOTAL: ${result.sideBGrandTotal > 0 ? "+" : ""}${result.sideBGrandTotal}\n`);
 
   lines.push("════════════════════════════════════════════════════════════════");
   lines.push(`MARGIN: ${result.margin} points`);
