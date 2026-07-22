@@ -14,9 +14,10 @@ import {
   SIGN_RULERS,
 } from "./astroEngine";
 import { buildSportsHoraryChartViaLLM } from "./sportsHoraryReading";
-import { calculateFullPrediction, type ChartData, type ClusterConfig } from "./masterPredictionEngine";
+import { calculateFullPrediction, type ChartData, type ClusterConfig, assignHousesToLots } from "./masterPredictionEngine";
 import { getNakshatraAt } from "./nakshatra";
 import { SIGN_ORDER } from "./astroEngine";
+import { calculateArabicLots } from "./arabicLotsCalculator";
 
 type Chart = Record<string, PlanetPlacement>;
 
@@ -38,7 +39,7 @@ export interface SportsHoraryV2Output {
   margin: number;
 }
 
-function buildChartData(chart: Chart): ChartData {
+function buildChartData(chart: Chart, ascendant?: number): ChartData {
   const houseLords: ChartData["houseLords"] = [];
   const planetsInHouses: ChartData["planetsInHouses"] = [];
 
@@ -68,10 +69,25 @@ function buildChartData(chart: Chart): ChartData {
     }
   }
 
+  // Calculate Arabic Lots if we have Ascendant
+  let lots: ChartData["lots"] = [];
+  if (ascendant !== undefined) {
+    const rawLots = calculateArabicLots(chart, ascendant, false);
+    lots = rawLots.map((lot) => ({
+      name: lot.name,
+      house: 1,
+      sign: lot.sign,
+      degree: lot.degree,
+      longitude: lot.longitude,
+      meaning: lot.meaning,
+      formula: lot.formula,
+    }));
+  }
+
   return {
     houseLords,
     planetsInHouses,
-    lots: [],
+    lots,
     fixedStars: [],
     aspects: [],
     moon: {

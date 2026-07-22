@@ -13,8 +13,9 @@ import {
   SIGN_ORDER,
   type PlanetPlacement,
 } from "./astroEngine";
-import { calculateFullPrediction, type ChartData, type ClusterConfig } from "./masterPredictionEngine";
+import { calculateFullPrediction, type ChartData, type ClusterConfig, assignHousesToLots } from "./masterPredictionEngine";
 import { getNakshatraAt } from "./nakshatra";
+import { calculateArabicLots } from "./arabicLotsCalculator";
 
 type Chart = Record<string, PlanetPlacement>;
 
@@ -24,7 +25,7 @@ export interface SportsHoraryOutput {
   usedChart: "transit" | "natal";
 }
 
-function buildChartData(chart: Chart): ChartData {
+function buildChartData(chart: Chart, ascendant?: number): ChartData {
   const houseLords: ChartData["houseLords"] = [];
   const planetsInHouses: ChartData["planetsInHouses"] = [];
 
@@ -54,10 +55,26 @@ function buildChartData(chart: Chart): ChartData {
     }
   }
 
+  // Calculate Arabic Lots if we have Ascendant (assumes daytime by default)
+  let lots: ChartData["lots"] = [];
+  if (ascendant !== undefined) {
+    const rawLots = calculateArabicLots(chart, ascendant, false);
+    // Convert to house-assigned lots (need cusps for this)
+    lots = rawLots.map((lot) => ({
+      name: lot.name,
+      house: 1, // default; will be recalculated later with house cusps if available
+      sign: lot.sign,
+      degree: lot.degree,
+      longitude: lot.longitude,
+      meaning: lot.meaning,
+      formula: lot.formula,
+    }));
+  }
+
   return {
     houseLords,
     planetsInHouses,
-    lots: [],
+    lots,
     fixedStars: [],
     aspects: [],
     moon: {
@@ -72,12 +89,13 @@ export async function buildSportsHoraryChartViaLLM(
   chart: Chart,
   _favoriteTeam: string,
   _challengerTeam: string,
+  ascendant?: number,
 ): Promise<ChartData | null> {
   const placementCount = Object.keys(chart).length;
   if (placementCount < 5) {
     return null;
   }
-  return buildChartData(chart);
+  return buildChartData(chart, ascendant);
 }
 
 function buildReadingPrompt(

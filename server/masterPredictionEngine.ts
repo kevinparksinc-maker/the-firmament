@@ -9,7 +9,7 @@
  * which side receives credit.
  */
 
-import { SIGN_RULERS, EXALTATIONS, DEBILITATIONS } from "./astroEngine";
+import { SIGN_RULERS, EXALTATIONS, DEBILITATIONS, SIGN_ORDER } from "./astroEngine";
 import { NAKSHATRAS, calculateNakshatraModifier } from "./nakshatraData";
 import { SIDE_A_HOUSES, SIDE_B_HOUSES } from "./houseScoringConstants";
 import {
@@ -21,6 +21,7 @@ import {
 } from "./nakshatraStarEngine";
 import { getSignNakshatraFriction, PlanetName } from "./planetRelationships";
 import { buildPlanarHouseSystem } from "./planarHouseSystem";
+import { calculateArabicLots } from "./arabicLotsCalculator";
 
 // ─────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -51,6 +52,9 @@ export interface ArabicLot {
   house: number;
   sign: string;
   degree: number;
+  longitude?: number;
+  meaning?: string;
+  formula?: string;
 }
 
 export interface FixedStarConjunction {
@@ -142,6 +146,49 @@ function whichSide(house: number, config: ClusterConfig): "A" | "B" | "neutral" 
   if (config.sideAHouses.includes(house)) return "A";
   if (config.sideBHouses.includes(house)) return "B";
   return "neutral";
+}
+
+/**
+ * Assign house numbers to Arabic Lots based on their longitude
+ */
+export function assignHousesToLots(lots: any[], houseCusps: Record<number, { sign: string; degree: number }>): ArabicLot[] {
+  return lots.map((lot) => {
+    const lotLon = lot.longitude || 0;
+    let house = 1;
+
+    // Find which house the lot falls in
+    for (let i = 0; i < 12; i++) {
+      const cusp = houseCusps[i + 1];
+      const nextCusp = houseCusps[(i + 1) % 12 === 0 ? 12 : (i + 1) % 12 + 1];
+
+      if (cusp && nextCusp) {
+        const cuspLon = SIGN_ORDER.indexOf(cusp.sign) * 30 + cusp.degree;
+        const nextCuspLon = SIGN_ORDER.indexOf(nextCusp.sign) * 30 + nextCusp.degree;
+
+        if (cuspLon <= nextCuspLon) {
+          if (lotLon >= cuspLon && lotLon < nextCuspLon) {
+            house = i + 1;
+            break;
+          }
+        } else {
+          if (lotLon >= cuspLon || lotLon < nextCuspLon) {
+            house = i + 1;
+            break;
+          }
+        }
+      }
+    }
+
+    return {
+      name: lot.name,
+      house,
+      sign: lot.sign,
+      degree: lot.degree,
+      longitude: lot.longitude,
+      meaning: lot.meaning,
+      formula: lot.formula,
+    };
+  });
 }
 
 function getDignityStatus(placement: PlanetPlacement): DignityStatus {
