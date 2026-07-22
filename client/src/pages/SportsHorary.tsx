@@ -297,14 +297,17 @@ export default function SportsHorary() {
     if (calculatedChart && calculatedChart.planets && calculatedChart.houses?.cusps) {
       askWithChart.mutate({
         question: content,
-        planets: calculatedChart.planets.map((p: any) => ({
-          planet: p.name,
-          degree: p.degreeInSign,
-          sign: p.sign,
-          house: p.house || null,
-          rx: p.retrograde || false,
-          absolute: p.absolute || null,
-        })),
+        planets: calculatedChart.planets.map((p: any) => {
+          const degree = typeof p.degree === 'number' ? p.degree : (typeof p.degreeInSign === 'number' ? p.degreeInSign : 0);
+          return {
+            planet: p.name,
+            degree: degree,
+            sign: p.sign,
+            house: p.house || null,
+            rx: p.retrograde || false,
+            absolute: p.absolute || null,
+          };
+        }),
         houseCusps: calculatedChart.houses.cusps,
         favoriteName: favorite || undefined,
         challengerName: challenger || undefined,
