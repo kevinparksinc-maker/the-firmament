@@ -54,7 +54,9 @@ function enrichChartData(
   planets: Record<
     string,
     { sign: string; degree: number; house?: number; absolute?: number }
-  >
+  >,
+  fullPlanets?: any[],
+  ascendant?: number
 ): string {
   const lines: string[] = [];
 
@@ -123,21 +125,31 @@ function enrichChartData(
   const conjunctions = detectFixedStarConjunctions(placementsForStars);
   const starText = formatStarConjunctions(conjunctions);
 
-  // Calculate Arabic Lots
-  const lots = calculateArabicLots(planets as any, false);
-  const lotsText = lots
-    .map(
-      (lot) =>
-        `${lot.name}: ${lot.degree}° ${lot.sign} | ${lot.meaning}`
-    )
-    .join("\n");
+  // Calculate Arabic Lots (if full planets and ascendant provided)
+  let lotsText = "";
+  if (fullPlanets && ascendant !== undefined) {
+    const planetsMap = fullPlanets.reduce(
+      (acc: any, p: any) => {
+        acc[p.name] = p;
+        return acc;
+      },
+      {} as Record<string, any>
+    );
+    const isSunAboveHorizon = (fullPlanets.find((p: any) => p.name === "Sun")?.altitude ?? 0) > 0;
+    const lots = calculateArabicLots(planetsMap, ascendant, !isSunAboveHorizon);
+    lotsText = lots
+      .map(
+        (lot: any) =>
+          `${lot.name}: ${lot.degree}° ${lot.sign} | ${lot.meaning}`
+      )
+      .join("\n");
+  }
 
   return (
     lines.join("\n") +
     "\n\nFIXED STAR CONJUNCTIONS:\n" +
     starText +
-    "\n\nARABIC LOTS:\n" +
-    lotsText
+    (lotsText ? "\n\nARABIC LOTS:\n" + lotsText : "")
   );
 }
 
@@ -396,7 +408,9 @@ const ephemerisRouter = router({
             },
           }),
           {} as Record<string, any>
-        )
+        ),
+        result.planets,
+        tropicalAsc
       );
 
       return {
