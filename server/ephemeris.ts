@@ -55,9 +55,9 @@ export interface PlanetPosition {
 }
 
 export interface HouseCusps {
-  cusps: number[]; // 12 house cusps in sidereal longitude
-  ascendant: number; // sidereal longitude
-  mc: number; // sidereal longitude
+  cusps: number[]; // 12 house cusps in tropical longitude
+  ascendant: number; // tropical longitude
+  mc: number; // tropical longitude
 }
 
 export interface EphemerisResult {
@@ -101,26 +101,7 @@ const PLANET_SYMBOLS: Record<string, string> = {
   "South Node": "☋",
 };
 
-// Lahiri ayanamsa (approximate, accurate to ~0.1° for modern dates)
-function getLahiriAyanamsa(date: Date): number {
-  const jd = dateToJulian(date);
-  // Lahiri ayanamsa formula (simplified, matches Swiss Ephemeris within 0.05°)
-  const T = (jd - 2451545.0) / 36525.0;
-  return 23.85 + 0.013972 * T * 100;
-}
-
-function dateToJulian(date: Date): number {
-  return date.getTime() / 86400000 + 2440587.5;
-}
-
-// ─── Ecliptic longitude → Sidereal ───────────────────────────────────────────
-
-function tropicalToSidereal(tropicalLon: number, ayanamsa: number): number {
-  let sid = tropicalLon - ayanamsa;
-  while (sid < 0) sid += 360;
-  while (sid >= 360) sid -= 360;
-  return sid;
-}
+// NO AYANAMSA CORRECTION — Tropical longitudes map directly to fixed sidereal zodiac background.
 
 function lonToSignDeg(lon: number): {
   sign: string;
@@ -139,8 +120,7 @@ function lonToSignDeg(lon: number): {
 
 function calcHouseCusps(
   date: Date,
-  observer: ObserverLocation,
-  ayanamsa: number
+  observer: ObserverLocation
 ): HouseCusps {
   const astroObs = new Observer(
     observer.latitude,
@@ -149,7 +129,15 @@ function calcHouseCusps(
   );
 
   // Get RAMC (Right Ascension of Midheaven) and MC
-  const sidereal = SiderealTime(MakeTime(date));
+  // Calculate Greenwich Sidereal Time
+  const gst = SiderealTime(MakeTime(date));
+
+  // Convert to Local Sidereal Time by adding longitude correction
+  // LST = GST + (Longitude / 15°)
+  // Longitude in degrees divided by 15 gives the hour correction
+  const lstHours = gst + observer.longitude / 15;
+  const sidereal = ((lstHours % 24) + 24) % 24; // Normalize to 0-24 hours
+
   const ramc = sidereal * 15; // convert hours to degrees
 
   // MC = RAMC converted to ecliptic longitude (tropical)
@@ -166,6 +154,8 @@ function calcHouseCusps(
   const mcNorm = ((mcTropical % 360) + 360) % 360;
 
   // ASC calculation
+  // NOTE: This calculates the spherical Ascendant for the math layer (ephemeris).
+  // For the visual/rendering layer on a flat North Pole grid, use coordinateTransformer.ts instead.
   const lat = (observer.latitude * Math.PI) / 180;
   const e = (obliquity * Math.PI) / 180;
   const ramcRad = (ramc * Math.PI) / 180;
@@ -183,13 +173,13 @@ function calcHouseCusps(
   const cusps: number[] = [];
   for (let i = 0; i < 12; i++) {
     const tropical = (ascTropical + i * 30) % 360;
-    cusps.push(tropicalToSidereal(tropical, ayanamsa));
+    cusps.push(tropical);
   }
 
   return {
     cusps,
-    ascendant: tropicalToSidereal(ascTropical, ayanamsa),
-    mc: tropicalToSidereal(mcNorm, ayanamsa),
+    ascendant: ascTropical,
+    mc: mcNorm,
   };
 }
 
@@ -219,8 +209,7 @@ export async function calculateChart(
     observer.longitude,
     observer.altitude
   );
-  const ayanamsa = getLahiriAyanamsa(date);
-  const houses = calcHouseCusps(date, observer, ayanamsa);
+  const houses = calcHouseCusps(date, observer);
 
   const bodyList: Array<{ name: string; body: Astronomy.Body }> = [
     { name: "Sun", body: Astronomy.Body.Sun },
@@ -251,8 +240,7 @@ export async function calculateChart(
         tropicalLon = ecl.elon;
       }
 
-      // Keep tropical, also compute sidereal
-      const siderealLon = tropicalToSidereal(tropicalLon, ayanamsa);
+      // Use tropical longitude directly (no ayanamsa correction)
       const { sign, degree, minutes } = lonToSignDeg(tropicalLon);
 
       // Get topocentric Alt/Az (parallax corrected)
@@ -282,13 +270,12 @@ export async function calculateChart(
         retrograde = diff < 0;
       }
 
-      const house = getHouseNumber(siderealLon, houses.cusps);
+      const house = getHouseNumber(tropicalLon, houses.cusps);
 
       planets.push({
         name,
         symbol: PLANET_SYMBOLS[name] ?? "★",
         tropicalLon,
-        siderealLon,
         sign,
         degreeInSign: degree,
         minutes,
@@ -308,8 +295,6 @@ export async function calculateChart(
     const d = date.getTime() / 86400000 - 10957.5; // days from J2000
     const rahuTropical = (((125.0445479 - 0.0529539297 * d) % 360) + 360) % 360;
     const ketuTropical = (rahuTropical + 180) % 360;
-    const rahuSidereal = tropicalToSidereal(rahuTropical, ayanamsa);
-    const ketuSidereal = (rahuSidereal + 180) % 360;
 
     const rahuInfo = lonToSignDeg(rahuTropical);
     const ketuInfo = lonToSignDeg(ketuTropical);
@@ -318,34 +303,32 @@ export async function calculateChart(
       name: "Rahu",
       symbol: "☊",
       tropicalLon: rahuTropical,
-      siderealLon: rahuSidereal,
       sign: rahuInfo.sign,
       degreeInSign: rahuInfo.degree,
       minutes: rahuInfo.minutes,
       altitude: 0,
       azimuth: 0,
       retrograde: true, // Nodes are always retrograde
-      house: getHouseNumber(rahuSidereal, houses.cusps),
+      house: getHouseNumber(rahuTropical, houses.cusps),
     });
 
     planets.push({
       name: "Ketu",
       symbol: "☋",
       tropicalLon: ketuTropical,
-      siderealLon: ketuSidereal,
       sign: ketuInfo.sign,
       degreeInSign: ketuInfo.degree,
       minutes: ketuInfo.minutes,
       altitude: 0,
       azimuth: 0,
       retrograde: true,
-      house: getHouseNumber(ketuSidereal, houses.cusps),
+      house: getHouseNumber(ketuTropical, houses.cusps),
     });
   } catch (err) {
     console.warn("[Ephemeris] Failed to calculate nodes:", err);
   }
 
-  return { planets, houses, observer, date, ayanamsa };
+  return { planets, houses, observer, date, ayanamsa: 0 };
 }
 
 // ─── Format for reading engine ───────────────────────────────────────────────────────────────
