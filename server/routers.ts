@@ -26,6 +26,7 @@ import {
 import { getNakshatraAt } from "./nakshatra";
 import { getDecanFlavor } from "./decan";
 import { calculateArabicLots } from "./arabicLotsCalculator";
+import { getPlanetInHouse } from "./planetInHouse";
 
 // ─── Core Cosmology Framework ─────────────────────────────────────────────────
 // This is the foundation of every reading in this app.
@@ -91,8 +92,11 @@ function enrichChartData(
     const decan = getDecanFlavor(p.sign, p.degree);
     const house = p.house ? `, ${p.house}th house` : "";
 
+    const houseMeaning = p.house ? getPlanetInHouse(name, p.house) : null;
+    const houseText = houseMeaning ? ` | House theme: ${houseMeaning.core}` : "";
+
     lines.push(
-      `${name}: ${p.degree}° ${p.sign}${house} | Nakshatra: ${nakshatra.name} pada ${pada} (${nakshatra.lord}) | Decan: ${decan}`
+      `${name}: ${p.degree}° ${p.sign}${house} | Nakshatra: ${nakshatra.name} pada ${pada} (${nakshatra.lord}) | Decan: ${decan}${houseText}`
     );
   }
 
