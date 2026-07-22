@@ -11,6 +11,7 @@ import { runHybridPrediction, formatHybridReport } from "./sportsHoraryHybrid";
 import { calculateSportsHoraryV2, generateSportsHoraryV2Report } from "./sportsHoraryV2";
 import { evaluateCluster, formatClusterReport } from "./houseClusterEngine";
 import { buildSportsHoraryChartViaLLM } from "./sportsHoraryReading";
+import { detectFixedStars, formatFixedStarsList } from "./fixedStarDetection";
 import type { SportsHoraryChart } from "./sportsHorary";
 
 async function testHybridRealEphemeris() {
@@ -67,8 +68,19 @@ async function testHybridRealEphemeris() {
     console.log("ACTUAL PLANETARY POSITIONS (Sidereal, Philadelphia):\n");
     planetsArray.forEach((p: any) => {
       const rx = p.retrograde ? " (Rx)" : "";
-      console.log(`  ${(p.name || "Unknown").padEnd(10)} ${p.sign} ${(p.longitude || 0).toFixed(1)}° H${p.house || "?"}${rx}`);
+      const degree = (p.degreeInSign !== undefined ? p.degreeInSign : (p.siderealLon % 30)).toFixed(1);
+      console.log(`  ${(p.name || "Unknown").padEnd(10)} ${p.sign} ${degree}° H${p.house || "?"}${rx}`);
     });
+    console.log("");
+
+    // Detect fixed stars
+    console.log("FIXED STARS:\n");
+    const fixedStars = detectFixedStars(planetsArray);
+    if (fixedStars.length > 0) {
+      console.log(formatFixedStarsList(fixedStars));
+    } else {
+      console.log("No fixed stars active");
+    }
     console.log("");
 
     // Build the chart using the AI adapter

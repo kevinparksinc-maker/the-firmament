@@ -38,7 +38,7 @@ const nakshatraNames = [
   "Uttara Phalguni",
   "Hasta",
   "Chitra",
-  "Svati",
+  "Swati",
   "Vishakha",
   "Anuradha",
   "Jyeshtha",
@@ -98,7 +98,14 @@ export function getNakshatraAt(absDeg: number): {
   pada: number;
 } {
   let deg = ((absDeg % 360) + 360) % 360;
-  const nakshatra = NAKSHATRAS.find(n => deg >= n.startAbs && deg < n.endAbs)!;
+  const nakshatra = NAKSHATRAS.find(n => deg >= n.startAbs && deg < n.endAbs);
+
+  if (!nakshatra) {
+    // Fallback to first nakshatra if out of range (shouldn't happen with normalized degree)
+    console.warn(`[Nakshatra] No nakshatra found for degree ${absDeg} (normalized: ${deg})`);
+    return { nakshatra: NAKSHATRAS[0]!, pada: 1 };
+  }
+
   const padaSize = step / 4;
   const offset = deg - nakshatra.startAbs;
   const pada = Math.floor(offset / padaSize) + 1;

@@ -96,8 +96,21 @@ export function BirthDataForm({
     const la = parseFloat(lat),
       lo = parseFloat(lng);
 
+    // Client-side validation
     if (!y || !m || !d) {
       setError("Enter birth year, month, and day.");
+      return;
+    }
+    if (isNaN(h) || isNaN(min)) {
+      setError("Enter a valid birth time (hour 0–23, minute 0–59).");
+      return;
+    }
+    if (h < 0 || h > 23) {
+      setError("Hour must be between 0 and 23.");
+      return;
+    }
+    if (min < 0 || min > 59) {
+      setError("Minute must be between 0 and 59.");
       return;
     }
     if (isNaN(la) || isNaN(lo)) {
@@ -106,7 +119,8 @@ export function BirthDataForm({
     }
 
     try {
-      const result = await calcMutation.mutateAsync({
+      // Log the payload before sending for debugging
+      const payload = {
         year: y,
         month: m,
         day: d,
@@ -115,7 +129,10 @@ export function BirthDataForm({
         latitude: la,
         longitude: lo,
         altitude: 0,
-      });
+      };
+      console.log("[BirthDataForm] Sending calculate-chart payload:", payload);
+
+      const result = await calcMutation.mutateAsync(payload);
 
       onChartCalculated(
         result.readingText,
@@ -127,6 +144,7 @@ export function BirthDataForm({
       );
     } catch (err: any) {
       setError(err.message ?? "Calculation failed. Check your inputs.");
+      console.error("[BirthDataForm] Calculation error:", err);
     }
   };
 
@@ -268,7 +286,24 @@ export function BirthDataForm({
                 type="number"
                 placeholder="12"
                 value={hour}
-                onChange={e => setHour(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  // Allow empty (for user clearing), otherwise validate
+                  if (val === "" || val === "-") {
+                    setHour("");
+                  } else {
+                    const num = parseInt(val);
+                    if (!isNaN(num)) {
+                      setHour(Math.max(0, Math.min(23, num)).toString());
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // Reset to default if left empty
+                  if (hour === "") {
+                    setHour("12");
+                  }
+                }}
                 style={inputStyle}
                 min="0"
                 max="23"
@@ -280,7 +315,24 @@ export function BirthDataForm({
                 type="number"
                 placeholder="0"
                 value={minute}
-                onChange={e => setMinute(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  // Allow empty (for user clearing), otherwise validate
+                  if (val === "" || val === "-") {
+                    setMinute("");
+                  } else {
+                    const num = parseInt(val);
+                    if (!isNaN(num)) {
+                      setMinute(Math.max(0, Math.min(59, num)).toString());
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // Reset to default if left empty
+                  if (minute === "") {
+                    setMinute("0");
+                  }
+                }}
                 style={inputStyle}
                 min="0"
                 max="59"
