@@ -101,7 +101,6 @@ function getDignityScore(planet: string, sign: string): number {
 function getArabicLotsModifier(
   planets: Record<string, PlanetPlacement>,
   ascendant: number,
-  houseLordsMap: Map<number, string>,
   evalHouseNumber: number
 ): number {
   const isNight = planets.Sun && planets.Sun.house ? planets.Sun.house > 6 : false;
@@ -247,7 +246,7 @@ export function calculateTerritorialControl(
       if (lordPlacement.house === house) {
         baseScore += 1;
       }
-    } else if (lordHouseSide && lordHouseSide !== houseSide) {
+    } else if (lordHouseSide) {
       // Lord is in opponent's cluster territory
       baseScore -= 1;
 
@@ -262,7 +261,17 @@ export function calculateTerritorialControl(
     const { nakshatra } = getNakshatraAt(
       lordPlacement.absolute ?? 0
     );
-    const nakshatraProfile = NAKSHATRAS[nakshatra.name] || NAKSHATRAS[0];
+    const nakshatraProfile = NAKSHATRAS[nakshatra.name] || Object.values(NAKSHATRAS)[0] || {
+      name: "default",
+      pace: "Moderate",
+      style: "Balanced",
+      temperament: "Stoic",
+      initiative: "Medium",
+      pressureResponse: "Medium",
+      consistency: "Medium",
+      adaptability: "Medium",
+      finishingAbility: "Medium",
+    };
     const nakshatraModifier = getNakshatraAdditiveModifier(nakshatraProfile);
 
     // ─── DIGNITY MODIFIER ──────────────────────────────────────────
@@ -274,7 +283,6 @@ export function calculateTerritorialControl(
     const arabicLotsScore = getArabicLotsModifier(
       planets,
       asc,
-      houseLords,
       house
     );
 
