@@ -37,6 +37,14 @@ export interface HouseLordEvaluation {
   totalScore: number;
 }
 
+export interface HouseAuditEntry {
+  house: number;
+  cuspSign: string;
+  lordPlanet: string | null;
+  lordSign: string | null;
+  lordHouse: number | null;
+}
+
 export interface TerritorialControlResult {
   sideAEvals: HouseLordEvaluation[];
   sideBEvals: HouseLordEvaluation[];
@@ -45,6 +53,8 @@ export interface TerritorialControlResult {
   planetaryWars: PlanetaryWar[];
   arabicLots?: Array<{ name: string; sign: string; sideInfluence: "A" | "B" | "neutral" }>;
   summary: string;
+  ascendant?: number;
+  houseAudit?: HouseAuditEntry[];
 }
 
 // ─── HELPER: Determine which side a house belongs to ────────────────────────
@@ -101,7 +111,8 @@ function getDignityScore(planet: string, sign: string): number {
 export function calculateTerritorialControl(
   planets: Record<string, PlanetPlacement>,
   houseLords: Map<number, string>,
-  ascendant?: number
+  ascendant?: number,
+  houseAudit?: HouseAuditEntry[]
 ): TerritorialControlResult {
   const sideAEvals: HouseLordEvaluation[] = [];
   const sideBEvals: HouseLordEvaluation[] = [];
@@ -277,6 +288,8 @@ export function calculateTerritorialControl(
     planetaryWars: wars,
     arabicLots: arabicLots.length > 0 ? arabicLots : undefined,
     summary,
+    ascendant,
+    houseAudit,
   };
 }
 
@@ -286,6 +299,32 @@ export function formatTerritorialReport(
   result: TerritorialControlResult
 ): string {
   const lines: string[] = [];
+
+  // ─── ASCENDANT & HOUSE LORD AUDIT ────────────────────────────────
+  // Shows exactly what the engine used to derive everything below:
+  // the Ascendant, each house's cusp sign, who rules it, and where
+  // that ruler is actually sitting right now.
+  if (result.ascendant !== undefined) {
+    const ascSignIdx = Math.floor(((result.ascendant % 360) + 360) % 360 / 30);
+    const ascDeg = ((result.ascendant % 360) + 360) % 360 % 30;
+    lines.push(`▌ ASCENDANT: ${ascDeg.toFixed(2)}° ${["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"][ascSignIdx]}`);
+  } else {
+    lines.push("▌ ASCENDANT: not available — house lords and lots could not be computed");
+  }
+  lines.push("");
+
+  if (result.houseAudit && result.houseAudit.length > 0) {
+    lines.push("▌ HOUSE LORDS (cusp sign → ruling planet → where it's currently sitting)");
+    for (const h of result.houseAudit) {
+      const lordDesc = h.lordPlanet
+        ? `${h.lordPlanet} → currently in ${h.lordSign ?? "?"} (House ${h.lordHouse ?? "?"})`
+        : "no ruler found";
+      lines.push(`  H${h.house.toString().padEnd(2)} cusp: ${h.cuspSign.padEnd(11)} lord: ${lordDesc}`);
+    }
+    lines.push("");
+  }
+
+  // ─── VERDICT ──────────────────────────────────────────────────────
   const swing = result.sideBTotal - result.sideATotal;
   const winner = swing > 0 ? "Side B" : swing < 0 ? "Side A" : "Tied";
 
@@ -360,4 +399,3 @@ export function formatTerritorialReport(
 
   return lines.join("\n");
 }
-

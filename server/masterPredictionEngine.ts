@@ -77,8 +77,17 @@ export interface MoonData {
   nakshatra: string;
 }
 
+export interface HouseAuditEntry {
+  house: number;
+  cuspSign: string;
+  lordPlanet: string | null;
+  lordSign: string | null;
+  lordHouse: number | null;
+}
+
 export interface ChartData {
   houseLords: HouseLord[];
+  houseAudit?: HouseAuditEntry[];
   planetsInHouses: PlanetPlacement[];
   lots: ArabicLot[];
   fixedStars: FixedStarConjunction[];

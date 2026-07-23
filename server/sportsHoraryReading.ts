@@ -28,8 +28,8 @@ export interface SportsHoraryOutput {
 }
 
 export function buildChartData(chart: Chart, ascendant?: number): ChartData {
-  const houseLords: ChartData["houseLords"] = [];
   const planetsInHouses: ChartData["planetsInHouses"] = [];
+  const planetLookup: Record<string, PlanetPlacement> = {};
 
   for (const [planetName, placement] of Object.entries(chart)) {
     const siderealLon = SIGN_ORDER.indexOf(placement.sign) * 30 + placement.degree;
@@ -46,14 +46,38 @@ export function buildChartData(chart: Chart, ascendant?: number): ChartData {
     };
 
     planetsInHouses.push(planetPlacement);
+    planetLookup[planetName] = planetPlacement;
+  }
 
-    const signLord = SIGN_RULERS[placement.sign];
-    if (signLord && planetName === signLord) {
-      houseLords.push({
-        house: placement.house,
-        lordPlanet: planetName,
-        placement: planetPlacement,
+  // Real house-lord assignment: house N's lord is whoever rules the SIGN ON
+  // HOUSE N'S CUSP — not "any planet that happens to be sitting in its own
+  // sign somewhere." The previous version only picked up planets in own-sign
+  // (a rare coincidence) and mislabeled them as ruling their OWN current
+  // house, which is a different concept entirely and usually just wrong.
+  const houseLords: ChartData["houseLords"] = [];
+  const houseAudit: ChartData["houseAudit"] = [];
+  if (ascendant !== undefined) {
+    const cusps = buildEqualHouseCusps(ascendant);
+    for (let house = 1; house <= 12; house++) {
+      const cuspSign = cusps[house].sign;
+      const lordPlanet = SIGN_RULERS[cuspSign];
+      const lordPlacement = lordPlanet ? planetLookup[lordPlanet] : undefined;
+
+      houseAudit.push({
+        house,
+        cuspSign,
+        lordPlanet: lordPlanet ?? null,
+        lordSign: lordPlacement?.sign ?? null,
+        lordHouse: lordPlacement?.house ?? null,
       });
+
+      if (lordPlanet && lordPlacement) {
+        houseLords.push({
+          house,
+          lordPlanet,
+          placement: lordPlacement,
+        });
+      }
     }
   }
 
@@ -78,6 +102,7 @@ export function buildChartData(chart: Chart, ascendant?: number): ChartData {
 
   return {
     houseLords,
+    houseAudit,
     planetsInHouses,
     lots,
     fixedStars: [],

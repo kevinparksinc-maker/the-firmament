@@ -155,7 +155,7 @@ export async function sportsHoraryV2Layer(
   for (const hl of chartData.houseLords) {
     houseLordsMap.set(hl.house, hl.lordPlanet);
   }
-  const territorialResult = calculateTerritorialControl(chart, houseLordsMap, ascendant);
+  const territorialResult = calculateTerritorialControl(chart, houseLordsMap, ascendant, chartData.houseAudit);
   const territorialControl = {
     sideATotal: territorialResult.sideATotal,
     sideBTotal: territorialResult.sideBTotal,
@@ -191,4 +191,3 @@ export async function sportsHoraryV2Layer(
     territorialControl,
   };
 }
-
