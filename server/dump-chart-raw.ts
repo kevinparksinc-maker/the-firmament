@@ -56,12 +56,12 @@ async function dumpChart() {
   // Display all planets with current positions
   console.log("\n## ALL PLANETS — CURRENT POSITIONS\n");
   planets.forEach(p => {
-    const nak = getNakshatraAt(p.siderealLon);
+    const nak = getNakshatraAt(p.eclipticLon);
     const retroFlag = p.retrograde ? " [RETROGRADE]" : "";
     const dignityStatus = getDignityStatus(p.name, p.sign);
     console.log(
       `${p.name.padEnd(8)} | H${p.house} ${p.sign.padEnd(12)} ${p.degreeInSign.toFixed(2)}° | ` +
-      `Sidereal: ${p.siderealLon.toFixed(2)}° | ${dignityStatus.padEnd(12)} | ` +
+      `Sidereal: ${p.eclipticLon.toFixed(2)}° | ${dignityStatus.padEnd(12)} | ` +
       `${nak.nakshatra.name} P${nak.pada}${retroFlag}`
     );
   });
@@ -79,7 +79,7 @@ async function dumpChart() {
     const sign = ZODIAC_SIGNS[signIndex] || "Aries";
     const lord = SIGN_RULERS[sign];
     const lordPlacement = planets.find(p => p.name === lord);
-    const nak = lordPlacement ? getNakshatraAt(lordPlacement.siderealLon) : null;
+    const nak = lordPlacement ? getNakshatraAt(lordPlacement.eclipticLon) : null;
     const dignity = lordPlacement ? getDignityStatus(lord, lordPlacement.sign) : "N/A";
 
     console.log(`\n### HOUSE ${houseNum}`);
@@ -87,7 +87,7 @@ async function dumpChart() {
     console.log(`- **Lord:** ${lord}`);
     if (lordPlacement) {
       console.log(`- **Lord's Current Position:** House ${lordPlacement.house}, ${lordPlacement.sign} ${lordPlacement.degreeInSign.toFixed(2)}°`);
-      console.log(`- **Lord's Sidereal Longitude:** ${lordPlacement.siderealLon.toFixed(2)}°`);
+      console.log(`- **Lord's Sidereal Longitude:** ${lordPlacement.eclipticLon.toFixed(2)}°`);
       console.log(`- **Dignity Status:** ${dignity}`);
       console.log(`- **Nakshatra:** ${nak?.nakshatra.name} Pada ${nak?.pada}`);
       console.log(`- **Retrograde:** ${lordPlacement.retrograde ? "YES" : "No"}`);
@@ -107,7 +107,7 @@ async function dumpChart() {
     const sign = ZODIAC_SIGNS[signIndex] || "Aries";
     const lord = SIGN_RULERS[sign];
     const lordPlacement = planets.find(p => p.name === lord);
-    const nak = lordPlacement ? getNakshatraAt(lordPlacement.siderealLon) : null;
+    const nak = lordPlacement ? getNakshatraAt(lordPlacement.eclipticLon) : null;
     const dignity = lordPlacement ? getDignityStatus(lord, lordPlacement.sign) : "N/A";
 
     console.log(`\n### HOUSE ${houseNum}`);
@@ -115,7 +115,7 @@ async function dumpChart() {
     console.log(`- **Lord:** ${lord}`);
     if (lordPlacement) {
       console.log(`- **Lord's Current Position:** House ${lordPlacement.house}, ${lordPlacement.sign} ${lordPlacement.degreeInSign.toFixed(2)}°`);
-      console.log(`- **Lord's Sidereal Longitude:** ${lordPlacement.siderealLon.toFixed(2)}°`);
+      console.log(`- **Lord's Sidereal Longitude:** ${lordPlacement.eclipticLon.toFixed(2)}°`);
       console.log(`- **Dignity Status:** ${dignity}`);
       console.log(`- **Nakshatra:** ${nak?.nakshatra.name} Pada ${nak?.pada}`);
       console.log(`- **Retrograde:** ${lordPlacement.retrograde ? "YES" : "No"}`);
@@ -136,7 +136,7 @@ async function dumpChart() {
     const sign = ZODIAC_SIGNS[signIndex] || "Aries";
     const lord = SIGN_RULERS[sign];
     const lordPlacement = planets.find(p => p.name === lord);
-    const nak = lordPlacement ? getNakshatraAt(lordPlacement.siderealLon) : null;
+    const nak = lordPlacement ? getNakshatraAt(lordPlacement.eclipticLon) : null;
     const dignity = lordPlacement ? getDignityStatus(lord, lordPlacement.sign) : "N/A";
 
     const lordLoc = lordPlacement ? `H${lordPlacement.house} ${lordPlacement.sign}` : "N/A";
@@ -159,7 +159,7 @@ async function dumpChart() {
     const sign = ZODIAC_SIGNS[signIndex] || "Aries";
     const lord = SIGN_RULERS[sign];
     const lordPlacement = planets.find(p => p.name === lord);
-    const nak = lordPlacement ? getNakshatraAt(lordPlacement.siderealLon) : null;
+    const nak = lordPlacement ? getNakshatraAt(lordPlacement.eclipticLon) : null;
     const dignity = lordPlacement ? getDignityStatus(lord, lordPlacement.sign) : "N/A";
 
     const lordLoc = lordPlacement ? `H${lordPlacement.house} ${lordPlacement.sign}` : "N/A";

@@ -50,12 +50,12 @@ export function calculateArabicLots(
   }
 
   // Use tropicalLon (current system) or fallback to siderealLon (legacy)
-  const getSunLon = () => sun.tropicalLon ?? sun.siderealLon ?? 0;
-  const getMoonLon = () => moon.tropicalLon ?? moon.siderealLon ?? 0;
-  const getMarsLon = () => mars.tropicalLon ?? mars.siderealLon ?? 0;
-  const getVenusLon = () => venus.tropicalLon ?? venus.siderealLon ?? 0;
-  const getJupiterLon = () => jupiter.tropicalLon ?? jupiter.siderealLon ?? 0;
-  const getSaturnLon = () => saturn.tropicalLon ?? saturn.siderealLon ?? 0;
+  const getSunLon = () => sun.eclipticLon ?? sun.eclipticLon ?? 0;
+  const getMoonLon = () => moon.eclipticLon ?? moon.eclipticLon ?? 0;
+  const getMarsLon = () => mars.eclipticLon ?? mars.eclipticLon ?? 0;
+  const getVenusLon = () => venus.eclipticLon ?? venus.eclipticLon ?? 0;
+  const getJupiterLon = () => jupiter.eclipticLon ?? jupiter.eclipticLon ?? 0;
+  const getSaturnLon = () => saturn.eclipticLon ?? saturn.eclipticLon ?? 0;
 
   const lots: ArabicLot[] = [];
 

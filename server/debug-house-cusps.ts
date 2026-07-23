@@ -17,7 +17,7 @@ async function debugHouseCusps() {
 
   console.log("\nPlanets:");
   result.planets.slice(0, 5).forEach((p: any) => {
-    console.log(`${p.name.padEnd(10)} House: ${p.house}, Sidereal: ${p.siderealLon?.toFixed(1) || "undefined"}°`);
+    console.log(`${p.name.padEnd(10)} House: ${p.house}, Sidereal: ${p.eclipticLon?.toFixed(1) || "undefined"}°`);
   });
 
   console.log("\nExpected cusps format for getHouseNumber():");

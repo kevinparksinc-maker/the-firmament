@@ -85,7 +85,7 @@ async function predictGame(game: Game) {
   }
 
   // Determine if night (Sun below horizon = H7-H12)
-  const sunHouseIdx = Math.floor(chart["Sun"]?.tropicalLon ?? 0 / 30) % 12;
+  const sunHouseIdx = Math.floor(chart["Sun"]?.eclipticLon ?? 0 / 30) % 12;
   const isNight = sunHouseIdx > 5; // Houses 7-12 = night
 
   // Score the matchup

@@ -56,12 +56,12 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
   // Convert planets
   const planetsInHouses = planets.map((p) => ({
     planet: p.name,
-    house: getPlanarHouse(p.siderealLon),
+    house: getPlanarHouse(p.eclipticLon),
     sign: p.sign,
     degree: p.degreeInSign,
-    siderealLon: p.siderealLon,
+    siderealLon: p.eclipticLon,
     isRetrograde: p.retrograde,
-    nakshatra: getNakshatraAt(p.siderealLon).nakshatra.name,
+    nakshatra: getNakshatraAt(p.eclipticLon).nakshatra.name,
   }));
 
   // Build house lords list
@@ -78,7 +78,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
   const isNight = planets.find((p) => p.name === "Sun")?.altitude ?? 0 < 0;
   const planetsRecord: Record<string, any> = {};
   planets.forEach((p) => {
-    planetsRecord[p.name] = { lon: p.siderealLon };
+    planetsRecord[p.name] = { lon: p.eclipticLon };
   });
 
   const calculatedLots = calculateArabicLots(planetsRecord, asc, isNight);
@@ -98,7 +98,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
     moon: {
       phase: "waxing",
       isVoidOfCourse: false,
-      nakshatra: getNakshatraAt(planets.find(p => p.name === "Moon")?.siderealLon || 0).nakshatra.name,
+      nakshatra: getNakshatraAt(planets.find(p => p.name === "Moon")?.eclipticLon || 0).nakshatra.name,
     },
   };
 }
@@ -123,11 +123,11 @@ async function testGame() {
   // Show fixed star conjunctions for lords
   console.log("\n### FIXED STAR CONJUNCTIONS (within 1°)\n");
   for (const lord of chart.houseLords) {
-    const conjunctions = findFixedStarConjunctions(lord.placement.siderealLon, 1.0);
+    const conjunctions = findFixedStarConjunctions(lord.placement.eclipticLon, 1.0);
     if (conjunctions.length > 0) {
-      console.log(`${lord.lordPlanet} (H${lord.house}) at ${lord.placement.siderealLon.toFixed(2)}°:`);
+      console.log(`${lord.lordPlanet} (H${lord.house}) at ${lord.placement.eclipticLon.toFixed(2)}°:`);
       conjunctions.forEach((star) => {
-        const diff = Math.abs(lord.placement.siderealLon - star.longitude);
+        const diff = Math.abs(lord.placement.eclipticLon - star.longitude);
         const normalizedDiff = Math.min(diff, 360 - diff);
         console.log(`  → ${star.name} (${star.nature}, ${star.group}) — orb: ${normalizedDiff.toFixed(2)}°`);
       });

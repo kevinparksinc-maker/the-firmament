@@ -62,7 +62,7 @@ async function showNatalChartRoyalWheel() {
   console.log("│");
 
   for (const planet of ephResult.planets) {
-    const siderealDeg = planet.siderealLon;
+    const siderealDeg = planet.eclipticLon;
     const wheelDeg = mapToRoyalStarWheel(siderealDeg);
 
     const siderealSign = Math.floor(siderealDeg / 30);
@@ -99,8 +99,8 @@ async function showNatalChartRoyalWheel() {
   // Quick interpretation
   console.log("┌─ YOUR CHART SNAPSHOT ──────────────────────────────────────────────────────────────┐");
   console.log("│");
-  const sunWheelSign = ZODIAC[Math.floor(mapToRoyalStarWheel(ephResult.planets[0].siderealLon) / 30)];
-  const moonWheelSign = ZODIAC[Math.floor(mapToRoyalStarWheel(ephResult.planets[1].siderealLon) / 30)];
+  const sunWheelSign = ZODIAC[Math.floor(mapToRoyalStarWheel(ephResult.planets[0].eclipticLon) / 30)];
+  const moonWheelSign = ZODIAC[Math.floor(mapToRoyalStarWheel(ephResult.planets[1].eclipticLon) / 30)];
   console.log(`│ Sun:  Scorpio (sidereal) → ${sunWheelSign.padEnd(12)} (Royal Wheel)`);
   console.log(`│ Moon: Gemini (sidereal)  → ${moonWheelSign.padEnd(12)} (Royal Wheel)`);
   console.log(`│ Ascendant: ${planarAscendant.toFixed(2)}° on Royal Wheel`);

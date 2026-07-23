@@ -102,9 +102,9 @@ async function testValidated() {
     let sideBScore = clusterResult.sideBGrandTotal;
 
     // Layer 2: Nakshatra Modifiers (Moon + Mars, proven key players)
-    const moonProfile = getNakshatraFromLongitude(planets.Moon.siderealLon);
+    const moonProfile = getNakshatraFromLongitude(planets.Moon.eclipticLon);
     const moonModifier = calculateNakshatraModifier(moonProfile);
-    const marsProfile = getNakshatraFromLongitude(planets.Mars.siderealLon);
+    const marsProfile = getNakshatraFromLongitude(planets.Mars.eclipticLon);
     const marsModifier = calculateNakshatraModifier(marsProfile);
 
     // Apply nakshatra effect based on planetary house placement

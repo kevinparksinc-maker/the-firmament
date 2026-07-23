@@ -67,12 +67,12 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
 
   const planetsInHouses = planets.map((p) => ({
     planet: p.name,
-    house: getPlanarHouse(p.siderealLon),
+    house: getPlanarHouse(p.eclipticLon),
     sign: p.sign,
     degree: p.degreeInSign,
-    siderealLon: p.siderealLon,
+    siderealLon: p.eclipticLon,
     isRetrograde: p.retrograde,
-    nakshatra: getNakshatraAt(p.siderealLon).nakshatra.name,
+    nakshatra: getNakshatraAt(p.eclipticLon).nakshatra.name,
   }));
 
   const houseLordsList = Array.from(houseLords.entries())
@@ -87,7 +87,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
   const isNight = planets.find((p) => p.name === "Sun")?.altitude ?? 0 < 0;
   const planetsRecord: Record<string, any> = {};
   planets.forEach((p) => {
-    planetsRecord[p.name] = { lon: p.siderealLon };
+    planetsRecord[p.name] = { lon: p.eclipticLon };
   });
 
   const calculatedLots = calculateArabicLots(planetsRecord, asc, isNight);
@@ -107,7 +107,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
     moon: {
       phase: "waxing",
       isVoidOfCourse: false,
-      nakshatra: getNakshatraAt(planets.find(p => p.name === "Moon")?.siderealLon || 0).nakshatra.name,
+      nakshatra: getNakshatraAt(planets.find(p => p.name === "Moon")?.eclipticLon || 0).nakshatra.name,
     },
   };
 }
@@ -151,7 +151,7 @@ async function compareCalculations() {
 
   console.log("\n### NAKSHATRA DATA AVAILABILITY:");
   for (const lord of chart.houseLords) {
-    const nak = getNakshatraAt(lord.placement.siderealLon).nakshatra.name;
+    const nak = getNakshatraAt(lord.placement.eclipticLon).nakshatra.name;
     console.log(`${lord.lordPlanet}: ${nak} (${lord.placement.nakshatra})`);
   }
 

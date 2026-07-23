@@ -90,7 +90,7 @@ async function debug() {
     const physicalSide = whichSide(lord.placement.house);
     const territorial = territorialPoints(lord.placement.house);
     const dignity = dignityScore(lord.planet, lord.placement.sign);
-    const nak = getNakshatraAt(lord.placement.siderealLon);
+    const nak = getNakshatraAt(lord.placement.eclipticLon);
     const nakProfile = NAKSHATRAS[nak.nakshatra.name];
     const nakMult = nakProfile ? calculateNakshatraModifier(nakProfile) : 1.0;
     const score = (territorial + dignity) * nakMult;
@@ -112,7 +112,7 @@ async function debug() {
     const physicalSide = whichSide(lord.placement.house);
     const territorial = territorialPoints(lord.placement.house);
     const dignity = dignityScore(lord.planet, lord.placement.sign);
-    const nak = getNakshatraAt(lord.placement.siderealLon);
+    const nak = getNakshatraAt(lord.placement.eclipticLon);
     const nakProfile = NAKSHATRAS[nak.nakshatra.name];
     const nakMult = nakProfile ? calculateNakshatraModifier(nakProfile) : 1.0;
     const score = (territorial + dignity) * nakMult;

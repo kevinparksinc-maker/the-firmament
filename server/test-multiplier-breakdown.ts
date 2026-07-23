@@ -138,12 +138,12 @@ async function analyzeGame(
 
   const planetsInHouses = planets.map((p) => ({
     planet: p.name,
-    house: getPlanarHouse(p.siderealLon),
+    house: getPlanarHouse(p.eclipticLon),
     sign: p.sign,
     degree: p.degreeInSign,
-    siderealLon: p.siderealLon,
+    siderealLon: p.eclipticLon,
     isRetrograde: p.retrograde,
-    nakshatra: getNakshatraAt(p.siderealLon).nakshatra.name,
+    nakshatra: getNakshatraAt(p.eclipticLon).nakshatra.name,
   }));
 
   const houseLordsList = Array.from(houseLords.entries())
@@ -176,7 +176,7 @@ async function analyzeGame(
     const dignityStatus = getDignityStatus(lord.lordPlanet, lord.placement.sign);
     const dMult = dignityMultiplier(dignityStatus);
     const nMult = nakshatraMultiplier(lord.placement.nakshatra);
-    const starAmp = getFixedStarAmplification(lord.placement.siderealLon, 1.0);
+    const starAmp = getFixedStarAmplification(lord.placement.eclipticLon, 1.0);
     const nDignity = 1 + getNakshatraDignity(lord.placement.nakshatra) * 0.1;
     const lordSupport = 1 + getNakshatraLordStrength(lord.placement.nakshatra, dMult) * 0.5;
 

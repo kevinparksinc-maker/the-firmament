@@ -63,10 +63,10 @@ export function detectFixedStars(planets: PlanetPosition[]): FixedStarActive[] {
   const active: FixedStarActive[] = [];
 
   for (const planet of planets) {
-    const planetLon = planet.tropicalLon;
+    const planetLon = planet.eclipticLon;
 
     for (const star of FIXED_STARS) {
-      const sep = Math.abs(planetLon - star.tropicalLon);
+      const sep = Math.abs(planetLon - star.eclipticLon);
       const minSep = Math.min(sep, 360 - sep); // handle wrap-around
 
       if (minSep <= star.orb) {

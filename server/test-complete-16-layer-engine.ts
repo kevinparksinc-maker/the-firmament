@@ -137,7 +137,7 @@ async function testCompleteEngine() {
 
       if (!lordPlacement) continue;
 
-      const lordNakshatra = getNakshatraFromLongitude(lordPlacement.siderealLon);
+      const lordNakshatra = getNakshatraFromLongitude(lordPlacement.eclipticLon);
       const lordModifier = calculateNakshatraModifier(lordNakshatra);
 
       if (SIDE_A.includes(h)) {
@@ -240,7 +240,7 @@ async function testCompleteEngine() {
     // ═══════════════════════════════════════════════════════════════
     const moon = planets.Moon;
     const sun = planets.Sun;
-    let sep = Math.abs(moon.siderealLon - sun.siderealLon);
+    let sep = Math.abs(moon.eclipticLon - sun.eclipticLon);
     if (sep > 180) sep = 360 - sep;
 
     const isWaxing = sep < 180;

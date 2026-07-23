@@ -68,7 +68,7 @@ async function testHybridRealEphemeris() {
     console.log("ACTUAL PLANETARY POSITIONS (Sidereal, Philadelphia):\n");
     planetsArray.forEach((p: any) => {
       const rx = p.retrograde ? " (Rx)" : "";
-      const degree = (p.degreeInSign !== undefined ? p.degreeInSign : (p.siderealLon % 30)).toFixed(1);
+      const degree = (p.degreeInSign !== undefined ? p.degreeInSign : (p.eclipticLon % 30)).toFixed(1);
       console.log(`  ${(p.name || "Unknown").padEnd(10)} ${p.sign} ${degree}° H${p.house || "?"}${rx}`);
     });
     console.log("");

@@ -45,8 +45,8 @@ async function compareCharts() {
   console.log("\n│ PLANET POSITIONS:");
   const planets = ephResult.planets;
   for (const p of planets) {
-    const signIdx = Math.floor(p.siderealLon / 30);
-    const deg = p.siderealLon % 30;
+    const signIdx = Math.floor(p.eclipticLon / 30);
+    const deg = p.eclipticLon % 30;
     const sign = ZODIAC[signIdx];
 
     // Calculate house using ephemeris cusps
@@ -55,19 +55,19 @@ async function compareCharts() {
       const start = ephResult.houses.cusps[i];
       const end = ephResult.houses.cusps[(i + 1) % 12];
       if (start <= end) {
-        if (p.siderealLon >= start && p.siderealLon < end) {
+        if (p.eclipticLon >= start && p.eclipticLon < end) {
           house = i + 1;
           break;
         }
       } else {
-        if (p.siderealLon >= start || p.siderealLon < end) {
+        if (p.eclipticLon >= start || p.eclipticLon < end) {
           house = i + 1;
           break;
         }
       }
     }
 
-    console.log(`│   ${p.name.padEnd(8)} ${p.siderealLon.toFixed(2).padStart(8)}°  (${deg.toFixed(2).padStart(6)}° ${sign.padEnd(12)}) → H${house}`);
+    console.log(`│   ${p.name.padEnd(8)} ${p.eclipticLon.toFixed(2).padStart(8)}°  (${deg.toFixed(2).padStart(6)}° ${sign.padEnd(12)}) → H${house}`);
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────
@@ -98,8 +98,8 @@ async function compareCharts() {
 
   console.log("\n│ PLANET POSITIONS (calculated to flat-plane houses):");
   for (const p of planets) {
-    const signIdx = Math.floor(p.siderealLon / 30);
-    const deg = p.siderealLon % 30;
+    const signIdx = Math.floor(p.eclipticLon / 30);
+    const deg = p.eclipticLon % 30;
     const sign = ZODIAC[signIdx];
 
     // Calculate house using flat-plane cusps
@@ -108,19 +108,19 @@ async function compareCharts() {
       const start = adjustedCusps[i];
       const end = adjustedCusps[(i + 1) % 12];
       if (start <= end) {
-        if (p.siderealLon >= start && p.siderealLon < end) {
+        if (p.eclipticLon >= start && p.eclipticLon < end) {
           house = i + 1;
           break;
         }
       } else {
-        if (p.siderealLon >= start || p.siderealLon < end) {
+        if (p.eclipticLon >= start || p.eclipticLon < end) {
           house = i + 1;
           break;
         }
       }
     }
 
-    console.log(`│   ${p.name.padEnd(8)} ${p.siderealLon.toFixed(2).padStart(8)}°  (${deg.toFixed(2).padStart(6)}° ${sign.padEnd(12)}) → H${house}`);
+    console.log(`│   ${p.name.padEnd(8)} ${p.eclipticLon.toFixed(2).padStart(8)}°  (${deg.toFixed(2).padStart(6)}° ${sign.padEnd(12)}) → H${house}`);
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────

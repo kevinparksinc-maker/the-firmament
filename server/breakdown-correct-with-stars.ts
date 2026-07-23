@@ -143,21 +143,21 @@ async function breakdown() {
     if (!lordPlacement) continue;
 
     const ruledSide = whichSide(houseNum);
-    const occupiedHouse = getPlanarHouse(lordPlacement.siderealLon);
+    const occupiedHouse = getPlanarHouse(lordPlacement.eclipticLon);
     const occupiedSide = whichSide(occupiedHouse);
 
-    const nak = getNakshatraAt(lordPlacement.siderealLon);
+    const nak = getNakshatraAt(lordPlacement.eclipticLon);
     const nakshatraName = nak.nakshatra.name;
     const nakshatraLord = getNakshatraLord(nakshatraName);
     const nakshatra27 = nak.nakshatra;
 
     // Fixed stars
-    const stars = findFixedStarConjunctions(lordPlacement.siderealLon, 1.0);
+    const stars = findFixedStarConjunctions(lordPlacement.eclipticLon, 1.0);
 
     const dignity = getDignityStatus(lordName, lordPlacement.sign);
     const dMult = dignityMultiplier(lordName, lordPlacement.sign);
     const nMult = nakshatraMultiplier(nakshatraName);
-    const starAmp = getFixedStarAmplification(lordPlacement.siderealLon, 1.0);
+    const starAmp = getFixedStarAmplification(lordPlacement.eclipticLon, 1.0);
     const nDignity = 1 + getNakshatraDignity(nakshatraName) * 0.1;
     const lordSupport = 1 + getNakshatraLordStrength(nakshatraName, dMult) * 0.5;
 
@@ -169,7 +169,7 @@ async function breakdown() {
     console.log(`H${houseNum} (${ruledSide === "A" ? "GERMANY" : "PARAGUAY"} — Rules ${lordInfo.sign})`);
     console.log(`  Lord: ${lordName}`);
     console.log(`  Currently: H${occupiedHouse} (${occupiedSide === "A" ? "GERMANY" : occupiedSide === "B" ? "PARAGUAY" : "NEUTRAL"} territory)`);
-    console.log(`  Position: ${lordPlacement.sign} ${lordPlacement.degreeInSign.toFixed(1)}° | Sidereal ${lordPlacement.siderealLon.toFixed(2)}°`);
+    console.log(`  Position: ${lordPlacement.sign} ${lordPlacement.degreeInSign.toFixed(1)}° | Sidereal ${lordPlacement.eclipticLon.toFixed(2)}°`);
 
     // 27 LUNAR MANSIONS
     console.log(`\n  ★ 27 LUNAR MANSION (NAKSHATRA):`);
@@ -181,7 +181,7 @@ async function breakdown() {
     if (stars.length > 0) {
       console.log(`\n  ★ FIXED STARS CONJUNCT (within 1°):`);
       stars.forEach(star => {
-        const diff = Math.abs(lordPlacement.siderealLon - star.longitude);
+        const diff = Math.abs(lordPlacement.eclipticLon - star.longitude);
         const normalizedDiff = Math.min(diff, 360 - diff);
         console.log(`    ${star.name} (${star.nature.toUpperCase()}, ${star.group}) — Orb: ${normalizedDiff.toFixed(2)}°`);
       });

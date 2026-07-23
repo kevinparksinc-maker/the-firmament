@@ -101,7 +101,7 @@ async function analyzeAthleteFullCluster(
     };
 
     if (lord && placement) {
-      const { nakshatra } = getNakshatraAt(placement.siderealLon);
+      const { nakshatra } = getNakshatraAt(placement.eclipticLon);
       const profile = NAKSHATRAS[nakshatra.name];
       const modifier = calculateNakshatraModifier(profile);
 

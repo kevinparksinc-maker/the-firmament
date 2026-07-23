@@ -37,7 +37,7 @@ async function completeChartDump() {
 
   console.log("EPHEMERIS HEADER");
   console.log("─".repeat(80));
-  console.log(`Ayanamsa (Lahiri): ${ephResult.ayanamsa.toFixed(2)}°`);
+  console.log(`Ayanamsa (Lahiri): ${0}°`);
   console.log(`Ascendant: ${ephResult.houses.ascendant.toFixed(2)}°`);
   console.log(`MC: ${ephResult.houses.mc.toFixed(2)}°\n`);
 
@@ -50,8 +50,8 @@ async function completeChartDump() {
 
   for (const p of planetsArray) {
     console.log(`\n${p.name.toUpperCase()}`);
-    console.log(`  Tropical Longitude:  ${p.tropicalLon.toFixed(2)}°`);
-    console.log(`  Sidereal Longitude:  ${p.siderealLon.toFixed(2)}°`);
+    console.log(`  Tropical Longitude:  ${p.eclipticLon.toFixed(2)}°`);
+    console.log(`  Sidereal Longitude:  ${p.eclipticLon.toFixed(2)}°`);
     console.log(`  Sign:                ${p.sign} ${p.degreeInSign.toFixed(1)}°${p.minutes}'`);
     console.log(`  House:               H${p.house}`);
     console.log(`  Altitude:            ${p.altitude.toFixed(2)}°`);
@@ -74,7 +74,7 @@ async function completeChartDump() {
     // Combustion/Cazimi
     const sun = planetsArray.find((x) => x.name === "Sun");
     if (sun && p.name !== "Sun") {
-      const sep = Math.abs(p.siderealLon - sun.siderealLon);
+      const sep = Math.abs(p.eclipticLon - sun.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
       const orb = COMBUSTION_ORBS[p.name as keyof typeof COMBUSTION_ORBS] || COMBUSTION_ORBS.DEFAULT;
 
@@ -139,7 +139,7 @@ async function completeChartDump() {
       const p1 = planetsArray[i]!;
       const p2 = planetsArray[j]!;
 
-      const sep = Math.abs(p1.siderealLon - p2.siderealLon);
+      const sep = Math.abs(p1.eclipticLon - p2.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
 
       for (const aspect of aspects) {
@@ -217,7 +217,7 @@ async function completeChartDump() {
   console.log("LUNAR DATA");
   console.log("─".repeat(80));
 
-  const sep = Math.abs(moon.siderealLon - sun.siderealLon);
+  const sep = Math.abs(moon.eclipticLon - sun.eclipticLon);
   const minSep = Math.min(sep, 360 - sep);
   const isWaxing = minSep < 180;
 

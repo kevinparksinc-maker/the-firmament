@@ -131,7 +131,7 @@ async function fullHouseEvaluation() {
     for (const other of planetsArray) {
       if (other.name === lord) continue;
 
-      const sep = Math.abs(lordPlacement.siderealLon - other.siderealLon);
+      const sep = Math.abs(lordPlacement.eclipticLon - other.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
 
       for (const aspect of aspectTypes) {

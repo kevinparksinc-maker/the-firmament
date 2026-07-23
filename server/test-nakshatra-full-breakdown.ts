@@ -75,7 +75,7 @@ async function testNakshatraFullBreakdown() {
 
       if (!lordPlacement) continue;
 
-      const lordNakshatra = getNakshatraFromLongitude(lordPlacement.siderealLon);
+      const lordNakshatra = getNakshatraFromLongitude(lordPlacement.eclipticLon);
       const lordModifier = calculateNakshatraModifier(lordNakshatra);
       const side = SIDE_A.includes(h) ? "A" : SIDE_B.includes(h) ? "B" : "—";
 
@@ -102,7 +102,7 @@ async function testNakshatraFullBreakdown() {
     console.log("─".repeat(100) + "\n");
 
     for (const p of ephResult.planets) {
-      const nakshatra = getNakshatraFromLongitude(p.siderealLon);
+      const nakshatra = getNakshatraFromLongitude(p.eclipticLon);
       const modifier = calculateNakshatraModifier(nakshatra);
 
       console.log(

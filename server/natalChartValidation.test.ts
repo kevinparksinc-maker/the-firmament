@@ -92,11 +92,11 @@ describe("Natal Chart Engine Validation", () => {
 
     const sun = result.planets.find((p) => p.name === "Sun");
     expect(sun).toBeDefined();
-    expect(sun!.tropicalLon).toBeGreaterThan(230);
-    expect(sun!.tropicalLon).toBeLessThan(240);
+    expect(sun!.eclipticLon).toBeGreaterThan(230);
+    expect(sun!.eclipticLon).toBeLessThan(240);
 
     // Verify it's in Scorpio
-    const sign = Math.floor(sun!.tropicalLon / 30);
+    const sign = Math.floor(sun!.eclipticLon / 30);
     const signs = [
       "Aries",
       "Taurus",
@@ -126,7 +126,7 @@ describe("Natal Chart Engine Validation", () => {
     expect(mercury).toBeDefined();
 
     const antaresDegree = 225.0;
-    const distance = Math.abs(mercury!.tropicalLon - antaresDegree);
+    const distance = Math.abs(mercury!.eclipticLon - antaresDegree);
     const minDistance = Math.min(distance, 360 - distance);
 
     expect(minDistance).toBeLessThan(5.0); // Within 5 degrees

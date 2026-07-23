@@ -78,7 +78,7 @@ async function debug() {
     const side = whichSide(lord.placement.house);
     const dignity = dignityScore(lord.planet, lord.placement.sign);
     const houseMag = houseTypeMagnitude(lord.placement.house);
-    const nak = getNakshatraAt(lord.placement.siderealLon);
+    const nak = getNakshatraAt(lord.placement.eclipticLon);
     const nakProfile = NAKSHATRAS[nak.nakshatra.name];
     const nakMult = nakProfile ? calculateNakshatraModifier(nakProfile) : 1.0;
 
@@ -102,7 +102,7 @@ async function debug() {
     const side = whichSide(lord.placement.house);
     const dignity = dignityScore(lord.planet, lord.placement.sign);
     const houseMag = houseTypeMagnitude(lord.placement.house);
-    const nak = getNakshatraAt(lord.placement.siderealLon);
+    const nak = getNakshatraAt(lord.placement.eclipticLon);
     const nakProfile = NAKSHATRAS[nak.nakshatra.name];
     const nakMult = nakProfile ? calculateNakshatraModifier(nakProfile) : 1.0;
 

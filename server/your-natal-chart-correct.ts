@@ -88,7 +88,7 @@ async function showCompleteNatalChart() {
   console.log("│");
 
   for (const planet of ephResult.planets) {
-    const wheelDeg = planet.siderealLon; // NO offset — use sidereal directly
+    const wheelDeg = planet.eclipticLon; // NO offset — use sidereal directly
     const sign = Math.floor(wheelDeg / 30);
     const degInSign = wheelDeg % 30;
     const direction = getDirection(wheelDeg);
@@ -121,18 +121,18 @@ async function showCompleteNatalChart() {
 
   if (sunIdx >= 0) {
     const sun = ephResult.planets[sunIdx];
-    const sunSign = Math.floor(sun.siderealLon / 30);
-    const sunDeg = sun.siderealLon % 30;
-    const sunDir = getDirection(sun.siderealLon);
-    console.log(`│ Sun:     ${sun.siderealLon.toFixed(2)}° (${sunDeg.toFixed(2)}° ${ZODIAC[sunSign].padEnd(12)}) → ${sunDir}`);
+    const sunSign = Math.floor(sun.eclipticLon / 30);
+    const sunDeg = sun.eclipticLon % 30;
+    const sunDir = getDirection(sun.eclipticLon);
+    console.log(`│ Sun:     ${sun.eclipticLon.toFixed(2)}° (${sunDeg.toFixed(2)}° ${ZODIAC[sunSign].padEnd(12)}) → ${sunDir}`);
   }
 
   if (moonIdx >= 0) {
     const moon = ephResult.planets[moonIdx];
-    const moonSign = Math.floor(moon.siderealLon / 30);
-    const moonDeg = moon.siderealLon % 30;
-    const moonDir = getDirection(moon.siderealLon);
-    console.log(`│ Moon:    ${moon.siderealLon.toFixed(2)}° (${moonDeg.toFixed(2)}° ${ZODIAC[moonSign].padEnd(12)}) → ${moonDir}`);
+    const moonSign = Math.floor(moon.eclipticLon / 30);
+    const moonDeg = moon.eclipticLon % 30;
+    const moonDir = getDirection(moon.eclipticLon);
+    console.log(`│ Moon:    ${moon.eclipticLon.toFixed(2)}° (${moonDeg.toFixed(2)}° ${ZODIAC[moonSign].padEnd(12)}) → ${moonDir}`);
   }
 
   console.log(`│ Ascendant: ${planarAscendant.toFixed(2)}° (${ascDegInSign.toFixed(2)}° ${ZODIAC[ascSign].padEnd(12)}) → ${ascDirection}`);

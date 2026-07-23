@@ -113,7 +113,7 @@ async function testNakshatraValidation() {
 
       if (!lordPlacement) continue;
 
-      const lordNakshatra = getNakshatraFromLongitude(lordPlacement.siderealLon);
+      const lordNakshatra = getNakshatraFromLongitude(lordPlacement.eclipticLon);
       const lordModifier = calculateNakshatraModifier(lordNakshatra);
 
       if (SIDE_A.includes(h)) {
@@ -132,9 +132,9 @@ async function testNakshatraValidation() {
     console.log(`  Prediction: ${predictionModified}`);
     console.log(`  Correct: ${(predictionModified === game.actualWinner ? "✓" : "✗")}`);
 
-    const moonProfile = getNakshatraFromLongitude(planets.Moon.siderealLon);
+    const moonProfile = getNakshatraFromLongitude(planets.Moon.eclipticLon);
     const moonModifier = calculateNakshatraModifier(moonProfile);
-    const marsProfile = getNakshatraFromLongitude(planets.Mars.siderealLon);
+    const marsProfile = getNakshatraFromLongitude(planets.Mars.eclipticLon);
     const marsModifier = calculateNakshatraModifier(marsProfile);
 
     console.log(`\n  Moon (${moonProfile.name}): ${moonModifier.toFixed(0)} points`);

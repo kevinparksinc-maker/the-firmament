@@ -26,10 +26,10 @@ async function testUserNatal() {
   console.log(`\nRaw Tropical Planetary Positions:`);
   console.log(`────────────────────────────────────────────────────────`);
   for (const planet of result.planets) {
-    const sign = getFixedBackgroundSign(planet.tropicalLon);
-    const nak = getFixedNakshatra(planet.tropicalLon);
+    const sign = getFixedBackgroundSign(planet.eclipticLon);
+    const nak = getFixedNakshatra(planet.eclipticLon);
     console.log(
-      `${planet.name.padEnd(10)} → ${planet.tropicalLon.toFixed(2)}° (${sign} ${planet.degreeInSign}°${planet.minutes}') [${nak.name}]`
+      `${planet.name.padEnd(10)} → ${planet.eclipticLon.toFixed(2)}° (${sign} ${planet.degreeInSign}°${planet.minutes}') [${nak.name}]`
     );
   }
 
@@ -56,13 +56,13 @@ async function testUserNatal() {
   console.log(`────────────────────────────────────────────────────────`);
   const planetPlacements = result.planets.map((p) => ({
     ...p,
-    placement: evaluatePlanetPlacement(p.tropicalLon, houses),
+    placement: evaluatePlanetPlacement(p.eclipticLon, houses),
   }));
 
   for (const planet of planetPlacements) {
     const p = planet.placement;
     console.log(
-      `${planet.name.padEnd(10)} @ ${planet.tropicalLon.toFixed(2)}° → H${p.assignedHouse} (${p.fixedSign} ${p.nakshatra})`
+      `${planet.name.padEnd(10)} @ ${planet.eclipticLon.toFixed(2)}° → H${p.assignedHouse} (${p.fixedSign} ${p.nakshatra})`
     );
   }
 
@@ -81,8 +81,8 @@ async function testUserNatal() {
 
     for (const planet of result.planets) {
       const distance = Math.min(
-        Math.abs(planet.tropicalLon - star.absoluteDegree),
-        360 - Math.abs(planet.tropicalLon - star.absoluteDegree)
+        Math.abs(planet.eclipticLon - star.absoluteDegree),
+        360 - Math.abs(planet.eclipticLon - star.absoluteDegree)
       );
       if (distance < minDistance) {
         minDistance = distance;

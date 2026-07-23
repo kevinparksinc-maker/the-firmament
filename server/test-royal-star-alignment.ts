@@ -54,7 +54,7 @@ async function validateRoyalStarWheel() {
   let allAligned = true;
 
   for (const planet of ephResult.planets) {
-    const siderealDeg = planet.siderealLon;
+    const siderealDeg = planet.eclipticLon;
     const wheelDeg = mapToRoyalStarWheel(siderealDeg);
 
     // Use the TRUE firmament validation: nakshatra index restoration

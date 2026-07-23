@@ -107,7 +107,7 @@ async function predictGame(
 
     if (!lordPlacement) continue;
 
-    const lordNakshatra = getNakshatraFromLongitude(lordPlacement.siderealLon);
+    const lordNakshatra = getNakshatraFromLongitude(lordPlacement.eclipticLon);
     const lordModifier = calculateNakshatraModifier(lordNakshatra);
 
     // Display the nakshatra traits

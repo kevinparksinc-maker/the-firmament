@@ -87,7 +87,7 @@ async function rawChartDataDump() {
     let combustion_status = "none";
     const sun = planetsArray.find((x) => x.name === "Sun");
     if (sun && p.name !== "Sun") {
-      const sep = Math.abs(p.siderealLon - sun.siderealLon);
+      const sep = Math.abs(p.eclipticLon - sun.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
       const orb = COMBUSTION_ORBS[p.name as keyof typeof COMBUSTION_ORBS] || COMBUSTION_ORBS.DEFAULT;
 
@@ -105,8 +105,8 @@ async function rawChartDataDump() {
       sign: p.sign,
       degree_in_sign: parseFloat(p.degreeInSign.toFixed(1)),
       minutes: p.minutes,
-      longitude_tropical: parseFloat(p.tropicalLon.toFixed(2)),
-      longitude_sidereal: parseFloat(p.siderealLon.toFixed(2)),
+      longitude_tropical: parseFloat(p.eclipticLon.toFixed(2)),
+      longitude_sidereal: parseFloat(p.eclipticLon.toFixed(2)),
       house: p.house,
       retrograde: p.retrograde,
       essential_dignity: dignity,
@@ -138,7 +138,7 @@ async function rawChartDataDump() {
       const p1 = planetsArray[i]!;
       const p2 = planetsArray[j]!;
 
-      const sep = Math.abs(p1.siderealLon - p2.siderealLon);
+      const sep = Math.abs(p1.eclipticLon - p2.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
 
       for (const aspect of aspectTypes) {
@@ -163,7 +163,7 @@ async function rawChartDataDump() {
   for (const p of planetsArray) {
     const maleficsNear = planetsArray.filter((other) => {
       if (!MALEFIC_PLANETS.includes(other.name)) return false;
-      const sep = Math.abs(p.siderealLon - other.siderealLon);
+      const sep = Math.abs(p.eclipticLon - other.eclipticLon);
       return sep <= 8 && sep > 0.1;
     });
     if (maleficsNear.length >= 2) {
@@ -180,7 +180,7 @@ async function rawChartDataDump() {
     for (let j = i + 1; j < planetsArray.length; j++) {
       const p1 = planetsArray[i]!;
       const p2 = planetsArray[j]!;
-      const sep = Math.abs(p1.siderealLon - p2.siderealLon);
+      const sep = Math.abs(p1.eclipticLon - p2.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
 
       if (minSep <= 1 && minSep > 0) {
@@ -222,7 +222,7 @@ async function rawChartDataDump() {
       altitude: observer.altitude,
     },
     ephemeris: {
-      ayanamsa_lahiri: parseFloat(ephResult.ayanamsa.toFixed(2)),
+      ayanamsa_lahiri: 0,
       ascendant_sidereal: parseFloat(houses.ascendant.toFixed(2)),
       mc_sidereal: parseFloat(houses.mc.toFixed(2)),
     },

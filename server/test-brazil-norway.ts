@@ -58,10 +58,10 @@ async function testBrazilNorway() {
   ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"].forEach((name) => {
     const p = chart[name];
     if (p) {
-      const { nakshatra } = getNakshatraAt(p.siderealLon);
+      const { nakshatra } = getNakshatraAt(p.eclipticLon);
       const profile = NAKSHATRAS[nakshatra.name];
       console.log(
-        `${name.padEnd(10)} @ ${p.siderealLon.toFixed(1)}° in ${p.sign.padEnd(9)} (H${p.house}) → ${nakshatra.name.padEnd(16)} [${profile.pace.padEnd(8)} / ${profile.temperament}]`
+        `${name.padEnd(10)} @ ${p.eclipticLon.toFixed(1)}° in ${p.sign.padEnd(9)} (H${p.house}) → ${nakshatra.name.padEnd(16)} [${profile.pace.padEnd(8)} / ${profile.temperament}]`
       );
     }
   });
@@ -89,7 +89,7 @@ async function testBrazilNorway() {
     const lord = houseLords.get(h);
     if (lord && chart[lord]) {
       const p = chart[lord];
-      const { nakshatra } = getNakshatraAt(p.siderealLon);
+      const { nakshatra } = getNakshatraAt(p.eclipticLon);
       const profile = NAKSHATRAS[nakshatra.name];
       const modifier = calculateNakshatraModifier(profile);
       console.log(
@@ -104,7 +104,7 @@ async function testBrazilNorway() {
     const lord = houseLords.get(h);
     if (lord && chart[lord]) {
       const p = chart[lord];
-      const { nakshatra } = getNakshatraAt(p.siderealLon);
+      const { nakshatra } = getNakshatraAt(p.eclipticLon);
       const profile = NAKSHATRAS[nakshatra.name];
       const modifier = calculateNakshatraModifier(profile);
       console.log(
@@ -132,14 +132,14 @@ async function testBrazilNorway() {
 
   console.log("IF BRAZIL WINS (as predicted):");
   if (l1 && chart[l1]) {
-    const l1nak = getNakshatraAt(chart[l1].siderealLon).nakshatra.name;
+    const l1nak = getNakshatraAt(chart[l1].eclipticLon).nakshatra.name;
     const l1profile = NAKSHATRAS[l1nak];
     console.log(
       `  • Brazil's L1 (${l1nak}, ${l1profile.style} / ${l1profile.temperament}) will dictate the match through [specific mechanism based on traits]`
     );
   }
   if (l10 && chart[l10]) {
-    const l10nak = getNakshatraAt(chart[l10].siderealLon).nakshatra.name;
+    const l10nak = getNakshatraAt(chart[l10].eclipticLon).nakshatra.name;
     const l10profile = NAKSHATRAS[l10nak];
     console.log(
       `  • Brazil's L10 (${l10nak}, ${l10profile.finishingAbility} finishing) will convert opportunities [expected conversion rate]`
@@ -151,14 +151,14 @@ async function testBrazilNorway() {
 
   console.log("\nIF NORWAY UPSETS (alternative mechanism):");
   if (l7 && chart[l7]) {
-    const l7nak = getNakshatraAt(chart[l7].siderealLon).nakshatra.name;
+    const l7nak = getNakshatraAt(chart[l7].eclipticLon).nakshatra.name;
     const l7profile = NAKSHATRAS[l7nak];
     console.log(
       `  • Norway's L7 (${l7nak}, ${l7profile.style} / ${l7profile.consistency}) defends against Brazil's attack with [specific trait advantage]`
     );
   }
   if (l12 && chart[l12]) {
-    const l12nak = getNakshatraAt(chart[l12].siderealLon).nakshatra.name;
+    const l12nak = getNakshatraAt(chart[l12].eclipticLon).nakshatra.name;
     const l12profile = NAKSHATRAS[l12nak];
     console.log(
       `  • Norway's L12 (${l12nak}, ${l12profile.style}) creates dangerous hidden/counter opportunities [mechanism]`

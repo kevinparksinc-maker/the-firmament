@@ -40,7 +40,7 @@ async function debug() {
   console.log("─".repeat(150));
   planets.forEach((p) => {
     console.log(
-      `${p.name.padEnd(12)} H${p.house.toString().padEnd(2)} Tropical: ${p.tropicalLon.toFixed(2)}° Retrograde: ${p.retrograde ? "YES" : "no"}`
+      `${p.name.padEnd(12)} H${p.house.toString().padEnd(2)} Tropical: ${p.eclipticLon.toFixed(2)}° Retrograde: ${p.retrograde ? "YES" : "no"}`
     );
   });
 

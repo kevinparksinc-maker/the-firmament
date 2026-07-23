@@ -81,12 +81,12 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
   // Convert planets to internal format using planar house assignments
   const planetsInHouses = planets.map((p) => ({
     planet: p.name,
-    house: getPlanarHouse(p.siderealLon),
+    house: getPlanarHouse(p.eclipticLon),
     sign: p.sign,
     degree: p.degreeInSign,
-    siderealLon: p.siderealLon,
+    siderealLon: p.eclipticLon,
     isRetrograde: p.retrograde,
-    nakshatra: getNakshatraAt(p.siderealLon).nakshatra.name,
+    nakshatra: getNakshatraAt(p.eclipticLon).nakshatra.name,
   }));
 
   // Extract house lords
@@ -108,7 +108,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
 
   const planetsRecord: Record<string, any> = {};
   planets.forEach((p) => {
-    planetsRecord[p.name] = { lon: p.siderealLon };
+    planetsRecord[p.name] = { lon: p.eclipticLon };
   });
 
   const calculatedLots = calculateArabicLots(planetsRecord, asc, isNight);
@@ -127,7 +127,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
 
   // Moon data
   const moonData = planets.find((p) => p.name === "Moon");
-  const moonNak = moonData ? getNakshatraAt(moonData.siderealLon).nakshatra.name : "Ashwini";
+  const moonNak = moonData ? getNakshatraAt(moonData.eclipticLon).nakshatra.name : "Ashwini";
   // TODO: Calculate actual moon phase and VOC status
   const moonPhase: "new" | "waxing" | "full" | "waning" = "waxing"; // placeholder
 

@@ -144,7 +144,7 @@ async function fullDiagnostic() {
     // 2. COMBUSTION
     const sun = planets.Sun;
     if (sun) {
-      const sep = Math.abs(lordPlacement.siderealLon - sun.siderealLon);
+      const sep = Math.abs(lordPlacement.eclipticLon - sun.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
       const orb = COMBUSTION_ORBS[lord as keyof typeof COMBUSTION_ORBS] || COMBUSTION_ORBS.DEFAULT;
 
@@ -213,7 +213,7 @@ async function fullDiagnostic() {
     for (const other of planetsArray) {
       if (other.name === lord) continue;
 
-      const sep = Math.abs(lordPlacement.siderealLon - other.siderealLon);
+      const sep = Math.abs(lordPlacement.eclipticLon - other.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
 
       // Check major aspects
@@ -252,7 +252,7 @@ async function fullDiagnostic() {
     // 7. BESIEGED CHECK (malefics on either side)
     const maleficsNear = planetsArray.filter((p) => {
       if (!MALEFIC_PLANETS.includes(p.name)) return false;
-      const sep = Math.abs(lordPlacement.siderealLon - p.siderealLon);
+      const sep = Math.abs(lordPlacement.eclipticLon - p.eclipticLon);
       return sep <= 8 && sep > 0.1;
     });
     if (maleficsNear.length >= 2) {

@@ -72,7 +72,7 @@ async function debug() {
 
     if (!lordPlacement) continue;
 
-    const lordNakshatra = getNakshatraFromLongitude(lordPlacement.siderealLon);
+    const lordNakshatra = getNakshatraFromLongitude(lordPlacement.eclipticLon);
     const modifier = calculateNakshatraModifier(lordNakshatra);
     const side = SIDE_A.includes(h) ? "Brazil" : SIDE_B.includes(h) ? "Argentina" : "Neutral";
 
@@ -96,7 +96,7 @@ async function debug() {
 
     if (!lordPlacement) continue;
 
-    const lordNakshatra = getNakshatraFromLongitude(lordPlacement.siderealLon);
+    const lordNakshatra = getNakshatraFromLongitude(lordPlacement.eclipticLon);
     const modifier = calculateNakshatraModifier(lordNakshatra);
 
     if (SIDE_A.includes(h)) {

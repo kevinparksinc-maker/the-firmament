@@ -280,7 +280,7 @@ export function scoreClusterMatchup(
   // Build chart for lot calculation
   const chart: Record<string, any> = {};
   planets.forEach((p) => {
-    chart[p.name] = { tropicalLon: p.tropicalLon, house: p.house };
+    chart[p.name] = { tropicalLon: p.eclipticLon, house: p.house };
   });
 
   // Calculate Arabic lots
@@ -297,7 +297,7 @@ export function scoreClusterMatchup(
   const descendantPlanets: Array<ReturnType<typeof scorePlanet> & { aspectScore: number }> = [];
 
   planets.forEach((p) => {
-    const scored = scorePlanet(p.name, p.tropicalLon, p.house, p.retrograde || false, houseLords);
+    const scored = scorePlanet(p.name, p.eclipticLon, p.house, p.retrograde || false, houseLords);
 
     if (ASCENDANT_HOUSES.includes(p.house)) {
       ascendantPlanets.push({ ...scored, aspectScore: 0 });

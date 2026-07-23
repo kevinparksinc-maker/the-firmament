@@ -335,7 +335,7 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
 
   // Track which planets have fixed star conjunctions for explicit scoring
   for (const lord of chart.houseLords) {
-    const conjunctions = findFixedStarConjunctions(lord.placement.siderealLon, 1.0);
+    const conjunctions = findFixedStarConjunctions(lord.placement.eclipticLon, 1.0);
     if (conjunctions.length === 0) continue;
 
     const side = whichSide(lord.placement.house, config);
@@ -468,7 +468,7 @@ export function calculateFullPredictionWithPlanarHouses(
 
   // Rebuild house lords using planar houses
   const updatedHouseLords = chart.houseLords.map((lord) => {
-    const siderealLon = lord.placement.siderealLon;
+    const siderealLon = lord.placement.eclipticLon;
     const planarHouse = getPlanarHouseFromCusps(siderealLon, planarSystem.cusps);
 
     return {

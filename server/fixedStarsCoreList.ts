@@ -81,8 +81,8 @@ export function detectFixedStarsCoreList(planets: PlanetPosition[]): FixedStarAc
     const activePlanets: Array<{ planet: string; separation: number }> = [];
 
     for (const planet of planets) {
-      const planetLon = planet.tropicalLon;
-      const sep = Math.abs(planetLon - star.tropicalLon);
+      const planetLon = planet.eclipticLon;
+      const sep = Math.abs(planetLon - star.eclipticLon);
       const minSep = Math.min(sep, 360 - sep);
 
       if (minSep <= star.orb) {
@@ -96,7 +96,7 @@ export function detectFixedStarsCoreList(planets: PlanetPosition[]): FixedStarAc
     if (activePlanets.length > 0) {
       active.push({
         name: star.name,
-        tropicalLon: star.tropicalLon,
+        tropicalLon: star.eclipticLon,
         orb: star.orb,
         meaning: star.meaning,
         nature: star.nature,

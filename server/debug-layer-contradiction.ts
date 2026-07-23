@@ -87,7 +87,7 @@ async function debug() {
 
     console.log(`\n### ${planetName.toUpperCase()}`);
     console.log(`Physical Position: House ${placement.house} ${placement.sign} ${placement.degreeInSign.toFixed(2)}°`);
-    console.log(`Sidereal Longitude: ${placement.siderealLon.toFixed(2)}°`);
+    console.log(`Sidereal Longitude: ${placement.eclipticLon.toFixed(2)}°`);
     console.log(`Dignity: ${getDignityStatus(planetName, placement.sign)}`);
 
     // Find which houses this planet rules
@@ -106,7 +106,7 @@ async function debug() {
         const side = whichSide(houseNum);
         const territorial = territorialPoints(houseNum);
         const dignity = dignityScore(planetName, placement.sign);
-        const nak = getNakshatraAt(placement.siderealLon);
+        const nak = getNakshatraAt(placement.eclipticLon);
         const nakProfile = NAKSHATRAS[nak.nakshatra.name];
         const nakMultiplier = nakProfile ? calculateNakshatraModifier(nakProfile) : 1.0;
 
@@ -124,7 +124,7 @@ async function debug() {
     const sidePlacedIn = whichSide(placement.house);
     const territorial = territorialPoints(placement.house);
     const dignity = dignityScore(planetName, placement.sign);
-    const nak = getNakshatraAt(placement.siderealLon);
+    const nak = getNakshatraAt(placement.eclipticLon);
     const nakProfile = NAKSHATRAS[nak.nakshatra.name];
     const nakMultiplier = nakProfile ? calculateNakshatraModifier(nakProfile) : 1.0;
     const retroFlag = placement.retrograde ? -1 : 0;
