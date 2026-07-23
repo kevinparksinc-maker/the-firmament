@@ -129,25 +129,25 @@ function getHouseType(house: number): HouseType {
 }
 
 function getBasePoints(house: number): number {
-  // Symmetric point scale per canonical rules
-  // H1/H7: 4, H3/H9: 2, H6/H12: 2, H10/H4: 4, H11/H5: 3
-  const baseMap: Record<number, number> = {
-    1: 4, 7: 4,
-    3: 2, 9: 2,
-    6: 2, 12: 2,
-    10: 4, 4: 4,
-    11: 3, 5: 3,
-  };
-  return baseMap[house] ?? 0;
+  // Symmetric point scale: angular houses (cardinal angles) are worth more.
+  // Angular (1,4,7,10): 4 pts | Succedent (2,5,8,11): 3 pts | Cadent (3,6,9,12): 2 pts
+  // This reflects traditional astro hierarchy: angle > succedent > cadent
+  const houseType = getHouseType(house);
+  switch (houseType) {
+    case "angular": return 4;
+    case "succedent": return 3;
+    case "cadent": return 2;
+  }
 }
 
 function getPlacementBonus(house: number): number {
-  // Applied to the side currently occupying the house
+  // Bonus to the side currently occupying the house (beyond base points)
+  // Stronger occupation = more advantage
   const type = getHouseType(house);
   switch (type) {
     case "angular": return 1;
-    case "succedent": return 0.5;
-    case "cadent": return 0;
+    case "succedent": return 0;
+    case "cadent": return -1;
   }
 }
 
@@ -211,20 +211,32 @@ function getDignityStatus(placement: PlanetPlacement): DignityStatus {
   return "neutral";
 }
 
-function dignityMultiplier(placement: PlanetPlacement): number {
+function dignityScore(placement: PlanetPlacement): number {
   const status = getDignityStatus(placement);
   switch (status) {
-    case "exalted": return 1.5;
-    case "own": return 1.25;
-    case "neutral": return 1.0;
-    case "debilitated": return 0.6;
+    case "exalted": return 2;
+    case "own": return 1;
+    case "neutral": return 0;
+    case "debilitated": return -2;
   }
 }
 
-function nakshatraMultiplier(nakshatraName: string): number {
+function nakshatraScore(nakshatraName: string): number {
   const profile = NAKSHATRAS[nakshatraName];
-  if (!profile) return 1.0;
-  return calculateNakshatraModifier(profile);
+  if (!profile) return 0;
+  // Map nakshatra traits to additive points
+  const traitToPoints = (trait: string): number => {
+    switch (trait) {
+      case "Excellent": return 1.5;
+      case "High": return 0.75;
+      case "Medium": return 0;
+      case "Low": return -0.75;
+      default: return 0;
+    }
+  };
+  const traits = [profile.initiative, profile.pressureResponse, profile.consistency, profile.finishingAbility];
+  const points = traits.map(traitToPoints);
+  return points.reduce((a, b) => a + b, 0) / points.length;
 }
 
 function temperamentVolatility(nakshatraName: string): number {
@@ -267,20 +279,17 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
 
     const basePoints = getBasePoints(occupiedHouse);
     const placementBonus = getPlacementBonus(occupiedHouse);
-    const dMult = dignityMultiplier(lord.placement);
-    const nMult = nakshatraMultiplier(lord.placement.nakshatra);
-    const starAmp = getFixedStarAmplification(lord.placement.siderealLon, 1.0);
-    const nDignity = 1 + getNakshatraDignity(lord.placement.nakshatra) * 0.1;
-    const lordSupport = 1 + getNakshatraLordStrength(lord.placement.nakshatra, dMult) * 0.5;
+    const dScore = dignityScore(lord.placement);
+    const nScore = nakshatraScore(lord.placement.nakshatra);
 
     // Friction Modifier: Sign Lord ↔ Nakshatra Lord relationship
     const signLord = SIGN_RULERS[lord.placement.sign] as PlanetName || "Sun";
     const nakshatraLord = getNakshatraLord(lord.placement.nakshatra) as PlanetName || "Sun";
     const frictionResult = getSignNakshatraFriction(signLord, nakshatraLord);
-    const frictionMult = frictionResult.multiplier;
+    const frictionScore = (frictionResult.multiplier - 1) * 2; // Convert 0.9-1.1x to -0.2 to +0.2
 
-    // The controlling side's gain: base + placement, multiplied by all strength factors
-    const controllingGain = (basePoints + placementBonus) * dMult * nMult * frictionMult * starAmp * nDignity * lordSupport;
+    // Additive scoring: base + placement + all modifiers
+    const controllingGain = basePoints + placementBonus + dScore + nScore + frictionScore;
 
     if (occupiedSide === "A") {
       sideATotal += controllingGain;
@@ -414,15 +423,17 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     Math.abs(margin) < TOO_CLOSE_THRESHOLD ? "too close to call" : margin > 0 ? "A" : "B";
 
   // ──── CONFIDENCE
-  const maxPlausibleMargin = 20;
+  // Additive scoring: confidence based on margin size (larger margins = higher confidence)
+  // Volatility (Volatile temperaments) reduce confidence proportionally
+  const maxPlausibleMargin = 15;
   let baseConfidence = 50 + Math.min(Math.abs(margin) / maxPlausibleMargin, 1) * 45;
 
   const relevantTemperaments = chart.houseLords
     .filter((l) => whichSide(l.house, config) !== "neutral")
     .map((l) => temperamentVolatility(l.placement.nakshatra));
 
-  const avgWidening = relevantTemperaments.length ? relevantTemperaments.reduce((a, b) => a + b, 0) / relevantTemperaments.length : 0;
-  const confidence = Math.max(50, baseConfidence * (1 - avgWidening));
+  const avgVolatility = relevantTemperaments.length ? relevantTemperaments.reduce((a, b) => a + b, 0) / relevantTemperaments.length : 0;
+  const confidence = Math.max(50, baseConfidence * (1 - avgVolatility));
 
   // ──── VOLATILITY WARNING
   const volatileCount = chart.houseLords.filter((l) => {
