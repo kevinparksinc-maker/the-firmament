@@ -144,6 +144,9 @@ export function calculateTerritorialControl(
         const signIndex = Math.floor(((lot.longitude % 360) + 360) % 360 / 30) % 12;
         const lotSign = SIGN_ORDER[signIndex];
 
+        // DEBUG: Log the raw calculation
+        console.log(`[LOT DEBUG] ${lot.name}: longitude=${lot.longitude.toFixed(2)}° → sign index=${signIndex} → ${lotSign}, house=${lotHouse}, side=${lotSide}`);
+
         if (lotSide === "A") lotsSideTotal.A += 1;
         else if (lotSide === "B") lotsSideTotal.B += 1;
 
