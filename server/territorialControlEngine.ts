@@ -14,7 +14,7 @@
  */
 
 import type { PlanetPlacement } from "./astroEngine";
-import { SIGN_RULERS, EXALTATIONS, DEBILITATIONS } from "./astroEngine";
+import { SIGN_RULERS, EXALTATIONS, DEBILITATIONS, SIGN_ORDER } from "./astroEngine";
 import { getNakshatraAt, type Nakshatra } from "./nakshatra";
 import { NAKSHATRAS, type NakshatraProfile } from "./nakshatraData";
 import { detectPlanetaryWar, type PlanetaryWar } from "./patternEngine";
@@ -140,12 +140,16 @@ export function calculateTerritorialControl(
         const lotHouse = Math.floor(lotHouseDelta) + 1;
         const lotSide = getSide(lotHouse);
 
+        // Calculate the correct sign from the lot's longitude
+        const signIndex = Math.floor(((lot.longitude % 360) + 360) % 360 / 30) % 12;
+        const lotSign = SIGN_ORDER[signIndex];
+
         if (lotSide === "A") lotsSideTotal.A += 1;
         else if (lotSide === "B") lotsSideTotal.B += 1;
 
         return {
           name: lot.name,
-          sign: lot.sign,
+          sign: lotSign,
           sideInfluence: lotSide ?? "neutral",
         };
       });
