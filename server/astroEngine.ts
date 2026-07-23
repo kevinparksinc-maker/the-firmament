@@ -500,20 +500,10 @@ export function runAstroReading(
   const soulResult = scorePillar('soul', effectiveNatal, effectiveTransits, activations);
   const spiritResult = scorePillar('spirit', effectiveNatal, effectiveTransits, activations);
 
-  // Extract ascendant from parsed planet data (e.g., "Asc: 29.04° Scorpio")
-  // The parseInput function converts this into a planet entry with .absolute being the ecliptic longitude
   const ascendant =
     effectiveNatal.Asc?.absolute ??
     effectiveTransits.Asc?.absolute ??
     null;
-
-  // Fallback: if Asc wasn't parsed, try to compute from first planet
-  // (this handles cases where ascendant wasn't in the input text)
-  const finalAscendant = ascendant ?? (
-    Object.values(effectiveNatal)[0]?.absolute ??
-    Object.values(effectiveTransits)[0]?.absolute ??
-    null
-  );
 
   return {
     result: {
@@ -524,7 +514,7 @@ export function runAstroReading(
       natal: effectiveNatal,
       transits: effectiveTransits,
       context,
-      ascendant: finalAscendant
+      ascendant
     },
     error: null,
     mode
