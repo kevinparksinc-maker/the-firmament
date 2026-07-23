@@ -12,12 +12,11 @@ import {
   runAstroReading,
   type PlanetPlacement,
   SIGN_RULERS,
+  SIGN_ORDER,
 } from "./astroEngine";
-import { buildSportsHoraryChartViaLLM } from "./sportsHoraryReading";
-import { calculateFullPrediction, type ChartData, type ClusterConfig, assignHousesToLots } from "./masterPredictionEngine";
-import { getNakshatraAt } from "./nakshatra";
-import { SIGN_ORDER } from "./astroEngine";
-import { calculateArabicLots } from "./arabicLotsCalculator";
+import { buildChartData } from "./sportsHoraryReading";
+import { calculateFullPrediction, type ChartData, type ClusterConfig } from "./masterPredictionEngine";
+import { calculateTerritorialControl, formatTerritorialReport } from "./territorialControlEngine";
 
 type Chart = Record<string, PlanetPlacement>;
 
@@ -37,68 +36,13 @@ export interface SportsHoraryV2Output {
   flags: string[];
   usedChart: "transit" | "natal";
   margin: number;
-}
-
-function buildEqualHouseCusps(ascendant: number): Record<number, { sign: string; degree: number }> {
-  const cusps: Record<number, { sign: string; degree: number }> = {};
-  for (let i = 0; i < 12; i++) {
-    const lon = (ascendant + i * 30) % 360;
-    const signIdx = Math.floor(lon / 30) % 12;
-    const degree = Math.floor(lon % 30);
-    cusps[i + 1] = { sign: SIGN_ORDER[signIdx], degree };
-  }
-  return cusps;
-}
-
-function buildChartData(chart: Chart, ascendant?: number): ChartData {
-  const houseLords: ChartData["houseLords"] = [];
-  const planetsInHouses: ChartData["planetsInHouses"] = [];
-
-  for (const [planetName, placement] of Object.entries(chart)) {
-    const siderealLon = SIGN_ORDER.indexOf(placement.sign) * 30 + placement.degree;
-    const nakshatra = getNakshatraAt(siderealLon);
-
-    const planetPlacement: PlanetPlacement = {
-      planet: planetName,
-      house: placement.house,
-      sign: placement.sign,
-      degree: placement.degree,
-      siderealLon,
-      isRetrograde: placement.rx || false,
-      nakshatra: nakshatra.nakshatra.name,
-    };
-
-    planetsInHouses.push(planetPlacement);
-
-    const signLord = SIGN_RULERS[placement.sign];
-    if (signLord && planetName === signLord) {
-      houseLords.push({
-        house: placement.house,
-        lordPlanet: planetName,
-        placement: planetPlacement,
-      });
-    }
-  }
-
-  // Calculate Arabic Lots with proper house assignment
-  let lots: ChartData["lots"] = [];
-  if (ascendant !== undefined) {
-    const rawLots = calculateArabicLots(chart, ascendant, false);
-    const houseCusps = buildEqualHouseCusps(ascendant);
-    lots = assignHousesToLots(rawLots, houseCusps);
-  }
-
-  return {
-    houseLords,
-    planetsInHouses,
-    lots,
-    fixedStars: [],
-    aspects: [],
-    moon: {
-      phase: "waxing",
-      isVoidOfCourse: false,
-      nakshatra: "Ashwini",
-    },
+  territorialControl: {
+    sideATotal: number;
+    sideBTotal: number;
+    swing: number;
+    summary: string;
+    arabicLots?: Array<{ name: string; sign: string; sideInfluence: "A" | "B" | "neutral" }>;
+    fullReport: string;
   };
 }
 
@@ -163,18 +107,17 @@ export async function sportsHoraryV2Layer(
 
   const transits = result?.transits ?? {};
   const natal = result?.natal ?? {};
-  const ascendant = result?.ascendant ?? undefined;
   const usedChart: "transit" | "natal" =
     Object.keys(transits).length >= 5 ? "transit" : "natal";
 
-  const chartFacts = await buildSportsHoraryChartViaLLM(
-    usedChart === "transit" ? transits : natal,
-    input.favoriteName || "Favorite",
-    input.challengerName || "Challenger",
-    ascendant
-  );
+  const chart = usedChart === "transit" ? transits : natal;
+  // Root bug (same as v1): ascendant was parsed by astroEngine but never
+  // retrieved here, so Arabic Lots were always [] and, when a duplicate
+  // local buildChartData existed, always defaulted to house 1.
+  const ascendant = result?.ascendant ?? undefined;
+  const chartData = buildChartData(chart, ascendant);
 
-  if (!chartFacts) {
+  if (chartData.houseLords.length === 0) {
     return {
       answer: "Could not resolve enough placements to cast the sports chart.",
       verdict: "Even",
@@ -182,11 +125,16 @@ export async function sportsHoraryV2Layer(
       flags: ["insufficient_data"],
       usedChart,
       margin: 0,
+      territorialControl: {
+        sideATotal: 0,
+        sideBTotal: 0,
+        swing: 0,
+        summary: "No lords resolved — insufficient chart data.",
+        arabicLots: undefined,
+        fullReport: "",
+      },
     };
   }
-
-  const chart = usedChart === "transit" ? transits : natal;
-  const chartData = buildChartData(chart, ascendant);
 
   const config: ClusterConfig = {
     sideAHouses: [1, 3, 6, 10, 11],
@@ -196,6 +144,26 @@ export async function sportsHoraryV2Layer(
   };
 
   const prediction = calculateFullPrediction(chartData, config);
+
+  // Build the same territorial-control view from the SAME chart + ascendant
+  // the narrative above already used — this used to be computed completely
+  // separately (in routers.ts, from client-supplied houseCusps), which is
+  // exactly why the narrative and the "territorial control" numbers could
+  // disagree. Now there's one chart, one ascendant, one set of house lords,
+  // feeding both.
+  const houseLordsMap = new Map<number, string>();
+  for (const hl of chartData.houseLords) {
+    houseLordsMap.set(hl.house, hl.lordPlanet);
+  }
+  const territorialResult = calculateTerritorialControl(chart, houseLordsMap, ascendant);
+  const territorialControl = {
+    sideATotal: territorialResult.sideATotal,
+    sideBTotal: territorialResult.sideBTotal,
+    swing: territorialResult.sideBTotal - territorialResult.sideATotal,
+    summary: territorialResult.summary,
+    arabicLots: territorialResult.arabicLots,
+    fullReport: formatTerritorialReport(territorialResult),
+  };
 
   const breakdown = prediction.breakdown
     .map(layer => `  ${layer.layer}: A=${layer.sideAPoints} B=${layer.sideBPoints}`)
@@ -220,5 +188,7 @@ export async function sportsHoraryV2Layer(
     flags: [],
     usedChart,
     margin: prediction.margin,
+    territorialControl,
   };
 }
+

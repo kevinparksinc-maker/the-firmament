@@ -135,7 +135,8 @@ export interface ReadingResult {
   natal: Record<string, PlanetPlacement>;
   transits: Record<string, PlanetPlacement>;
   context: string;
-  ascendant: number | null; // absolute sidereal longitude from Asc placement
+  /** Absolute sidereal longitude (0-360) of the Ascendant, if an "Asc" line was present in the input. */
+  ascendant: number | null;
 }
 
 function titleCase(str: string): string {
@@ -499,8 +500,10 @@ export function runAstroReading(
   const soulResult = scorePillar('soul', effectiveNatal, effectiveTransits, activations);
   const spiritResult = scorePillar('spirit', effectiveNatal, effectiveTransits, activations);
 
-  // Extract ascendant from the effective natal chart
-  const ascendant = effectiveNatal.Asc?.absolute ?? null;
+  const ascendant =
+    effectiveNatal.Asc?.absolute ??
+    effectiveTransits.Asc?.absolute ??
+    null;
 
   return {
     result: {
@@ -516,6 +519,20 @@ export function runAstroReading(
     error: null,
     mode
   };
+}
+
+/**
+ * Build equal-house cusps (12 houses, 30° each) starting from the Ascendant.
+ * Used to assign Arabic Lots (and anything else on a longitude) to a house.
+ */
+export function buildEqualHouseCusps(ascendant: number): Record<number, { sign: string; degree: number }> {
+  const cusps: Record<number, { sign: string; degree: number }> = {};
+  for (let i = 0; i < 12; i++) {
+    const lon = (ascendant + i * 30 + 360) % 360;
+    const signIdx = Math.floor(lon / 30);
+    cusps[i + 1] = { sign: SIGN_ORDER[signIdx], degree: lon % 30 };
+  }
+  return cusps;
 }
 
 export function ordinalExport(n: number): string {

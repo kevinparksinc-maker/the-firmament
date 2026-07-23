@@ -96,44 +96,6 @@ function getDignityScore(planet: string, sign: string): number {
   return 0;
 }
 
-// ─── HELPER: Calculate Arabic lots modifier ────────────────────────────────
-
-function getArabicLotsModifier(
-  planets: Record<string, PlanetPlacement>,
-  ascendant: number,
-  evalHouseNumber: number
-): number {
-  const isNight = planets.Sun && planets.Sun.house ? planets.Sun.house > 6 : false;
-
-  const lots = calculateArabicLots(
-    planets as any,
-    ascendant,
-    isNight
-  );
-
-  const evalSide = getSide(evalHouseNumber);
-  if (!evalSide || lots.length === 0) return 0;
-
-  let lotsScore = 0;
-
-  for (const lot of lots) {
-    // Compute the lot's actual house placement using whole-sign system
-    // House = floor((lotDegree - ascendant + 360) % 360 / 30) + 1
-    const lotHouseDelta = ((lot.longitude - ascendant + 360) % 360) / 30;
-    const lotHouse = Math.floor(lotHouseDelta) + 1;
-
-    // Determine which territorial control side the lot's house belongs to
-    const lotSide = getSide(lotHouse);
-
-    // Score: +1 if lot's house agrees with evaluation side, -1 if not
-    if (lotSide) {
-      lotsScore += lotSide === evalSide ? 1 : -1;
-    }
-  }
-
-  return lotsScore;
-}
-
 // ─── MAIN: Calculate territorial control for all house lords ────────────────
 
 export function calculateTerritorialControl(
@@ -144,29 +106,41 @@ export function calculateTerritorialControl(
   const sideAEvals: HouseLordEvaluation[] = [];
   const sideBEvals: HouseLordEvaluation[] = [];
 
-  // Use provided ascendant, or fall back to first house cusp
+  // No silent fallback: an ascendant of 0 (Aries rising) is a real, specific
+  // chart, not a safe default. If we don't have one, lots simply don't run —
+  // same "fail visibly" behavior as the rest of the pipeline.
+  const hasAscendant = ascendant !== undefined;
   const asc = ascendant ?? 0;
 
-  // Calculate Arabic lots
+  // Calculate Arabic lots ONCE, here, up front.
   let arabicLots: Array<{ name: string; sign: string; sideInfluence: "A" | "B" | "neutral" }> = [];
-  try {
-    const isNight = planets.Sun && planets.Sun.house ? planets.Sun.house > 6 : false;
-    const lots = calculateArabicLots(planets as any, asc, isNight);
+  // Net lots-layer contribution per side — computed once and applied once,
+  // instead of being recalculated and re-added inside every house-lord's score.
+  const lotsSideTotal = { A: 0, B: 0 };
 
-    arabicLots = lots.map(lot => {
-      // Compute the lot's actual house placement using whole-sign system
-      const lotHouseDelta = ((lot.longitude - asc + 360) % 360) / 30;
-      const lotHouse = Math.floor(lotHouseDelta) + 1;
-      const lotSide = getSide(lotHouse);
+  if (hasAscendant) {
+    try {
+      const isNight = planets.Sun && planets.Sun.house ? planets.Sun.house > 6 : false;
+      const lots = calculateArabicLots(planets as any, asc, isNight);
 
-      return {
-        name: lot.name,
-        sign: lot.sign,
-        sideInfluence: lotSide ?? "neutral",
-      };
-    });
-  } catch (e) {
-    // Lots calculation failed, continue without them
+      arabicLots = lots.map(lot => {
+        // Compute the lot's actual house placement using whole-sign system
+        const lotHouseDelta = ((lot.longitude - asc + 360) % 360) / 30;
+        const lotHouse = Math.floor(lotHouseDelta) + 1;
+        const lotSide = getSide(lotHouse);
+
+        if (lotSide === "A") lotsSideTotal.A += 1;
+        else if (lotSide === "B") lotsSideTotal.B += 1;
+
+        return {
+          name: lot.name,
+          sign: lot.sign,
+          sideInfluence: lotSide ?? "neutral",
+        };
+      });
+    } catch (e) {
+      // Lots calculation failed, continue without them
+    }
   }
 
   // Detect planetary wars for war modifiers
@@ -241,12 +215,13 @@ export function calculateTerritorialControl(
     const dignityScore = getDignityScore(lord, lordPlacement.sign);
 
     // ─── ARABIC LOTS MODIFIER ─────────────────────────────────────
-
-    const arabicLotsScore = getArabicLotsModifier(
-      planets,
-      asc,
-      house
-    );
+    // NOTE: lots are intentionally NOT scored per-house-lord here anymore.
+    // They used to be recomputed and re-applied inside this loop, which
+    // meant the same lots signal got added once per house-lord (5 times
+    // per side) instead of once overall — a ~5x amplification bug.
+    // The real lots contribution is added once, after this loop, from
+    // lotsSideTotal.
+    const arabicLotsScore = 0;
 
     // ─── PLANETARY WAR MODIFIER ───────────────────────────────────
 
@@ -285,8 +260,12 @@ export function calculateTerritorialControl(
     }
   }
 
-  const sideATotal = sideAEvals.reduce((sum, e) => sum + e.totalScore, 0);
-  const sideBTotal = sideBEvals.reduce((sum, e) => sum + e.totalScore, 0);
+  // Lots contribute ONCE per side here — not per house-lord (see note above).
+  // A benefic lot in a side's territory is +1 for that side only.
+  const sideATotal =
+    sideAEvals.reduce((sum, e) => sum + e.totalScore, 0) + lotsSideTotal.A;
+  const sideBTotal =
+    sideBEvals.reduce((sum, e) => sum + e.totalScore, 0) + lotsSideTotal.B;
 
   const summary = `Side A (Ascendant): ${sideATotal > 0 ? "+" : ""}${sideATotal} | Side B (Descendant): ${sideBTotal > 0 ? "+" : ""}${sideBTotal}`;
 
@@ -381,3 +360,4 @@ export function formatTerritorialReport(
 
   return lines.join("\n");
 }
+

@@ -16,8 +16,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { horaryLayer } from "./horary";
 import { sportsHoraryLayer } from "./sportsHoraryReading";
 import { sportsHoraryV2Layer } from "./sportsHoraryV2Reading";
-import { calculateTerritorialControl, formatTerritorialReport } from "./territorialControlEngine";
-import { SIGN_RULERS } from "./astroEngine";
 
 import {
   detectFixedStarConjunctions,
@@ -752,28 +750,6 @@ const sportsHoraryRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      // Convert planets array to record
-      const planetsRecord: Record<string, any> = {};
-      input.planets.forEach(p => {
-        planetsRecord[p.planet] = p;
-      });
-
-      // Calculate house lords from cusps
-      const houseLords = new Map<number, string>();
-
-      for (let i = 0; i < 12 && i < input.houseCusps.length; i++) {
-        const lon = input.houseCusps[i];
-        const signIndex = Math.floor(lon / 30);
-        const sign = ZODIAC_SIGNS[signIndex] || "Aries";
-        const ruler = SIGN_RULERS[sign];
-        if (ruler) {
-          houseLords.set(i + 1, ruler);
-        }
-      }
-
-      // Calculate territorial control
-      const territorialResult = calculateTerritorialControl(planetsRecord, houseLords, input.houseCusps[0]);
-
       // Format planets into readable chart text for the LLM
       const transitText = input.planets
         .map(p => {
@@ -783,11 +759,27 @@ const sportsHoraryRouter = router({
         })
         .join("\n");
 
-      // Get V2 reading for context
+      // The ascendant was previously only used for the separate
+      // calculateTerritorialControl call below and never told to
+      // sportsHoraryV2Layer — its parser only knows the ascendant if an
+      // "Asc:" line is present in the text it's given. Without this, the
+      // narrative and the territorial-control numbers were computed from
+      // two different ideas of the chart (one with a real ascendant, one
+      // with none), which is why they could disagree even when both were
+      // individually correct.
+      const ascendantLon = input.houseCusps[0];
+      const ascSignIndex = Math.floor(((ascendantLon % 360) + 360) % 360 / 30);
+      const ascDegreeInSign = ((ascendantLon % 360) + 360) % 360 % 30;
+      const ascLine = `Asc: ${ascDegreeInSign.toFixed(2)}° ${ZODIAC_SIGNS[ascSignIndex] || "Aries"}`;
+      const transitTextWithAsc = `${ascLine}\n${transitText}`;
+
+      // Get V2 reading — this now also computes territorialControl
+      // internally from this exact same chart, so there's one source of
+      // truth instead of two independent engines.
       const result = await sportsHoraryV2Layer({
         question: input.question,
         natalText: "",
-        transitText,
+        transitText: transitTextWithAsc,
         favoriteName: input.favoriteName,
         challengerName: input.challengerName,
         history: input.history as any,
@@ -799,14 +791,7 @@ const sportsHoraryRouter = router({
         verdict: result.verdict,
         flags: result.flags,
         usedChart: result.usedChart,
-        territorialControl: {
-          sideATotal: territorialResult.sideATotal,
-          sideBTotal: territorialResult.sideBTotal,
-          swing: territorialResult.sideBTotal - territorialResult.sideATotal,
-          summary: territorialResult.summary,
-          arabicLots: territorialResult.arabicLots,
-          fullReport: formatTerritorialReport(territorialResult),
-        },
+        territorialControl: result.territorialControl,
       };
     }),
 });

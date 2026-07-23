@@ -11,6 +11,8 @@ import {
   runAstroReading,
   SIGN_RULERS,
   SIGN_ORDER,
+  buildEqualHouseCusps,
+  detectMoonPhase,
   type PlanetPlacement,
 } from "./astroEngine";
 import { calculateFullPrediction, type ChartData, type ClusterConfig, assignHousesToLots } from "./masterPredictionEngine";
@@ -25,18 +27,7 @@ export interface SportsHoraryOutput {
   usedChart: "transit" | "natal";
 }
 
-function buildEqualHouseCusps(ascendant: number): Record<number, { sign: string; degree: number }> {
-  const cusps: Record<number, { sign: string; degree: number }> = {};
-  for (let i = 0; i < 12; i++) {
-    const lon = (ascendant + i * 30) % 360;
-    const signIdx = Math.floor(lon / 30) % 12;
-    const degree = Math.floor(lon % 30);
-    cusps[i + 1] = { sign: SIGN_ORDER[signIdx], degree };
-  }
-  return cusps;
-}
-
-function buildChartData(chart: Chart, ascendant?: number): ChartData {
+export function buildChartData(chart: Chart, ascendant?: number): ChartData {
   const houseLords: ChartData["houseLords"] = [];
   const planetsInHouses: ChartData["planetsInHouses"] = [];
 
@@ -66,13 +57,24 @@ function buildChartData(chart: Chart, ascendant?: number): ChartData {
     }
   }
 
-  // Calculate Arabic Lots with proper house assignment
+  // Calculate Arabic Lots if we have a real Ascendant (assumes daytime by default —
+  // pass isNight through properly once day/night detection is wired at the caller).
   let lots: ChartData["lots"] = [];
   if (ascendant !== undefined) {
     const rawLots = calculateArabicLots(chart, ascendant, false);
-    const houseCusps = buildEqualHouseCusps(ascendant);
-    lots = assignHousesToLots(rawLots, houseCusps);
+    const cusps = buildEqualHouseCusps(ascendant);
+    lots = assignHousesToLots(rawLots, cusps);
   }
+
+  // Real Moon phase from the chart instead of a hardcoded stub.
+  // Void-of-course detection isn't implemented yet — flagged false rather than
+  // silently faked as a specific state; the Moon layer still fires, just
+  // without a VOC penalty until that detection exists.
+  const moonTone = detectMoonPhase(chart);
+  const moonPhase: ChartData["moon"]["phase"] =
+    moonTone?.includes("New Moon") ? "new" :
+    moonTone?.includes("Full Moon") ? "full" :
+    moonTone?.includes("Waning") ? "waning" : "waxing";
 
   return {
     houseLords,
@@ -81,9 +83,9 @@ function buildChartData(chart: Chart, ascendant?: number): ChartData {
     fixedStars: [],
     aspects: [],
     moon: {
-      phase: "waxing",
+      phase: moonPhase,
       isVoidOfCourse: false,
-      nakshatra: "Ashwini",
+      nakshatra: chart.Moon ? getNakshatraAt(SIGN_ORDER.indexOf(chart.Moon.sign) * 30 + chart.Moon.degree).nakshatra.name : "Ashwini",
     },
   };
 }
@@ -163,11 +165,13 @@ export async function sportsHoraryLayer(input: {
 
   const transits = result?.transits ?? {};
   const natal = result?.natal ?? {};
-  const ascendant = result?.ascendant ?? undefined;
   const usedChart: "transit" | "natal" =
     Object.keys(transits).length >= 5 ? "transit" : "natal";
 
   const chart = usedChart === "transit" ? transits : natal;
+  // This was the root bug: ascendant was parsed by astroEngine but never
+  // retrieved here, so it was always undefined and Arabic Lots were always [].
+  const ascendant = result?.ascendant ?? undefined;
   const chartData = await buildSportsHoraryChartViaLLM(
     chart,
     input.favoriteName || "Favorite",
