@@ -100,7 +100,7 @@ async function breakdown() {
     }
   }
 
-  const getPlanarHouse = (siderealLon: number): number => {
+  const getPlanarHouse = (eclipticLon: number): number => {
     for (let i = 0; i < 12; i++) {
       const start = adjustedCusps[i];
       const end = adjustedCusps[(i + 1) % 12];

@@ -103,7 +103,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
     }
   }
 
-  const getPlanarHouse = (siderealLon: number): number => {
+  const getPlanarHouse = (eclipticLon: number): number => {
     for (let i = 0; i < 12; i++) {
       const start = adjustedCusps[i];
       const end = adjustedCusps[(i + 1) % 12];
@@ -121,7 +121,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
     house: getPlanarHouse(p.eclipticLon),
     sign: p.sign,
     degree: p.degreeInSign,
-    siderealLon: p.eclipticLon,
+    eclipticLon: p.eclipticLon,
     isRetrograde: p.retrograde,
     nakshatra: getNakshatraAt(p.eclipticLon).nakshatra.name,
   }));

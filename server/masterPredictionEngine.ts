@@ -36,7 +36,7 @@ export interface PlanetPlacement {
   house: number;
   sign: string;
   degree: number;
-  siderealLon: number;
+  eclipticLon: number;
   isRetrograde: boolean;
   nakshatra?: string; // 27 lunar mansions
 }
@@ -489,7 +489,7 @@ export function calculateFullPredictionWithPlanarHouses(
 }
 
 /** Helper: get house number from planar cusps */
-function getPlanarHouseFromCusps(siderealLon: number, cusps: number[]): number {
+function getPlanarHouseFromCusps(eclipticLon: number, cusps: number[]): number {
   for (let i = 0; i < 12; i++) {
     const start = cusps[i];
     const end = cusps[(i + 1) % 12];

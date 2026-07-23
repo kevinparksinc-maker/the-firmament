@@ -123,7 +123,7 @@ async function analyzeGame(
     if (ruler) houseLords.set(i + 1, ruler);
   }
 
-  const getPlanarHouse = (siderealLon: number): number => {
+  const getPlanarHouse = (eclipticLon: number): number => {
     for (let i = 0; i < 12; i++) {
       const start = adjustedCusps[i];
       const end = adjustedCusps[(i + 1) % 12];
@@ -141,7 +141,7 @@ async function analyzeGame(
     house: getPlanarHouse(p.eclipticLon),
     sign: p.sign,
     degree: p.degreeInSign,
-    siderealLon: p.eclipticLon,
+    eclipticLon: p.eclipticLon,
     isRetrograde: p.retrograde,
     nakshatra: getNakshatraAt(p.eclipticLon).nakshatra.name,
   }));

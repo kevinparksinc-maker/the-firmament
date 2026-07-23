@@ -31,7 +31,7 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
     house: p.house,
     sign: p.sign,
     degree: p.degreeInSign,
-    siderealLon: p.eclipticLon,
+    eclipticLon: p.eclipticLon,
     isRetrograde: p.retrograde,
     nakshatra: getNakshatraAt(p.eclipticLon).nakshatra.name,
   }));

@@ -63,7 +63,7 @@ export function buildPlanarHouseSystem(date: Date, lat: number, lon: number): Pl
  * Given a sidereal longitude, find which of the 12 equal houses it falls in,
  * using the cusps from buildPlanarHouseSystem.
  */
-export function getPlanarHouse(siderealLon: number, cusps: number[]): number {
+export function getPlanarHouse(eclipticLon: number, cusps: number[]): number {
   for (let i = 0; i < 12; i++) {
     const start = cusps[i];
     const end = cusps[(i + 1) % 12];
