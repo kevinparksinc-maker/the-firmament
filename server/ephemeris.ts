@@ -7,6 +7,17 @@
  *
  * All positions are TOPOCENTRIC (observer on Earth's surface),
  * not geocentric. Full parallax correction applied, especially for the Moon.
+ *
+ * ZODIAC MODEL: Pure ecliptic longitude, zero precession/ayanamsa correction. Tropical and sidereal are the same frame here — there is no drift between them, so no ayanamsa is ever applied.
+ * The dome's 0° Aries point is fixed — it does not drift against the
+ * physical sky over time. This is intentional and should not be "fixed"
+ * by adding an ayanamsa later; that would reintroduce a precession model
+ * this engine is deliberately built without.
+ *
+ * HOUSE SYSTEM: Whole sign. House 1 = the Ascendant's entire sign,
+ * houses 2–12 follow in zodiacal order. No intermediate cusp math
+ * (Placidus/Polich-Page/etc.) is used anywhere — natal, transit, and
+ * horary charts all resolve houses the same way, off the Ascendant sign.
  */
 
 import { createRequire } from "module";
@@ -34,10 +45,8 @@ export interface ObserverLocation {
 export interface PlanetPosition {
   name: string;
   symbol: string;
-  /** Ecliptic longitude in degrees (0–360), tropical */
-  tropicalLon: number;
-  /** Ecliptic longitude in degrees (0–360), sidereal */
-  siderealLon: number;
+  /** Ecliptic longitude in degrees (0–360) — the only zodiac frame this engine uses (tropical and sidereal are identical here, since this model has no precession) */
+  eclipticLon: number;
   /** Zodiac sign */
   sign: string;
   /** Degree within sign (0–29.99) */
@@ -50,23 +59,30 @@ export interface PlanetPosition {
   azimuth: number;
   /** Is the planet retrograde? */
   retrograde: boolean;
-  /** House number (1–12) using Topocentric/Polich-Page */
+  /** House number (1–12), whole sign */
   house: number;
 }
 
 export interface HouseCusps {
-  cusps: number[]; // 12 house cusps in tropical longitude
-  ascendant: number; // tropical longitude
-  mc: number; // tropical longitude
+  /** Start longitude of each house = start of that whole sign (30° increments from Asc's sign) */
+  cusps: number[];
+  ascendant: number; // ecliptic longitude
+  mc: number; // ecliptic longitude
+}
+
+export interface WholeSignHouse {
+  houseNumber: number;
+  signName: string;
+  startDegree: number;
+  endDegree: number;
 }
 
 export interface EphemerisResult {
   planets: PlanetPosition[];
   houses: HouseCusps;
+  wholeSignHouses: WholeSignHouse[];
   observer: ObserverLocation;
   date: Date;
-  /** Ayanamsa used (Lahiri) in degrees */
-  ayanamsa: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -101,104 +117,102 @@ const PLANET_SYMBOLS: Record<string, string> = {
   "South Node": "☋",
 };
 
-// NO AYANAMSA CORRECTION — Tropical longitudes map directly to fixed sidereal zodiac background.
-
 function lonToSignDeg(lon: number): {
   sign: string;
   degree: number;
   minutes: number;
 } {
-  const signIndex = Math.floor(lon / 30);
-  const degInSign = lon % 30;
+  const norm = ((lon % 360) + 360) % 360;
+  const signIndex = Math.floor(norm / 30);
+  const degInSign = norm % 30;
   const degree = Math.floor(degInSign);
   const minutes = Math.floor((degInSign - degree) * 60);
   return { sign: ZODIAC_SIGNS[signIndex] ?? "Aries", degree, minutes };
 }
 
-// ─── House System: Topocentric (Polich-Page) ──────────────────────────────────
-// Approximated via Placidus with topocentric correction for the observer's lat
+// ─── Ascendant / MC (corrected) ────────────────────────────────────────────────
+// Previously these two formulas were transposed/flipped and produced the
+// Descendant (Asc) and a ~90°-shifted point (MC). Standard closed-form:
+//   MC  = atan2( sin(RAMC),                 cos(RAMC) * cos(ε) )
+//   Asc = atan2( -cos(RAMC),  sin(ε)*tan(φ) + cos(ε) * sin(RAMC) )
 
 function calcHouseCusps(
   date: Date,
   observer: ObserverLocation
 ): HouseCusps {
-  const astroObs = new Observer(
-    observer.latitude,
-    observer.longitude,
-    observer.altitude
-  );
-
-  // Get RAMC (Right Ascension of Midheaven) and MC
-  // Calculate Greenwich Sidereal Time
+  // Greenwich Sidereal Time → Local Sidereal Time → RAMC (degrees)
   const gst = SiderealTime(MakeTime(date));
-
-  // Convert to Local Sidereal Time by adding longitude correction
-  // LST = GST + (Longitude / 15°)
-  // Longitude in degrees divided by 15 gives the hour correction
   const lstHours = gst + observer.longitude / 15;
-  const sidereal = ((lstHours % 24) + 24) % 24; // Normalize to 0-24 hours
+  const sidereal = ((lstHours % 24) + 24) % 24;
+  const ramc = sidereal * 15;
 
-  const ramc = sidereal * 15; // convert hours to degrees
-
-  // MC = RAMC converted to ecliptic longitude (tropical)
   const obliquity = 23.4367; // mean obliquity
-  const mcTropical =
-    (Math.atan2(
-      Math.cos((ramc * Math.PI) / 180),
-      -(
-        Math.sin((ramc * Math.PI) / 180) * Math.cos((obliquity * Math.PI) / 180)
-      )
-    ) *
-      180) /
-    Math.PI;
-  const mcNorm = ((mcTropical % 360) + 360) % 360;
-
-  // ASC calculation
-  // NOTE: This calculates the spherical Ascendant for the math layer (ephemeris).
-  // For the visual/rendering layer on a flat North Pole grid, use coordinateTransformer.ts instead.
-  const lat = (observer.latitude * Math.PI) / 180;
   const e = (obliquity * Math.PI) / 180;
+  const lat = (observer.latitude * Math.PI) / 180;
   const ramcRad = (ramc * Math.PI) / 180;
 
-  let ascTropical =
+  // MC
+  let mcEcliptic =
+    (Math.atan2(Math.sin(ramcRad), Math.cos(ramcRad) * Math.cos(e)) * 180) /
+    Math.PI;
+  mcEcliptic = ((mcEcliptic % 360) + 360) % 360;
+
+  // Ascendant
+  let ascEcliptic =
     (Math.atan2(
-      Math.cos(ramcRad),
-      -(Math.sin(ramcRad) * Math.cos(e) + Math.tan(lat) * Math.sin(e))
+      -Math.cos(ramcRad),
+      Math.sin(e) * Math.tan(lat) + Math.cos(e) * Math.sin(ramcRad)
     ) *
       180) /
     Math.PI;
-  ascTropical = ((ascTropical % 360) + 360) % 360;
+  ascEcliptic = ((ascEcliptic % 360) + 360) % 360;
 
-  // Simple equal house cusps from ASC (Topocentric approximation)
+  // Whole-sign cusps: house 1 starts at 0° of the Ascendant's sign,
+  // not at the Ascendant's exact degree.
+  const ascSignIndex = Math.floor(ascEcliptic / 30);
   const cusps: number[] = [];
   for (let i = 0; i < 12; i++) {
-    const tropical = (ascTropical + i * 30) % 360;
-    cusps.push(tropical);
+    const signIdx = (ascSignIndex + i) % 12;
+    cusps.push(signIdx * 30);
   }
 
   return {
     cusps,
-    ascendant: ascTropical,
-    mc: mcNorm,
+    ascendant: ascEcliptic,
+    mc: mcEcliptic,
   };
 }
 
-function getHouseNumber(planetLon: number, cusps: number[]): number {
-  for (let i = 0; i < 12; i++) {
-    const start = cusps[i]!;
-    const end = cusps[(i + 1) % 12]!;
-
-    if (start <= end) {
-      if (planetLon >= start && planetLon < end) return i + 1;
-    } else {
-      // Wraps around 0°
-      if (planetLon >= start || planetLon < end) return i + 1;
-    }
+/** Build the 12 whole-sign houses starting from the Ascendant's sign. */
+export function generateWholeSignHouses(ascendantEcliptic: number): WholeSignHouse[] {
+  const ascSignIndex = Math.floor(((ascendantEcliptic % 360) + 360) % 360 / 30);
+  const houses: WholeSignHouse[] = [];
+  for (let houseNum = 1; houseNum <= 12; houseNum++) {
+    const signIdx = (ascSignIndex + (houseNum - 1)) % 12;
+    houses.push({
+      houseNumber: houseNum,
+      signName: ZODIAC_SIGNS[signIdx],
+      startDegree: signIdx * 30,
+      endDegree: (signIdx + 1) * 30,
+    });
   }
-  return 1;
+  return houses;
+}
+
+/** Whole-sign house assignment: same sign as Asc = house 1, then follows zodiac order. */
+function getHouseNumber(planetLon: number, ascendantEcliptic: number): number {
+  const planetSign = Math.floor(((planetLon % 360) + 360) % 360 / 30);
+  const ascSign = Math.floor(((ascendantEcliptic % 360) + 360) % 360 / 30);
+  let houseNumber = planetSign - ascSign + 1;
+  if (houseNumber <= 0) houseNumber += 12;
+  return houseNumber;
 }
 
 // ─── Main Calculation ─────────────────────────────────────────────────────────
+// Used identically for natal charts, transit charts, and horary charts —
+// horary just passes the moment/location of the question instead of a birth
+// moment/location. Whole sign houses are the traditional choice for horary
+// too, so no special-casing is needed here.
 
 export async function calculateChart(
   date: Date,
@@ -210,6 +224,7 @@ export async function calculateChart(
     observer.altitude
   );
   const houses = calcHouseCusps(date, observer);
+  const wholeSignHouses = generateWholeSignHouses(houses.ascendant);
 
   const bodyList: Array<{ name: string; body: Astronomy.Body }> = [
     { name: "Sun", body: Astronomy.Body.Sun },
@@ -228,22 +243,18 @@ export async function calculateChart(
 
   for (const { name, body } of bodyList) {
     try {
-      // Get ecliptic longitude (tropical)
-      // Sun uses SunPosition; all others use GeoVector + Ecliptic
-      let tropicalLon: number;
+      let eclipticLon: number;
       if (body === Astronomy.Body.Sun) {
         const sp = SunPosition(MakeTime(date));
-        tropicalLon = sp.elon;
+        eclipticLon = sp.elon;
       } else {
         const vec = GeoVector(body, MakeTime(date), true);
         const ecl = Ecliptic(vec);
-        tropicalLon = ecl.elon;
+        eclipticLon = ecl.elon;
       }
 
-      // Use tropical longitude directly (no ayanamsa correction)
-      const { sign, degree, minutes } = lonToSignDeg(tropicalLon);
+      const { sign, degree, minutes } = lonToSignDeg(eclipticLon);
 
-      // Get topocentric Alt/Az (parallax corrected)
       const equatorial = Equator(body, MakeTime(date), astroObs, true, true);
       const horizon = Horizon(
         MakeTime(date),
@@ -253,29 +264,28 @@ export async function calculateChart(
         "normal"
       );
 
-      // Detect retrograde (compare position to yesterday)
       const yesterday = new Date(date.getTime() - 86400000);
-      let tropicalYesterday: number;
+      let eclipticYesterday: number;
       if (body === Astronomy.Body.Sun) {
-        tropicalYesterday = SunPosition(MakeTime(yesterday)).elon;
+        eclipticYesterday = SunPosition(MakeTime(yesterday)).elon;
       } else {
         const vecY = GeoVector(body, MakeTime(yesterday), true);
-        tropicalYesterday = Ecliptic(vecY).elon;
+        eclipticYesterday = Ecliptic(vecY).elon;
       }
       let retrograde = false;
       if (body !== Astronomy.Body.Sun && body !== Astronomy.Body.Moon) {
-        let diff = tropicalLon - tropicalYesterday;
+        let diff = eclipticLon - eclipticYesterday;
         if (diff > 180) diff -= 360;
         if (diff < -180) diff += 360;
         retrograde = diff < 0;
       }
 
-      const house = getHouseNumber(tropicalLon, houses.cusps);
+      const house = getHouseNumber(eclipticLon, houses.ascendant);
 
       planets.push({
         name,
         symbol: PLANET_SYMBOLS[name] ?? "★",
-        tropicalLon,
+        eclipticLon,
         sign,
         degreeInSign: degree,
         minutes,
@@ -289,58 +299,55 @@ export async function calculateChart(
     }
   }
 
-  // Add Rahu (North Node) and Ketu (South Node)
-  // Using mean ascending node formula: Omega = 125.0445479 - 0.0529539297 * d
+  // Rahu (North Node) / Ketu (South Node) — mean node formula
   try {
     const d = date.getTime() / 86400000 - 10957.5; // days from J2000
-    const rahuTropical = (((125.0445479 - 0.0529539297 * d) % 360) + 360) % 360;
-    const ketuTropical = (rahuTropical + 180) % 360;
+    const rahuEcliptic = (((125.0445479 - 0.0529539297 * d) % 360) + 360) % 360;
+    const ketuEcliptic = (rahuEcliptic + 180) % 360;
 
-    const rahuInfo = lonToSignDeg(rahuTropical);
-    const ketuInfo = lonToSignDeg(ketuTropical);
+    const rahuInfo = lonToSignDeg(rahuEcliptic);
+    const ketuInfo = lonToSignDeg(ketuEcliptic);
 
     planets.push({
       name: "Rahu",
       symbol: "☊",
-      tropicalLon: rahuTropical,
+      eclipticLon: rahuEcliptic,
       sign: rahuInfo.sign,
       degreeInSign: rahuInfo.degree,
       minutes: rahuInfo.minutes,
       altitude: 0,
       azimuth: 0,
-      retrograde: true, // Nodes are always retrograde
-      house: getHouseNumber(rahuTropical, houses.cusps),
+      retrograde: true,
+      house: getHouseNumber(rahuEcliptic, houses.ascendant),
     });
 
     planets.push({
       name: "Ketu",
       symbol: "☋",
-      tropicalLon: ketuTropical,
+      eclipticLon: ketuEcliptic,
       sign: ketuInfo.sign,
       degreeInSign: ketuInfo.degree,
       minutes: ketuInfo.minutes,
       altitude: 0,
       azimuth: 0,
       retrograde: true,
-      house: getHouseNumber(ketuTropical, houses.cusps),
+      house: getHouseNumber(ketuEcliptic, houses.ascendant),
     });
   } catch (err) {
     console.warn("[Ephemeris] Failed to calculate nodes:", err);
   }
 
-  return { planets, houses, observer, date, ayanamsa: 0 };
+  return { planets, houses, wholeSignHouses, observer, date };
 }
 
-// ─── Format for reading engine ───────────────────────────────────────────────────────────────
+// ─── Format for reading engine ─────────────────────────────────────────────────
 
 export function formatChartForReading(result: EphemerisResult): string {
-  const lines = result.planets.map(p => {
+  const lines = result.planets.map((p) => {
     const rx = p.retrograde ? " Rx" : "";
-    const trop = lonToSignDeg(p.tropicalLon);
-    return `${p.name}${rx}: ${trop.degree}° ${trop.minutes}' ${trop.sign}, ${p.house}th house`;
+    return `${p.name}${rx}: ${p.degreeInSign}° ${p.minutes}' ${p.sign}, ${p.house}th house`;
   });
 
-  // Add angles: Ascendant, Descendant, MC, IC
   const asc = lonToSignDeg(result.houses.ascendant);
   const desc = lonToSignDeg((result.houses.ascendant + 180) % 360);
   const mc = lonToSignDeg(result.houses.mc);
@@ -354,12 +361,14 @@ export function formatChartForReading(result: EphemerisResult): string {
   return lines.join("\n");
 }
 
-// Export house cusp info for the wheel
+// Export house cusp info for the wheel (whole sign: each cusp starts at 0° of its sign)
 export function getHouseCuspInfo(
   result: EphemerisResult
 ): Array<{ house: number; sign: string; degree: number; minutes: number }> {
-  return result.houses.cusps.map((lon, i) => {
-    const { sign, degree, minutes } = lonToSignDeg(lon);
-    return { house: i + 1, sign, degree, minutes };
-  });
+  return result.wholeSignHouses.map((h) => ({
+    house: h.houseNumber,
+    sign: h.signName,
+    degree: 0,
+    minutes: 0,
+  }));
 }
