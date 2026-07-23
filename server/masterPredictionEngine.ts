@@ -440,7 +440,7 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     const profile = NAKSHATRAS[l.placement.nakshatra];
     return profile?.temperament === "Volatile";
   }).length;
-  const volatilityWarning = volatileCount > 2 ? `High volatility (${volatileCount} Volatile lords) — confidence range should widen ±${Math.round(avgWidening * 30)}%` : "";
+  const volatilityWarning = volatileCount > 2 ? `High volatility (${volatileCount} Volatile lords) — confidence range should widen ±${Math.round(avgVolatility * 30)}%` : "";
 
   return {
     breakdown,
