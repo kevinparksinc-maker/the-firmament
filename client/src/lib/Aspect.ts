@@ -25,7 +25,7 @@ export function detectAspects(
     const [name1, p1] = planets[i];
     for (let j = i + 1; j < planets.length; j++) {
       const [name2, p2] = planets[j];
-      let diff = Math.abs(p1.absolute - p2.absolute) % 360;
+      let diff = Math.abs(p1.eclipticLon - p2.eclipticLon) % 360;
       if (diff > 180) diff = 360 - diff;
 
       for (const asp of ASPECTS) {

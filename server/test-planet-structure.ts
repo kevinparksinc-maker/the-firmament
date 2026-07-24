@@ -19,7 +19,7 @@ async function checkStructure() {
 
   console.log("\n\nAll planets (summary):");
   result.planets.forEach((p) => {
-    console.log(`${p.name}: lon=${(p as any).lon}, absolute=${(p as any).absolute}, degree=${p.degree}`);
+    console.log(`${p.name}: lon=${(p as any).lon}, absolute=${(p as any).eclipticLon}, degree=${p.degree}`);
   });
 }
 

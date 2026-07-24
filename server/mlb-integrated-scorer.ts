@@ -104,7 +104,7 @@ const ROYAL_STARS = [
 ];
 
 function getLongitude(p: PlanetPlacement): number {
-  if (p.absolute != null) return ((p.absolute % 360) + 360) % 360;
+  if (p.eclipticLon != null) return ((p.eclipticLon % 360) + 360) % 360;
   const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
   const idx = signs.indexOf(p.sign);
   return idx >= 0 ? idx * 30 + p.degree : 0;

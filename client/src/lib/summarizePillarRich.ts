@@ -398,7 +398,7 @@ function buildActivationSentence(
     ? ` — this planet rules your chart, so this hit carries extra weight`
     : "";
   const nPlace = natal[act.natalPlanet];
-  const nk = nPlace?.absolute != null ? getNakshatra(nPlace.absolute) : null;
+  const nk = nPlace?.eclipticLon != null ? getNakshatra(nPlace.eclipticLon) : null;
   const nkData = nk ? NAKSHATRA_DATA[nk] : null;
   const nkNote = nkData ? ` The shakti here is ${nkData.shakti}.` : "";
   const houseNote = nPlace?.house
@@ -585,7 +585,7 @@ export function summarizePillarRich(
     const p = natal[planet];
     if (!p) continue;
     const lines: string[] = [];
-    const nk = p.absolute != null ? getNakshatra(p.absolute) : null;
+    const nk = p.eclipticLon != null ? getNakshatra(p.eclipticLon) : null;
     const nkData = nk ? NAKSHATRA_DATA[nk] : null;
     if (nk && nkData)
       lines.push(
@@ -663,7 +663,7 @@ export interface PatternAlert {
 }
 
 function getAbsoluteDegree(p: PlanetPlacement): number | null {
-  if (p.absolute != null && !isNaN(p.absolute)) return p.absolute;
+  if (p.eclipticLon != null && !isNaN(p.eclipticLon)) return p.eclipticLon;
   const si = SIGN_ORDER.indexOf(p.sign);
   if (si < 0) return null;
   return si * 30 + (p.degree ?? 0);

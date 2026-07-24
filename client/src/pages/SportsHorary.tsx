@@ -289,7 +289,7 @@ export default function SportsHorary() {
             sign: p.sign,
             house: p.house || null,
             rx: p.retrograde || false,
-            absolute: p.absolute || null,
+            absolute: p.eclipticLon || null,
           };
         }),
         houseCusps: calculatedChart.houses.cusps,

@@ -47,6 +47,10 @@ export interface PlanetPosition {
   symbol: string;
   /** Ecliptic longitude in degrees (0–360) — the only zodiac frame this engine uses (tropical and sidereal are identical here, since this model has no precession) */
   eclipticLon: number;
+  /** Right Ascension in degrees (0-360), converted from astronomy-engine's native hours -- for polar/equatorial dome projection rendering */
+  ra: number;
+  /** Declination in degrees (-90 to +90) -- for polar/equatorial dome projection rendering */
+  dec: number;
   /** Zodiac sign */
   sign: string;
   /** Degree within sign (0–29.99) */
@@ -130,6 +134,27 @@ function lonToSignDeg(lon: number): {
   return { sign: ZODIAC_SIGNS[signIndex] ?? "Aries", degree, minutes };
 }
 
+/**
+ * Converts a point on the sun's seasonal path (ecliptic longitude) to
+ * the celestial-equator reference frame (RA/Dec) within the dome.
+ * Assumes the point lies exactly on that path (ecliptic latitude = 0),
+ * which holds for the lunar nodes.
+ */
+function eclipticToEquatorial(eclipticLon: number): { ra: number; dec: number } {
+  const SOLAR_TROPIC_ANGLE = 23.4367;
+  const e = (SOLAR_TROPIC_ANGLE * Math.PI) / 180;
+  const lambda = (eclipticLon * Math.PI) / 180;
+
+  const raRad = Math.atan2(Math.sin(lambda) * Math.cos(e), Math.cos(lambda));
+  const decRad = Math.asin(Math.sin(lambda) * Math.sin(e));
+
+  let ra = (raRad * 180) / Math.PI;
+  ra = ((ra % 360) + 360) % 360;
+  const dec = (decRad * 180) / Math.PI;
+
+  return { ra, dec };
+}
+
 // ─── Ascendant / MC (corrected) ────────────────────────────────────────────────
 // Previously these two formulas were transposed/flipped and produced the
 // Descendant (Asc) and a ~90°-shifted point (MC). Standard closed-form:
@@ -146,8 +171,12 @@ function calcHouseCusps(
   const sidereal = ((lstHours % 24) + 24) % 24;
   const ramc = sidereal * 15;
 
-  const obliquity = 23.4367; // mean obliquity
-  const e = (obliquity * Math.PI) / 180;
+  // The sun's maximum angular deviation from the celestial equator —
+  // the boundary defined by the Tropic of Cancer (north) and
+  // Tropic of Capricorn (south), where the sun's circling path
+  // reaches its extremes within the dome.
+  const SOLAR_TROPIC_ANGLE = 23.4367;
+  const e = (SOLAR_TROPIC_ANGLE * Math.PI) / 180;
   const lat = (observer.latitude * Math.PI) / 180;
   const ramcRad = (ramc * Math.PI) / 180;
 
@@ -286,6 +315,8 @@ export async function calculateChart(
         name,
         symbol: PLANET_SYMBOLS[name] ?? "★",
         eclipticLon,
+        ra: equatorial.ra * 15, // astronomy-engine returns RA in hours; convert to degrees
+        dec: equatorial.dec,
         sign,
         degreeInSign: degree,
         minutes,
@@ -308,10 +339,13 @@ export async function calculateChart(
     const rahuInfo = lonToSignDeg(rahuEcliptic);
     const ketuInfo = lonToSignDeg(ketuEcliptic);
 
+    const rahuEquatorial = eclipticToEquatorial(rahuEcliptic);
     planets.push({
       name: "Rahu",
       symbol: "☊",
       eclipticLon: rahuEcliptic,
+      ra: rahuEquatorial.ra,
+      dec: rahuEquatorial.dec,
       sign: rahuInfo.sign,
       degreeInSign: rahuInfo.degree,
       minutes: rahuInfo.minutes,
@@ -321,10 +355,13 @@ export async function calculateChart(
       house: getHouseNumber(rahuEcliptic, houses.ascendant),
     });
 
+    const ketuEquatorial = eclipticToEquatorial(ketuEcliptic);
     planets.push({
       name: "Ketu",
       symbol: "☋",
       eclipticLon: ketuEcliptic,
+      ra: ketuEquatorial.ra,
+      dec: ketuEquatorial.dec,
       sign: ketuInfo.sign,
       degreeInSign: ketuInfo.degree,
       minutes: ketuInfo.minutes,

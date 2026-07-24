@@ -31,7 +31,7 @@ type HouseType = "angular" | "succedent" | "cadent";
 type Rating = "Low" | "Medium" | "High" | "Excellent";
 type DignityStatus = "exalted" | "own" | "neutral" | "debilitated";
 
-export interface PlanetPlacement {
+export interface SportsHoraryPlacement {
   planet: string;
   house: number;
   sign: string;
@@ -44,7 +44,7 @@ export interface PlanetPlacement {
 export interface HouseLord {
   house: number;
   lordPlanet: string;
-  placement: PlanetPlacement;
+  placement: SportsHoraryPlacement;
 }
 
 export interface ArabicLot {
@@ -88,7 +88,7 @@ export interface HouseAuditEntry {
 export interface ChartData {
   houseLords: HouseLord[];
   houseAudit?: HouseAuditEntry[];
-  planetsInHouses: PlanetPlacement[];
+  planetsInHouses: SportsHoraryPlacement[];
   lots: ArabicLot[];
   fixedStars: FixedStarConjunction[];
   aspects: AspectData[];
@@ -200,7 +200,7 @@ export function assignHousesToLots(lots: any[], houseCusps: Record<number, { sig
   });
 }
 
-function getDignityStatus(placement: PlanetPlacement): DignityStatus {
+function getDignityStatus(placement: SportsHoraryPlacement): DignityStatus {
   const planet = placement.planet;
   const sign = placement.sign;
 
@@ -211,7 +211,7 @@ function getDignityStatus(placement: PlanetPlacement): DignityStatus {
   return "neutral";
 }
 
-function dignityScore(placement: PlanetPlacement): number {
+function dignityScore(placement: SportsHoraryPlacement): number {
   const status = getDignityStatus(placement);
   switch (status) {
     case "exalted": return 2;
@@ -494,9 +494,9 @@ function getPlanarHouseFromCusps(eclipticLon: number, cusps: number[]): number {
     const start = cusps[i];
     const end = cusps[(i + 1) % 12];
     if (start <= end) {
-      if (siderealLon >= start && siderealLon < end) return i + 1;
+      if (eclipticLon >= start && eclipticLon < end) return i + 1;
     } else {
-      if (siderealLon >= start || siderealLon < end) return i + 1;
+      if (eclipticLon >= start || eclipticLon < end) return i + 1;
     }
   }
   return 1;

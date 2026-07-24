@@ -346,11 +346,11 @@ export function detectFixedStarConjunctions(
   const conjunctions: StarConjunction[] = [];
 
   for (const [planetName, placement] of Object.entries(placements)) {
-    if (placement.absolute == null) continue;
+    if (placement.eclipticLon == null) continue;
 
     for (const star of FIXED_STARS) {
       const maxOrb = star.isRoyal || star.isPolar ? 2.0 : 1.5;
-      let diff = Math.abs(placement.absolute - star.sidDegree);
+      let diff = Math.abs(placement.eclipticLon - star.sidDegree);
       if (diff > 180) diff = 360 - diff;
 
       if (diff <= maxOrb) {

@@ -254,9 +254,9 @@ export function detectAspects(
       const [name1, p1] = planetList[i];
       const [name2, p2] = planetList[j];
 
-      if (p1.absolute === null || p2.absolute === null) continue;
+      if (p1.eclipticLon === null || p2.eclipticLon === null) continue;
 
-      const diff = getAngleDiff(p1.absolute, p2.absolute);
+      const diff = getAngleDiff(p1.eclipticLon, p2.eclipticLon);
 
       for (const def of aspectDefs) {
         const delta = Math.abs(diff - def.angle);
@@ -416,10 +416,10 @@ export function detectRahuKetuAxis(
   const rahu = planets["Rahu"] || planets["NorthNode"];
   const ketu = planets["Ketu"] || planets["SouthNode"];
 
-  if (!rahu || !ketu || rahu.absolute === null || ketu.absolute === null)
+  if (!rahu || !ketu || rahu.eclipticLon === null || ketu.eclipticLon === null)
     return null;
 
-  const diff = getAngleDiff(rahu.absolute, ketu.absolute);
+  const diff = getAngleDiff(rahu.eclipticLon, ketu.eclipticLon);
   const isOpposition = Math.abs(diff - 180) < 3;
 
   if (isOpposition) {
@@ -493,9 +493,9 @@ export function detectPlanetaryWar(
       const [name1, p1] = planetList[i];
       const [name2, p2] = planetList[j];
 
-      if (p1.absolute === null || p2.absolute === null) continue;
+      if (p1.eclipticLon === null || p2.eclipticLon === null) continue;
 
-      const diff = getAngleDiff(p1.absolute, p2.absolute);
+      const diff = getAngleDiff(p1.eclipticLon, p2.eclipticLon);
 
       if (diff < 1.0) {
         const priority1 = PRIORITY[name1] || 1;

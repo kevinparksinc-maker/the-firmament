@@ -177,9 +177,11 @@ export interface PlanetPlacement {
   rx: boolean;
   combust: boolean;
   cazimi: boolean;
-  absolute: number | null;
+  eclipticLon: number | null;
   raw: string;
   kind: "natal" | "transit";
+  /** @deprecated Use eclipticLon instead. Compatibility alias during migration. */
+  absolute?: number | null;
 }
 
 export interface Activation {
@@ -300,7 +302,7 @@ export function parseInput(
     const rx = /\bRx\b|retrograde/i.test(line);
     const combust = /combust/i.test(line);
     const cazimi = /cazimi/i.test(line);
-    const absolute = zodiacDegree(sign, degree);
+    const eclipticLon = zodiacDegree(sign, degree);
 
     parsed[planet] = {
       planet,
@@ -310,7 +312,7 @@ export function parseInput(
       rx,
       combust,
       cazimi,
-      absolute,
+      eclipticLon,
       raw: line,
       kind,
     };
@@ -452,8 +454,8 @@ export function detectTransits(
 
   for (const [tPlanet, tPlacement] of Object.entries(transits)) {
     for (const [nPlanet, nPlacement] of Object.entries(natal)) {
-      if (tPlacement.absolute == null || nPlacement.absolute == null) continue;
-      const diff = angularDifference(tPlacement.absolute, nPlacement.absolute);
+      if (tPlacement.eclipticLon == null || nPlacement.eclipticLon == null) continue;
+      const diff = angularDifference(tPlacement.eclipticLon, nPlacement.eclipticLon);
       const aspect = findAspect(diff);
       if (!aspect) continue;
       const priority = (PRIORITY[tPlanet] || 1) * aspect.weight;
@@ -513,9 +515,9 @@ export function detectMoonPhase(
 ): string | null {
   const sun = transits.Sun;
   const moon = transits.Moon;
-  if (!sun || !moon || sun.absolute == null || moon.absolute == null)
+  if (!sun || !moon || sun.eclipticLon == null || moon.eclipticLon == null)
     return null;
-  const diff = (moon.absolute - sun.absolute + 360) % 360;
+  const diff = (moon.eclipticLon - sun.eclipticLon + 360) % 360;
   if (diff < 12 || diff > 348)
     return "New Moon tone — inward, seeded, lower external output.";
   if (Math.abs(diff - 180) < 12)

@@ -13,6 +13,8 @@ import {
 import { transformChartToFlatPlane } from "./coordinateTransformer";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
+import { fromZonedTime } from "date-fns-tz";
+import tzLookup from "tz-lookup";
 import { horaryLayer } from "./horary";
 import { sportsHoraryLayer } from "./sportsHoraryReading";
 import { sportsHoraryV2Layer } from "./sportsHoraryV2Reading";
@@ -78,7 +80,7 @@ function enrichChartData(
 
   for (const [name, p] of Object.entries(planets)) {
     const abs =
-      p.absolute ??
+      p.eclipticLon ??
       (() => {
         const i = ZODIAC_SIGNS.indexOf(p.sign);
         return i >= 0 ? i * 30 + p.degree : null;
@@ -109,7 +111,7 @@ function enrichChartData(
       sign: p.sign,
       degree: p.degree,
       planet: name,
-      absolute: p.absolute ?? (i >= 0 ? i * 30 + p.degree : null),
+      absolute: p.eclipticLon ?? (i >= 0 ? i * 30 + p.degree : null),
     };
   }
 
@@ -353,16 +355,12 @@ const ephemerisRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const date = new Date(
-        Date.UTC(
-          input.year,
-          input.month - 1,
-          input.day,
-          input.hour,
-          input.minute,
-          0
-        )
-      );
+      // The birth time entered is LOCAL civil time at the given coordinates,
+      // not UTC. Derive the IANA timezone from lat/long and convert properly,
+      // respecting whatever DST rules were in effect on this historical date.
+      const timezone = tzLookup(input.latitude, input.longitude);
+      const localTimeString = `${input.year}-${String(input.month).padStart(2, "0")}-${String(input.day).padStart(2, "0")} ${String(input.hour).padStart(2, "0")}:${String(input.minute).padStart(2, "0")}:00`;
+      const date = fromZonedTime(localTimeString, timezone);
 
       const observer = {
         latitude: input.latitude,

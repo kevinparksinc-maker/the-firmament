@@ -213,7 +213,7 @@ export function calculateTerritorialControl(
     // ─── NAKSHATRA MODIFIER ────────────────────────────────────────
 
     const { nakshatra } = getNakshatraAt(
-      lordPlacement.absolute ?? 0
+      lordPlacement.eclipticLon ?? 0
     );
     const nakshatraProfile = NAKSHATRAS[nakshatra.name] || Object.values(NAKSHATRAS)[0] || {
       name: "default",

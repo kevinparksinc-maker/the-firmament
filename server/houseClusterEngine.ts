@@ -108,7 +108,7 @@ interface ClusterResult {
  * Calculate longitude from placement (or use absolute if available)
  */
 function getLongitude(p: PlanetPlacement): number {
-  if (p.absolute != null) return ((p.absolute % 360) + 360) % 360;
+  if (p.eclipticLon != null) return ((p.eclipticLon % 360) + 360) % 360;
   const idx = SIGN_ORDER.indexOf(p.sign);
   return idx >= 0 ? idx * 30 + p.degree : 0;
 }

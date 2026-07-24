@@ -15,11 +15,56 @@ import {
   detectMoonPhase,
   type PlanetPlacement,
 } from "./astroEngine";
-import { calculateFullPrediction, type ChartData, type ClusterConfig, assignHousesToLots } from "./masterPredictionEngine";
+import {
+  calculateFullPrediction,
+  type ChartData,
+  type ClusterConfig,
+  type SportsHoraryPlacement,
+  assignHousesToLots,
+} from "./masterPredictionEngine";
 import { getNakshatraAt } from "./nakshatra";
 import { calculateArabicLots } from "./arabicLotsCalculator";
 
 type Chart = Record<string, PlanetPlacement>;
+
+function toSportsHoraryPlacement(
+  planetName: string,
+  eclipticLon: number,
+  placement: PlanetPlacement
+): SportsHoraryPlacement {
+  const nakshatra = getNakshatraAt(eclipticLon);
+  return {
+    planet: planetName,
+    house: placement.house,
+    sign: placement.sign,
+    degree: placement.degree,
+    eclipticLon,
+    isRetrograde: placement.rx || false,
+    nakshatra: nakshatra.nakshatra.name,
+  };
+}
+
+// A planet's house isn't always stated explicitly in pasted chart text —
+// parseInput() only sets it when the text literally says "Nth house".
+// When it's missing, derive it from the planet's actual longitude against
+// the house cusps, same walking logic assignHousesToLots() uses for lots.
+function getHouseFromLon(
+  lon: number,
+  cusps: Record<number, { sign: string; degree: number }>
+): number {
+  for (let i = 1; i <= 12; i++) {
+    const cusp = cusps[i];
+    const nextCusp = cusps[(i % 12) + 1];
+    const cuspLon = SIGN_ORDER.indexOf(cusp.sign) * 30 + cusp.degree;
+    const nextCuspLon = SIGN_ORDER.indexOf(nextCusp.sign) * 30 + nextCusp.degree;
+    if (cuspLon <= nextCuspLon) {
+      if (lon >= cuspLon && lon < nextCuspLon) return i;
+    } else {
+      if (lon >= cuspLon || lon < nextCuspLon) return i;
+    }
+  }
+  return 1;
+}
 
 export interface SportsHoraryOutput {
   answer: string;
@@ -29,21 +74,14 @@ export interface SportsHoraryOutput {
 
 export function buildChartData(chart: Chart, ascendant?: number): ChartData {
   const planetsInHouses: ChartData["planetsInHouses"] = [];
-  const planetLookup: Record<string, PlanetPlacement> = {};
+  const planetLookup: Record<string, SportsHoraryPlacement> = {};
+  const cusps = ascendant !== undefined ? buildEqualHouseCusps(ascendant) : undefined;
 
   for (const [planetName, placement] of Object.entries(chart)) {
-    const siderealLon = SIGN_ORDER.indexOf(placement.sign) * 30 + placement.degree;
-    const nakshatra = getNakshatraAt(siderealLon);
+    const eclipticLon = placement.eclipticLon ?? (SIGN_ORDER.indexOf(placement.sign) * 30 + placement.degree);
+    const house = placement.house ?? (cusps ? getHouseFromLon(eclipticLon, cusps) : 1);
 
-    const planetPlacement: PlanetPlacement = {
-      planet: planetName,
-      house: placement.house,
-      sign: placement.sign,
-      degree: placement.degree,
-      siderealLon,
-      isRetrograde: placement.rx || false,
-      nakshatra: nakshatra.nakshatra.name,
-    };
+    const planetPlacement = toSportsHoraryPlacement(planetName, eclipticLon, { ...placement, house });
 
     planetsInHouses.push(planetPlacement);
     planetLookup[planetName] = planetPlacement;
