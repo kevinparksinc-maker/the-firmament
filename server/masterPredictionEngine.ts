@@ -22,6 +22,16 @@ import {
 import { getSignNakshatraFriction, PlanetName } from "./planetRelationships";
 import { buildPlanarHouseSystem } from "./planarHouseSystem";
 import { calculateArabicLots } from "./arabicLotsCalculator";
+import {
+  upachayaGrowthLayer,
+  viaCombustaLayer,
+  besiegementLayer,
+  mutualReceptionLayer,
+  translationOfLightLayer,
+  harmoniousFrictionLayer,
+  regulusAlgolOverrides,
+  nodeLayer,
+} from "./clusterKnowledgeLayers";
 
 // ─────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -116,6 +126,8 @@ export interface PredictionResult {
   predictedWinner: "A" | "B" | "too close to call";
   confidence: number;
   volatilityWarning: string;
+  regulusOverride: "A" | "B" | "both" | null;
+  algolOverride: "A" | "B" | "both" | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -413,9 +425,45 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
   })();
   breakdown.push({ layer: "Moon Phase/VOC (chart-wide)", sideAPoints: moonAdjustment / 2, sideBPoints: moonAdjustment / 2 });
 
+  // ──── LAYER 7: CLUSTER KNOWLEDGE LAYERS
+  // Generalized from sportsHorary.ts's L1/L7-specific rules — see
+  // clusterKnowledgeLayers.ts for the full explanation of each. All of these
+  // evaluate cluster-vs-cluster, never a single house pair.
+  const upachaya = upachayaGrowthLayer(chart, config);
+  const viaCombusta = viaCombustaLayer(chart, config);
+  const besiegement = besiegementLayer(chart, config);
+  const mutualReception = mutualReceptionLayer(chart, config);
+  const translation = translationOfLightLayer(chart, config);
+  const harmoniousFriction = harmoniousFrictionLayer(chart, config);
+  const nodes = nodeLayer(chart, config);
+  const overrides = regulusAlgolOverrides(chart, config);
+  // Regulus/Algol intentionally contribute NO extra points here — they're
+  // already scored via Fixed Stars (Layer 3) at royal-tier amplification.
+  // This layer only produces flags for the verdict/narration, per your call
+  // not to double-count them.
+
+  breakdown.push(
+    { layer: upachaya.layer, sideAPoints: upachaya.sideAPoints, sideBPoints: upachaya.sideBPoints },
+    { layer: viaCombusta.layer, sideAPoints: viaCombusta.sideAPoints, sideBPoints: viaCombusta.sideBPoints },
+    { layer: besiegement.layer, sideAPoints: besiegement.sideAPoints, sideBPoints: besiegement.sideBPoints },
+    { layer: mutualReception.layer, sideAPoints: mutualReception.sideAPoints, sideBPoints: mutualReception.sideBPoints },
+    { layer: translation.layer, sideAPoints: translation.sideAPoints, sideBPoints: translation.sideBPoints },
+    { layer: harmoniousFriction.layer, sideAPoints: harmoniousFriction.sideAPoints, sideBPoints: harmoniousFriction.sideBPoints },
+    { layer: nodes.layer, sideAPoints: nodes.sideAPoints, sideBPoints: nodes.sideBPoints }
+  );
+
+  const clusterLayersA =
+    upachaya.sideAPoints + viaCombusta.sideAPoints + besiegement.sideAPoints +
+    mutualReception.sideAPoints + translation.sideAPoints + harmoniousFriction.sideAPoints +
+    nodes.sideAPoints;
+  const clusterLayersB =
+    upachaya.sideBPoints + viaCombusta.sideBPoints + besiegement.sideBPoints +
+    mutualReception.sideBPoints + translation.sideBPoints + harmoniousFriction.sideBPoints +
+    nodes.sideBPoints;
+
   // ──── TOTAL & CONFIDENCE
-  const sideABreakdown = sideATotal + sideAFixedStars + sideALots + (aspectTotal / 2) + (moonAdjustment / 2);
-  const sideBBreakdown = sideBTotal + sideBFixedStars + sideBLots + (-aspectTotal / 2) + (moonAdjustment / 2);
+  const sideABreakdown = sideATotal + sideAFixedStars + sideALots + (aspectTotal / 2) + (moonAdjustment / 2) + clusterLayersA;
+  const sideBBreakdown = sideBTotal + sideBFixedStars + sideBLots + (-aspectTotal / 2) + (moonAdjustment / 2) + clusterLayersB;
 
   const TOO_CLOSE_THRESHOLD = 2;
   const margin = sideABreakdown - sideBBreakdown;
@@ -450,6 +498,8 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     predictedWinner,
     confidence: Math.round(confidence * 100) / 100,
     volatilityWarning,
+    regulusOverride: overrides.regulusSide,
+    algolOverride: overrides.algolSide,
   };
 }
 

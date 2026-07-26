@@ -66,6 +66,52 @@ function getHouseFromLon(
   return 1;
 }
 
+// Aspects layer in masterPredictionEngine.ts was always receiving [] because
+// nothing computed real aspects here — this fixes that. Aspect TYPE is
+// computed from real angular separation; "applying" is NOT true motion-based
+// applying/separating (that needs planetary speed, which PlanetPlacement
+// doesn't carry) — defaulted to false (treated as separating/half-weight)
+// as the conservative assumption until real speed data exists upstream.
+function computeAspects(planetsInHouses: ChartData["planetsInHouses"]): ChartData["aspects"] {
+  const aspects: ChartData["aspects"] = [];
+  const ORBS: Record<string, number> = {
+    conjunction: 8,
+    sextile: 6,
+    square: 8,
+    trine: 8,
+    opposition: 8,
+  };
+  const ANGLES: Record<string, number> = {
+    conjunction: 0,
+    sextile: 60,
+    square: 90,
+    trine: 120,
+    opposition: 180,
+  };
+
+  for (let i = 0; i < planetsInHouses.length; i++) {
+    for (let j = i + 1; j < planetsInHouses.length; j++) {
+      const a = planetsInHouses[i];
+      const b = planetsInHouses[j];
+      const rawDiff = Math.abs(a.eclipticLon - b.eclipticLon) % 360;
+      const sep = rawDiff > 180 ? 360 - rawDiff : rawDiff;
+
+      for (const [type, angle] of Object.entries(ANGLES)) {
+        if (Math.abs(sep - angle) <= ORBS[type]) {
+          aspects.push({
+            planetA: a.planet,
+            planetB: b.planet,
+            aspectType: type as ChartData["aspects"][number]["aspectType"],
+            applying: false, // see note above — real applying/separating needs speed data
+          });
+          break; // one aspect type per pair, tightest match wins by iteration order
+        }
+      }
+    }
+  }
+  return aspects;
+}
+
 export interface SportsHoraryOutput {
   answer: string;
   score: { score: number; verdict: string; flags: string[]; breakdown: string[] };
@@ -144,7 +190,7 @@ export function buildChartData(chart: Chart, ascendant?: number): ChartData {
     planetsInHouses,
     lots,
     fixedStars: [],
-    aspects: [],
+    aspects: computeAspects(planetsInHouses),
     moon: {
       phase: moonPhase,
       isVoidOfCourse: false,
