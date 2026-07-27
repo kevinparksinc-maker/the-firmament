@@ -169,7 +169,9 @@ export function buildChartData(chart: Chart, ascendant?: number): ChartData {
   // pass isNight through properly once day/night detection is wired at the caller).
   let lots: ChartData["lots"] = [];
   if (ascendant !== undefined) {
-    const rawLots = calculateArabicLots(chart, ascendant, false);
+    const sunHouse = planetLookup["Sun"]?.house;
+    const isNight = sunHouse !== undefined ? sunHouse <= 6 : false;
+    const rawLots = calculateArabicLots(chart, ascendant, isNight);
     const cusps = buildEqualHouseCusps(ascendant);
     lots = assignHousesToLots(rawLots, cusps);
   }
