@@ -14,10 +14,11 @@
  * by adding an ayanamsa later; that would reintroduce a precession model
  * this engine is deliberately built without.
  *
- * HOUSE SYSTEM: Whole sign. House 1 = the Ascendant's entire sign,
- * houses 2–12 follow in zodiacal order. No intermediate cusp math
- * (Placidus/Polich-Page/etc.) is used anywhere — natal, transit, and
- * horary charts all resolve houses the same way, off the Ascendant sign.
+ * HOUSE SYSTEM: Equal house. House 1 begins exactly at the Ascendant's
+ * degree; each subsequent house is a fixed 30° step from there. Signs are
+ * NOT used as house boundaries — a single house can span the end of one
+ * sign and the start of the next (an "intercepted" sign). This applies
+ * uniformly to natal, transit, and horary charts.
  */
 
 import { createRequire } from "module";
@@ -196,13 +197,11 @@ function calcHouseCusps(
     Math.PI;
   ascEcliptic = ((ascEcliptic % 360) + 360) % 360;
 
-  // Whole-sign cusps: house 1 starts at 0° of the Ascendant's sign,
-  // not at the Ascendant's exact degree.
-  const ascSignIndex = Math.floor(ascEcliptic / 30);
+  // Equal-house cusps: house 1 starts exactly at the Ascendant's degree;
+  // each subsequent cusp is a fixed 30° step from there (not sign-aligned).
   const cusps: number[] = [];
   for (let i = 0; i < 12; i++) {
-    const signIdx = (ascSignIndex + i) % 12;
-    cusps.push(signIdx * 30);
+    cusps.push((ascEcliptic + i * 30) % 360);
   }
 
   return {
@@ -212,36 +211,39 @@ function calcHouseCusps(
   };
 }
 
-/** Build the 12 whole-sign houses starting from the Ascendant's sign. */
+/**
+ * Build the 12 equal-house cusps starting from the Ascendant's exact degree.
+ * signName reflects the sign AT THE CUSP (start of the house) — the house
+ * itself may extend into the next sign before the following cusp, since
+ * each house is a fixed 30° step rather than a whole sign.
+ */
 export function generateWholeSignHouses(ascendantEcliptic: number): WholeSignHouse[] {
-  const ascSignIndex = Math.floor(((ascendantEcliptic % 360) + 360) % 360 / 30);
   const houses: WholeSignHouse[] = [];
   for (let houseNum = 1; houseNum <= 12; houseNum++) {
-    const signIdx = (ascSignIndex + (houseNum - 1)) % 12;
+    const startDegree = (ascendantEcliptic + (houseNum - 1) * 30) % 360;
+    const endDegree = (ascendantEcliptic + houseNum * 30) % 360;
+    const cuspSignIdx = Math.floor(startDegree / 30);
     houses.push({
       houseNumber: houseNum,
-      signName: ZODIAC_SIGNS[signIdx],
-      startDegree: signIdx * 30,
-      endDegree: (signIdx + 1) * 30,
+      signName: ZODIAC_SIGNS[cuspSignIdx],
+      startDegree,
+      endDegree,
     });
   }
   return houses;
 }
 
-/** Whole-sign house assignment: same sign as Asc = house 1, then follows zodiac order. */
+/** Equal-house assignment: house 1 spans [Asc, Asc+30°), each next house is another 30° step. */
 function getHouseNumber(planetLon: number, ascendantEcliptic: number): number {
-  const planetSign = Math.floor(((planetLon % 360) + 360) % 360 / 30);
-  const ascSign = Math.floor(((ascendantEcliptic % 360) + 360) % 360 / 30);
-  let houseNumber = planetSign - ascSign + 1;
-  if (houseNumber <= 0) houseNumber += 12;
-  return houseNumber;
+  const diff = (((planetLon - ascendantEcliptic) % 360) + 360) % 360;
+  return Math.floor(diff / 30) + 1;
 }
 
 // ─── Main Calculation ─────────────────────────────────────────────────────────
 // Used identically for natal charts, transit charts, and horary charts —
 // horary just passes the moment/location of the question instead of a birth
-// moment/location. Whole sign houses are the traditional choice for horary
-// too, so no special-casing is needed here.
+// moment/location. Equal house is applied uniformly across all three, so no
+// special-casing is needed here.
 
 export async function calculateChart(
   date: Date,
@@ -398,14 +400,17 @@ export function formatChartForReading(result: EphemerisResult): string {
   return lines.join("\n");
 }
 
-// Export house cusp info for the wheel (whole sign: each cusp starts at 0° of its sign)
+// Export house cusp info for the wheel (equal house: each cusp sits at its own exact degree)
 export function getHouseCuspInfo(
   result: EphemerisResult
 ): Array<{ house: number; sign: string; degree: number; minutes: number }> {
-  return result.wholeSignHouses.map((h) => ({
-    house: h.houseNumber,
-    sign: h.signName,
-    degree: 0,
-    minutes: 0,
-  }));
+  return result.wholeSignHouses.map((h) => {
+    const degInSign = h.startDegree % 30;
+    return {
+      house: h.houseNumber,
+      sign: h.signName,
+      degree: Math.floor(degInSign),
+      minutes: Math.floor((degInSign - Math.floor(degInSign)) * 60),
+    };
+  });
 }
