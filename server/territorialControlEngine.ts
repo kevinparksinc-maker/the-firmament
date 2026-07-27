@@ -131,7 +131,7 @@ export function calculateTerritorialControl(
 
   if (hasAscendant) {
     try {
-      const isNight = planets.Sun && planets.Sun.house ? planets.Sun.house > 6 : false;
+      const isNight = planets.Sun && planets.Sun.house ? planets.Sun.house <= 6 : false;
       const lots = calculateArabicLots(planets as any, asc, isNight);
 
       arabicLots = lots.map(lot => {
