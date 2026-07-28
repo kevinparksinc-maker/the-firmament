@@ -192,21 +192,44 @@ export function translationOfLightLayer(chart: ChartData, config: ClusterConfig)
   for (const planet of chart.planetsInHouses) {
     if (lordNames.has(planet.planet)) continue; // must be a THIRD planet, not itself a cluster lord
 
+    // Find the CLOSEST Side A lord this planet actually aspects (if any).
+    // One planet = one candidate per side, regardless of how many lords
+    // that side has — prevents a side with more lords from generating
+    // more combinatorial matches (and thus more points) for reasons that
+    // have nothing to do with the strength of the transmission itself.
+    let closestALord: (typeof aLords)[number] | null = null;
+    let closestASep = Infinity;
     for (const aLord of aLords) {
-      for (const bLord of bLords) {
-        const aspectToA = classifyAspect(planet.eclipticLon, aLord.eclipticLon);
-        const aspectToB = classifyAspect(planet.eclipticLon, bLord.eclipticLon);
-        if (aspectToA === "none" || aspectToB === "none") continue;
-        // Translating light: touches both sides at once via real aspects.
-        // Without true speed data we can't say which it's "leaving" vs
-        // "approaching" — this flags the exchange and gives a small edge
-        // to whichever side's lord it's currently closer to (tighter orb).
-        const sepA = angularSeparation(planet.eclipticLon, aLord.eclipticLon);
-        const sepB = angularSeparation(planet.eclipticLon, bLord.eclipticLon);
-        if (sepA < sepB) sideA += 3;
-        else sideB += 3;
+      if (classifyAspect(planet.eclipticLon, aLord.eclipticLon) === "none") continue;
+      const sep = angularSeparation(planet.eclipticLon, aLord.eclipticLon);
+      if (sep < closestASep) {
+        closestASep = sep;
+        closestALord = aLord;
       }
     }
+
+    // Same for the closest Side B lord.
+    let closestBLord: (typeof bLords)[number] | null = null;
+    let closestBSep = Infinity;
+    for (const bLord of bLords) {
+      if (classifyAspect(planet.eclipticLon, bLord.eclipticLon) === "none") continue;
+      const sep = angularSeparation(planet.eclipticLon, bLord.eclipticLon);
+      if (sep < closestBSep) {
+        closestBSep = sep;
+        closestBLord = bLord;
+      }
+    }
+
+    // Only a genuine translation if the planet actually touches BOTH sides.
+    if (!closestALord || !closestBLord) continue;
+
+    // Translating light: touches both sides at once via real aspects.
+    // Without true speed data we can't say which it's "leaving" vs
+    // "approaching" — this flags the exchange and gives a small edge
+    // to whichever side's lord it's currently closer to (tighter orb).
+    // ONE vote per planet, not one per lord-pair combination.
+    if (closestASep < closestBSep) sideA += 3;
+    else sideB += 3;
   }
   return { layer: "Translation of Light", sideAPoints: sideA, sideBPoints: sideB };
 }
