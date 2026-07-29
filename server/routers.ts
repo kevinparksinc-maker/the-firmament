@@ -1,32 +1,53 @@
 import { invokeLLM } from "./_core/llm";
+import { crisisEngine } from "./crisisEngine";
 import { systemRouter } from "./_core/systemRouter";
+import { crisisEngine } from "./crisisEngine";
 import { authRouter } from "./_core/authRouter";
+import { crisisEngine } from "./crisisEngine";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { crisisEngine } from "./crisisEngine";
 import { buildLensPrompt } from "./lib/readings/buildLensPrompt";
+import { crisisEngine } from "./crisisEngine";
 import { LENSES } from "./lib/readings/lensRules";
+import { crisisEngine } from "./crisisEngine";
 import { saveChart, getUserCharts, getChart, deleteChart } from "./db";
+import { crisisEngine } from "./crisisEngine";
 import {
   calculateChart,
   formatChartForReading,
   getHouseCuspInfo,
 } from "./ephemeris";
 import { transformChartToFlatPlane } from "./coordinateTransformer";
+import { crisisEngine } from "./crisisEngine";
 import { z } from "zod";
+import { crisisEngine } from "./crisisEngine";
 import Anthropic from "@anthropic-ai/sdk";
+import { crisisEngine } from "./crisisEngine";
 import { fromZonedTime } from "date-fns-tz";
+import { crisisEngine } from "./crisisEngine";
 import tzLookup from "tz-lookup";
+import { crisisEngine } from "./crisisEngine";
 import { horaryLayer } from "./horary";
+import { crisisEngine } from "./crisisEngine";
 import { sportsHoraryLayer } from "./sportsHoraryReading";
+import { crisisEngine } from "./crisisEngine";
 import { sportsHoraryV2Layer } from "./sportsHoraryV2Reading";
+import { crisisEngine } from "./crisisEngine";
 
 import {
   detectFixedStarConjunctions,
   formatStarConjunctions,
 } from "./fixedStars";
 import { getNakshatraAt } from "./nakshatra";
+import { crisisEngine } from "./crisisEngine";
 import { getDecanFlavor } from "./decan";
+import { crisisEngine } from "./crisisEngine";
 import { calculateArabicLots } from "./arabicLotsCalculator";
+import { crisisEngine } from "./crisisEngine";
 import { getPlanetInHouse } from "./planetInHouse";
+import { crisisEngine } from "./crisisEngine";
+import { crisisEngine } from "./crisisEngine";
+import { crisisEngine } from "./crisisEngine";
 
 // ─── Core Cosmology Framework ─────────────────────────────────────────────────
 // This is the foundation of every reading in this app.
@@ -316,6 +337,13 @@ How is the current sky affecting this person's thinking, communication, and ment
 ## SOUL RIGHT NOW
 How is the current sky affecting this person's emotional life, relationships, and inner world?
 
+  // ─── CRISIS DETECTION ─────────────────────────────────────────────────────────
+  // For now, using transit vs transit for stellium detection
+  // TODO: Pass natal chart from frontend or database
+  const transitAspects = calculateAspects(result.planets, result.planets);
+  const crisisResult = crisisEngine.analyze(transitAspects);
+
+
 ## SPIRIT RIGHT NOW
 How is the current sky affecting this person's sense of purpose, direction, and confidence?
 
@@ -378,6 +406,11 @@ const ephemerisRouter = router({
       const ic = (mc + 180) % 360;
 
       // Generate 12 equal house cusps from the correct topocentric Ascendant
+
+  // ─── CRISIS DETECTION ─────────────────────────────────────────────────────────
+  const transitAspects = calculateAspects(result.planets, result.planets);
+  const crisisResult = crisisEngine.analyze(transitAspects);
+
       const houseCusps = [];
       for (let i = 0; i < 12; i++) {
         houseCusps.push((tropicalAsc + i * 30) % 360);
@@ -401,6 +434,10 @@ const ephemerisRouter = router({
         tropicalAsc
       );
 
+  // ─── CRISIS DETECTION ─────────────────────────────────────────────────────────
+  const transitAspects = calculateAspects(result.planets, result.planets);
+  const crisisResult = crisisEngine.analyze(transitAspects);
+
       return {
         planets: result.planets,
         houses: {
@@ -411,6 +448,7 @@ const ephemerisRouter = router({
         angles: { asc: tropicalAsc, desc, mc, ic },
         ayanamsa: result.ayanamsa,
         readingText,
+  crisis: crisisResult,
         enrichedText,
       };
     }),
