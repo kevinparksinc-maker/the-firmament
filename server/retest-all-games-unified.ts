@@ -70,9 +70,9 @@ async function buildChartData(date: Date, lat: number, lon: number): Promise<Cha
       const start = adjustedCusps[i];
       const end = adjustedCusps[(i + 1) % 12];
       if (start <= end) {
-        if (siderealLon >= start && siderealLon < end) return i + 1;
+        if (eclipticLon >= start && eclipticLon < end) return i + 1;
       } else {
-        if (siderealLon >= start || siderealLon < end) return i + 1;
+        if (eclipticLon >= start || eclipticLon < end) return i + 1;
       }
     }
     return 1;
