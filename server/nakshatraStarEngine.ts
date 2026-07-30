@@ -15,6 +15,7 @@
  */
 
 import { NAKSHATRAS } from "./nakshatraData";
+import { getSubLord } from "./kp/subLords";
 
 // ─────────────────────────────────────────────────────────────────────────
 // NAKSHATRA DIGNITY & LORDS
@@ -327,3 +328,82 @@ export function getNakshatraExecution(nakshatraName: string): {
 export const FIXED_STARS_REFERENCE = MAJOR_FIXED_STARS;
 export const NAKSHATRA_LORDS_MAP = NAKSHATRA_LORDS;
 export const NAKSHATRA_DIGNITY_MAP = NAKSHATRA_DIGNITY;
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// KP SUB-LORD SCORING
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Sub-lord strength multiplier for sports predictions
+ * Each sub-lord has a different effect depending on the house/context
+ */
+export function getSubLordMultiplier(
+  subLord: string,
+  house: number,
+  context: 'offensive' | 'defensive' | 'execution'
+): number {
+  // Offensive strength (scoring, attacking)
+  const offensive: Record<string, number> = {
+    'Sun': 1.3,
+    'Mars': 1.4,
+    'Jupiter': 1.2,
+    'Venus': 1.1,
+    'Ketu': 0.9,
+    'Moon': 1.0,
+    'Mercury': 1.0,
+    'Rahu': 0.8,
+    'Saturn': 0.7,
+  };
+  
+  // Defensive strength (blocking, resisting)
+  const defensive: Record<string, number> = {
+    'Saturn': 1.4,
+    'Rahu': 1.3,
+    'Ketu': 1.2,
+    'Sun': 1.1,
+    'Moon': 1.0,
+    'Mars': 0.9,
+    'Jupiter': 0.9,
+    'Venus': 0.8,
+    'Mercury': 0.8,
+  };
+  
+  // Execution (finishing, consistency)
+  const execution: Record<string, number> = {
+    'Mars': 1.4,
+    'Sun': 1.3,
+    'Saturn': 1.2,
+    'Jupiter': 1.1,
+    'Mercury': 1.0,
+    'Venus': 1.0,
+    'Moon': 0.9,
+    'Ketu': 0.8,
+    'Rahu': 0.7,
+  };
+  
+  const map = context === 'offensive' ? offensive : context === 'defensive' ? defensive : execution;
+  return map[subLord] || 1.0;
+}
+
+/**
+ * Get the sub-lord for a planet and its context-specific multiplier
+ */
+export function getPlanetSubLordStrength(
+  planetName: string,
+  eclipticLon: number,
+  house: number,
+  context: 'offensive' | 'defensive' | 'execution'
+): {
+  subLord: string;
+  subLordIndex: number;
+  multiplier: number;
+} {
+  const subLordData = getSubLord(eclipticLon);
+  const multiplier = getSubLordMultiplier(subLordData.lord, house, context);
+  return {
+    subLord: subLordData.lord,
+    subLordIndex: subLordData.index,
+    multiplier,
+  };
+}
