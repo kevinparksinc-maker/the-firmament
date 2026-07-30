@@ -1,5 +1,7 @@
 // FIRMAMENT MODEL: 27 fixed Nakshatras, 13°20' each, no precession.
 // Absolute degrees 0–360, starting at 0° Aries = 0°.
+import { getSubLord } from './kp/subLords';
+
 
 export interface Nakshatra {
   index: number;
@@ -111,3 +113,25 @@ export function getNakshatraAt(absDeg: number): {
   const pada = Math.floor(offset / padaSize) + 1;
   return { nakshatra, pada };
 }
+
+
+export interface NakshatraWithSubLord extends Nakshatra {
+  subLord: string;
+  subLordIndex: number;
+}
+
+export function getNakshatraAndSubLordAt(absDeg: number): {
+  nakshatra: Nakshatra;
+  pada: number;
+  subLord: string;
+  subLordIndex: number;
+} {
+  const result = getNakshatraAt(absDeg);
+  const subLordData = getSubLord(absDeg);
+  return {
+    ...result,
+    subLord: subLordData.lord,
+    subLordIndex: subLordData.index,
+  };
+}
+

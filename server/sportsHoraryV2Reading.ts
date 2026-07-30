@@ -1,3 +1,4 @@
+// SUB-LORD INTEGRATION: To use sub-lord multipliers, import getPlanetSubLordStrength from nakshatraStarEngine and apply to scoring.
 /**
  * SPORTS HORARY MASTER READING — The Firmament
  * ============================================================================

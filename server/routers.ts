@@ -1,56 +1,36 @@
+cat > server/routers.ts << 'EOF'
 import { invokeLLM } from "./_core/llm";
 import { crisisEngine } from "./crisisEngine";
 import { systemRouter } from "./_core/systemRouter";
-import { crisisEngine } from "./crisisEngine";
 import { authRouter } from "./_core/authRouter";
-import { crisisEngine } from "./crisisEngine";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
-import { crisisEngine } from "./crisisEngine";
 import { buildLensPrompt } from "./lib/readings/buildLensPrompt";
-import { crisisEngine } from "./crisisEngine";
 import { LENSES } from "./lib/readings/lensRules";
-import { crisisEngine } from "./crisisEngine";
 import { saveChart, getUserCharts, getChart, deleteChart } from "./db";
-import { crisisEngine } from "./crisisEngine";
 import {
   calculateChart,
   formatChartForReading,
   getHouseCuspInfo,
 } from "./ephemeris";
 import { transformChartToFlatPlane } from "./coordinateTransformer";
-import { crisisEngine } from "./crisisEngine";
 import { z } from "zod";
-import { crisisEngine } from "./crisisEngine";
 import Anthropic from "@anthropic-ai/sdk";
-import { crisisEngine } from "./crisisEngine";
 import { fromZonedTime } from "date-fns-tz";
-import { crisisEngine } from "./crisisEngine";
 import tzLookup from "tz-lookup";
-import { crisisEngine } from "./crisisEngine";
 import { horaryLayer } from "./horary";
-import { crisisEngine } from "./crisisEngine";
 import { sportsHoraryLayer } from "./sportsHoraryReading";
-import { crisisEngine } from "./crisisEngine";
 import { sportsHoraryV2Layer } from "./sportsHoraryV2Reading";
-import { crisisEngine } from "./crisisEngine";
 
 import {
   detectFixedStarConjunctions,
   formatStarConjunctions,
 } from "./fixedStars";
 import { getNakshatraAt } from "./nakshatra";
-import { crisisEngine } from "./crisisEngine";
 import { getDecanFlavor } from "./decan";
-import { crisisEngine } from "./crisisEngine";
 import { calculateArabicLots } from "./arabicLotsCalculator";
-import { crisisEngine } from "./crisisEngine";
 import { getPlanetInHouse } from "./planetInHouse";
-import { crisisEngine } from "./crisisEngine";
-import { crisisEngine } from "./crisisEngine";
-import { crisisEngine } from "./crisisEngine";
 
 // ─── Core Cosmology Framework ─────────────────────────────────────────────────
-// This is the foundation of every reading in this app.
 
 const COSMOLOGY_PREAMBLE = `COSMOLOGICAL FRAMEWORK — READ THIS FIRST:
 
@@ -87,6 +67,53 @@ const ZODIAC_SIGNS = [
   "Pisces",
 ];
 
+// ─── Aspect Calculator ─────────────────────────────────────────────────────────
+
+function getAbsoluteDegree(sign: string, degree: number): number {
+  const signIndex = ZODIAC_SIGNS.indexOf(sign);
+  return signIndex * 30 + degree;
+}
+
+function calculateAspects(
+  transitPlanets: any[],
+  natalPlanets: any[]
+): any[] {
+  const aspects: any[] = [];
+  const aspectTypes = [
+    { name: 'conjunction', angle: 0, orb: 8 },
+    { name: 'opposition', angle: 180, orb: 8 },
+    { name: 'square', angle: 90, orb: 8 },
+    { name: 'trine', angle: 120, orb: 8 },
+    { name: 'sextile', angle: 60, orb: 6 },
+  ];
+
+  for (const t of transitPlanets) {
+    if (!t.sign || t.degreeInSign === undefined) continue;
+    const tAbs = getAbsoluteDegree(t.sign, t.degreeInSign);
+    for (const n of natalPlanets) {
+      if (!n.sign || n.degree === undefined) continue;
+      const nAbs = getAbsoluteDegree(n.sign, n.degree);
+      let diff = Math.abs(tAbs - nAbs) % 360;
+      if (diff > 180) diff = 360 - diff;
+      for (const aspect of aspectTypes) {
+        const orbDiff = Math.abs(diff - aspect.angle);
+        if (orbDiff <= aspect.orb) {
+          aspects.push({
+            planet: t.name,
+            aspect: aspect.name,
+            orb: orbDiff,
+            house: t.house || 0,
+            targetPlanet: n.name,
+            targetHouse: n.house || 0,
+            isRetrograde: t.retrograde || false,
+          });
+        }
+      }
+    }
+  }
+  return aspects;
+}
+
 // ─── Chart Enrichment Helper ──────────────────────────────────────────────────
 
 function enrichChartData(
@@ -121,7 +148,6 @@ function enrichChartData(
     );
   }
 
-  // Fixed star conjunctions
   const placementsForStars: Record<
     string,
     { sign: string; degree: number; planet: string; absolute: number | null }
@@ -139,7 +165,6 @@ function enrichChartData(
   const conjunctions = detectFixedStarConjunctions(placementsForStars);
   const starText = formatStarConjunctions(conjunctions);
 
-  // Calculate Arabic Lots (if full planets and ascendant provided)
   let lotsText = "";
   if (fullPlanets && ascendant !== undefined) {
     const planetsMap = fullPlanets.reduce(
@@ -263,7 +288,6 @@ const aiRouter = router({
         fixedStarConjunctions,
       } = input;
 
-      // Auto-enrich if structured data available (fallback to passed-in fixedStarConjunctions)
       const starSection =
         fixedStarConjunctions &&
         fixedStarConjunctions !== "No exact fixed star conjunctions detected."
@@ -337,13 +361,6 @@ How is the current sky affecting this person's thinking, communication, and ment
 ## SOUL RIGHT NOW
 How is the current sky affecting this person's emotional life, relationships, and inner world?
 
-  // ─── CRISIS DETECTION ─────────────────────────────────────────────────────────
-  // For now, using transit vs transit for stellium detection
-  // TODO: Pass natal chart from frontend or database
-  const transitAspects = calculateAspects(result.planets, result.planets);
-  const crisisResult = crisisEngine.analyze(transitAspects);
-
-
 ## SPIRIT RIGHT NOW
 How is the current sky affecting this person's sense of purpose, direction, and confidence?
 
@@ -383,9 +400,6 @@ const ephemerisRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      // The birth time entered is LOCAL civil time at the given coordinates,
-      // not UTC. Derive the IANA timezone from lat/long and convert properly,
-      // respecting whatever DST rules were in effect on this historical date.
       const timezone = tzLookup(input.latitude, input.longitude);
       const localTimeString = `${input.year}-${String(input.month).padStart(2, "0")}-${String(input.day).padStart(2, "0")} ${String(input.hour).padStart(2, "0")}:${String(input.minute).padStart(2, "0")}:00`;
       const date = fromZonedTime(localTimeString, timezone);
@@ -398,18 +412,10 @@ const ephemerisRouter = router({
 
       const result = await calculateChart(date, observer);
 
-      // Use the correct tropical Ascendant from the astronomy library
-      // (NOT from coordinateTransformer, which is for visualization only)
       const tropicalAsc = result.houses.ascendant;
       const mc = result.houses.mc;
       const desc = (tropicalAsc + 180) % 360;
       const ic = (mc + 180) % 360;
-
-      // Generate 12 equal house cusps from the correct topocentric Ascendant
-
-  // ─── CRISIS DETECTION ─────────────────────────────────────────────────────────
-  const transitAspects = calculateAspects(result.planets, result.planets);
-  const crisisResult = crisisEngine.analyze(transitAspects);
 
       const houseCusps = [];
       for (let i = 0; i < 12; i++) {
@@ -434,9 +440,11 @@ const ephemerisRouter = router({
         tropicalAsc
       );
 
-  // ─── CRISIS DETECTION ─────────────────────────────────────────────────────────
-  const transitAspects = calculateAspects(result.planets, result.planets);
-  const crisisResult = crisisEngine.analyze(transitAspects);
+      // ─── CRISIS DETECTION ─────────────────────────────────────────────────────────
+      // Calculate aspects and detect crisis patterns (death-and-return, stelliums, etc.)
+      const transitAspects = calculateAspects(result.planets, result.planets);
+      const crisisResult = crisisEngine.analyze(transitAspects);
+      // ──────────────────────────────────────────────────────────────────────────────
 
       return {
         planets: result.planets,
@@ -448,8 +456,8 @@ const ephemerisRouter = router({
         angles: { asc: tropicalAsc, desc, mc, ic },
         ayanamsa: result.ayanamsa,
         readingText,
-  crisis: crisisResult,
         enrichedText,
+        crisis: crisisResult,
       };
     }),
 });
@@ -683,8 +691,6 @@ Rules: Answer directly. Use specific placements. No preamble. Keep it conversati
 });
 
 // ─── Sports Horary Router ─────────────────────────────────────────────────────
-// Deterministic sports-prediction engine (server/sportsHorary.ts) drives the
-// call; the LLM narrates the engine's verdict/score/flags.
 
 const sportsHoraryRouter = router({
   ask: publicProcedure
@@ -786,7 +792,6 @@ const sportsHoraryRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      // Format planets into readable chart text for the LLM
       const transitText = input.planets
         .map(p => {
           const rx = p.rx ? " Rx" : "";
@@ -795,23 +800,12 @@ const sportsHoraryRouter = router({
         })
         .join("\n");
 
-      // The ascendant was previously only used for the separate
-      // calculateTerritorialControl call below and never told to
-      // sportsHoraryV2Layer — its parser only knows the ascendant if an
-      // "Asc:" line is present in the text it's given. Without this, the
-      // narrative and the territorial-control numbers were computed from
-      // two different ideas of the chart (one with a real ascendant, one
-      // with none), which is why they could disagree even when both were
-      // individually correct.
       const ascendantLon = input.houseCusps[0];
       const ascSignIndex = Math.floor(((ascendantLon % 360) + 360) % 360 / 30);
       const ascDegreeInSign = ((ascendantLon % 360) + 360) % 360 % 30;
       const ascLine = `Asc: ${ascDegreeInSign.toFixed(2)}° ${ZODIAC_SIGNS[ascSignIndex] || "Aries"}`;
       const transitTextWithAsc = `${ascLine}\n${transitText}`;
 
-      // Get V2 reading — this now also computes territorialControl
-      // internally from this exact same chart, so there's one source of
-      // truth instead of two independent engines.
       const result = await sportsHoraryV2Layer({
         question: input.question,
         natalText: "",
@@ -848,3 +842,4 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+EOF
