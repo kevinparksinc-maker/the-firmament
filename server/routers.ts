@@ -1,6 +1,4 @@
-cat > server/routers.ts << 'EOF'
 import { invokeLLM } from "./_core/llm";
-import { crisisEngine } from "./crisisEngine";
 import { systemRouter } from "./_core/systemRouter";
 import { authRouter } from "./_core/authRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -27,8 +25,9 @@ import {
 } from "./fixedStars";
 import { getNakshatraAt } from "./nakshatra";
 import { getDecanFlavor } from "./decan";
-import { calculateArabicLots } from "./arabicLotsCalculator";
+import { isNight, calculateCanonicalArabicLots } from "./astrologyCore";
 import { getPlanetInHouse } from "./planetInHouse";
+import { getSubLord } from "./kp/subLords";
 
 // ─── Core Cosmology Framework ─────────────────────────────────────────────────
 
@@ -67,53 +66,6 @@ const ZODIAC_SIGNS = [
   "Pisces",
 ];
 
-// ─── Aspect Calculator ─────────────────────────────────────────────────────────
-
-function getAbsoluteDegree(sign: string, degree: number): number {
-  const signIndex = ZODIAC_SIGNS.indexOf(sign);
-  return signIndex * 30 + degree;
-}
-
-function calculateAspects(
-  transitPlanets: any[],
-  natalPlanets: any[]
-): any[] {
-  const aspects: any[] = [];
-  const aspectTypes = [
-    { name: 'conjunction', angle: 0, orb: 8 },
-    { name: 'opposition', angle: 180, orb: 8 },
-    { name: 'square', angle: 90, orb: 8 },
-    { name: 'trine', angle: 120, orb: 8 },
-    { name: 'sextile', angle: 60, orb: 6 },
-  ];
-
-  for (const t of transitPlanets) {
-    if (!t.sign || t.degreeInSign === undefined) continue;
-    const tAbs = getAbsoluteDegree(t.sign, t.degreeInSign);
-    for (const n of natalPlanets) {
-      if (!n.sign || n.degree === undefined) continue;
-      const nAbs = getAbsoluteDegree(n.sign, n.degree);
-      let diff = Math.abs(tAbs - nAbs) % 360;
-      if (diff > 180) diff = 360 - diff;
-      for (const aspect of aspectTypes) {
-        const orbDiff = Math.abs(diff - aspect.angle);
-        if (orbDiff <= aspect.orb) {
-          aspects.push({
-            planet: t.name,
-            aspect: aspect.name,
-            orb: orbDiff,
-            house: t.house || 0,
-            targetPlanet: n.name,
-            targetHouse: n.house || 0,
-            isRetrograde: t.retrograde || false,
-          });
-        }
-      }
-    }
-  }
-  return aspects;
-}
-
 // ─── Chart Enrichment Helper ──────────────────────────────────────────────────
 
 function enrichChartData(
@@ -143,11 +95,15 @@ function enrichChartData(
     const houseMeaning = p.house ? getPlanetInHouse(name, p.house) : null;
     const houseText = houseMeaning ? ` | House theme: ${houseMeaning.core}` : "";
 
+    const kp = getSubLord(abs);
+    const kpText = ` | KP Sub-lord: ${kp.lord}`;
+
     lines.push(
-      `${name}: ${p.degree}° ${p.sign}${house} | Nakshatra: ${nakshatra.name} pada ${pada} (${nakshatra.lord}) | Decan: ${decan}${houseText}`
+      `${name}: ${p.degree}° ${p.sign}${house} | Nakshatra: ${nakshatra.name} pada ${pada} | Decan: ${decan}${kpText}${houseText}`
     );
   }
 
+  // Fixed star conjunctions
   const placementsForStars: Record<
     string,
     { sign: string; degree: number; planet: string; absolute: number | null }
@@ -165,6 +121,7 @@ function enrichChartData(
   const conjunctions = detectFixedStarConjunctions(placementsForStars);
   const starText = formatStarConjunctions(conjunctions);
 
+  // Calculate Arabic Lots (if full planets and ascendant provided)
   let lotsText = "";
   if (fullPlanets && ascendant !== undefined) {
     const planetsMap = fullPlanets.reduce(
@@ -174,8 +131,12 @@ function enrichChartData(
       },
       {} as Record<string, any>
     );
-    const isSunAboveHorizon = (fullPlanets.find((p: any) => p.name === "Sun")?.altitude ?? 0) > 0;
-    const lots = calculateArabicLots(planetsMap, ascendant, !isSunAboveHorizon);
+    const sunPlacement = fullPlanets.find((p: any) => p.name === "Sun");
+    const sunHouse = sunPlacement?.house ?? 1;
+    const night = isNight(sunHouse);
+
+    const houseCusps = Array.from({ length: 12 }, (_, i) => i * 30);
+    const lots = calculateCanonicalArabicLots(planetsMap, ascendant, night, houseCusps);
     lotsText = lots
       .map(
         (lot: any) =>
@@ -305,24 +266,32 @@ ${context ? `\nPersonal context from the person: ${context}\n` : ""}
 
 Please write a complete natal chart reading. This person wants to understand themselves deeply — who they are, how they think, what drives them, what their challenges and gifts are. Write as if you are speaking directly to them.
 
+CRITICAL — GROUND EVERYTHING IN THE ACTUAL DATA ABOVE:
+This chart includes each planet's exact degree, nakshatra + pada, decan, and KP sub-lord. Use that specific data as the actual source of your interpretation — do not default to generic sign-level astrology that could apply to anyone with that placement. Two people with Mercury in the same sign but different nakshatras or sub-lords should get noticeably different readings. Name the nakshatra and sub-lord explicitly when they meaningfully shape what you're saying, not as decoration.
+
+AVOID A FORMULAIC VOICE:
+- Do not open sections with the same rhetorical pattern every time (e.g. "This is not X. This is Y.", "X does not do Y. X does Z."). Vary sentence structure and opening moves between sections and between readings.
+- Do not pad every section to equal length regardless of the chart. If one placement is unremarkable, say less about it. If another is genuinely unusual (exact conjunction, own sign, debilitated, angular), spend more real estate there.
+- Skip generic archetypal filler ("this person feels things deeply," "seeks meaning in all they do") unless a specific placement in THIS chart actually supports that specific claim.
+
 Use these exact section headers:
 
 ## MIND
-How does this person think and communicate? Interpret Mercury's sign, house, and condition. What is their mental style — how do they process information, make decisions, express themselves? Include the Moon's influence on the mind. Be specific about what Mercury in ${placements.includes("Libra") ? "Libra" : "their sign"} actually means for how they think day to day.
+How does this person think and communicate? Interpret Mercury's actual sign, degree, nakshatra, sub-lord, house, and condition — as given in the chart above, not a generic description of the sign. What is their mental style — how do they process information, make decisions, express themselves? Include the Moon's influence on the mind if relevant.
 
 ## SOUL
-What does this person need to feel whole? Interpret the Moon — their emotional nature, what nourishes them, what wounds them, how they love and need to be loved. Include Venus. Be honest about the emotional patterns this chart shows.
+What does this person need to feel whole? Interpret the Moon's actual placement above — sign, nakshatra, sub-lord, house — their emotional nature, what nourishes them, what wounds them, how they love and need to be loved. Include Venus's actual placement. Be honest about the emotional patterns this specific chart shows.
 
 ## SPIRIT
-What is this person here to do? Interpret the Sun — their core identity, life purpose, where they're meant to shine. Include Jupiter. What is the dharmic path this chart points toward?
+What is this person here to do? Interpret the Sun's actual placement above — sign, nakshatra, sub-lord, house — their core identity, life purpose, where they're meant to shine. Include Jupiter's actual placement. What is the dharmic path this specific chart points toward?
 
 ## KEY PLACEMENTS
-Identify the 2-3 most powerful, unusual, or significant placements in this chart. These could be planets in their own sign or exaltation, debilitated planets, planets in angular houses, or any placement that stands out as defining. Explain what each one means for this person's actual life.
+Identify the 2-3 most powerful, unusual, or significant placements in this chart. These could be planets in their own sign or exaltation, debilitated planets, planets in angular houses, tight fixed star conjunctions, or a sub-lord that colors a planet in a notable way. Explain what each one means for this person's actual life.
 ${starSection ? `\nAlso interpret any fixed star conjunctions listed above — these are ancient sky markers that infuse the planet with the star's power and meaning.\n` : ""}
 ## SYNTHESIS
 What is the overall story of this chart? What are the main themes — the tensions, the gifts, the life lessons? If you could tell this person one true thing about who they are based on this chart, what would it be?
 
-Write in flowing paragraphs. Be personal, specific, and honest. This person is reading their chart to understand their life — give them something real.`;
+Write in flowing paragraphs. Be personal, specific, and honest. This person is reading their chart to understand their life — give them something real, grounded in their actual placements, not a template.`;
       } else if (mode === "transit") {
         userPrompt = `Here are the current planetary positions in the sky:
 
@@ -352,22 +321,30 @@ ${context ? `\nQUESTION FROM THE PERSON — answer this directly in your reading
 
 Write a complete reading showing how the current sky is activating this natal chart right now. If a specific question was asked above, answer it directly using the chart and transits. This is personal — show how these specific transits are hitting this specific person's chart.
 
+CRITICAL — GROUND EVERYTHING IN THE ACTUAL DATA ABOVE:
+Both the natal and transit data include exact degrees, nakshatras, sub-lords, and decans. Use those specifics — a transit's sub-lord shifting relative to the natal sub-lord is often more meaningful than the sign-level aspect alone. Don't default to generic "Saturn transit means restriction" language; ground it in this exact contact.
+
+AVOID A FORMULAIC VOICE:
+- Vary how each section opens — don't reuse the same rhetorical pattern across sections.
+- Weight your attention by what's actually tight/significant in this chart (exact orbs, angular activations) rather than giving every placement equal treatment regardless of strength.
+- Only make a claim if a specific placement above actually supports it.
+
 ## CURRENT ACTIVATIONS
-What are the most significant contacts between the current sky and this natal chart? Name the specific transit planet, the natal planet it's hitting, the aspect, and what it means for this person right now.
+What are the most significant contacts between the current sky and this natal chart? Name the specific transit planet, the natal planet it's hitting, the aspect, the orb, and what it means for this person right now.
 
 ## MIND RIGHT NOW
-How is the current sky affecting this person's thinking, communication, and mental state?
+How is the current sky affecting this person's thinking, communication, and mental state? Ground this in the actual transiting and natal placements involved, not generic transit-to-house meanings.
 
 ## SOUL RIGHT NOW
-How is the current sky affecting this person's emotional life, relationships, and inner world?
+How is the current sky affecting this person's emotional life, relationships, and inner world? Same — name the specific contact driving this.
 
 ## SPIRIT RIGHT NOW
-How is the current sky affecting this person's sense of purpose, direction, and confidence?
+How is the current sky affecting this person's sense of purpose, direction, and confidence? Same.
 
 ## THE BIGGER PICTURE
 What is the overall theme of this period for this person? What should they focus on, watch out for, or lean into right now?
 
-Write in flowing paragraphs. Be specific — name the planets, the signs, the houses. This is a real person reading about their real life.`;
+Write in flowing paragraphs. Be specific — name the planets, the signs, the houses, the nakshatras and sub-lords where they matter. This is a real person reading about their real life, not a template that could apply to anyone with these placements.`;
       }
 
       const response = await invokeLLM({
@@ -440,12 +417,6 @@ const ephemerisRouter = router({
         tropicalAsc
       );
 
-      // ─── CRISIS DETECTION ─────────────────────────────────────────────────────────
-      // Calculate aspects and detect crisis patterns (death-and-return, stelliums, etc.)
-      const transitAspects = calculateAspects(result.planets, result.planets);
-      const crisisResult = crisisEngine.analyze(transitAspects);
-      // ──────────────────────────────────────────────────────────────────────────────
-
       return {
         planets: result.planets,
         houses: {
@@ -457,7 +428,6 @@ const ephemerisRouter = router({
         ayanamsa: result.ayanamsa,
         readingText,
         enrichedText,
-        crisis: crisisResult,
       };
     }),
 });
@@ -499,7 +469,7 @@ const chartsRouter = router({
     }),
 });
 
-// ─── Synthesize Router ────────────────────────────────────────────────────────
+// ─── Synthesize Router ────────────────────────────────────────────────────
 
 const synthesizeRouter = router({
   synthesize: publicProcedure
@@ -591,7 +561,7 @@ const natalPlacementRouter = router({
   }),
 });
 
-// ─── Horary Router ───────────────────────────────────────────────────────────
+// ─── Horary Router ───────────────────────────────────────────────────────
 
 const horaryRouter = router({
   followUp: publicProcedure
@@ -842,4 +812,3 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
-EOF
