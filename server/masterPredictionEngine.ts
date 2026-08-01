@@ -303,9 +303,17 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
 
     // KP Sub-Lord Modifier: Krishnamurti Paddhati sub-lord signification
     // Each ecliptic degree has a sub-lord ruler (270 divisions: 27 nakshatras × 9 lords)
-    // Sub-lord adds fine-grained nuance to lord strength (±0.5 pts)
+    // Sub-lord weighted by house type (angular/succedent/cadent) — same scale as basePoints
     const subLordData = getSubLord(lord.placement.eclipticLon);
-    const kpScore = subLordData.lord === nakshatraLord ? 0.25 : -0.15; // Harmonic vs friction
+    const houseType = getHouseType(occupiedHouse);
+    const kpWeights = {
+      angular: { harmonic: 1.5, friction: -1.5 },
+      succedent: { harmonic: 1.0, friction: -1.0 },
+      cadent: { harmonic: 0.5, friction: -0.5 },
+    };
+    const kpScore = subLordData.lord === nakshatraLord
+      ? kpWeights[houseType].harmonic
+      : kpWeights[houseType].friction;
 
     // Additive scoring: base + placement + all modifiers
     const controllingGain = basePoints + placementBonus + dScore + nScore + frictionScore + kpScore;
