@@ -20,9 +20,13 @@ import {
   findFixedStarConjunctions,
 } from "./nakshatraStarEngine";
 import { getSignNakshatraFriction, PlanetName } from "./planetRelationships";
-import { getSubLord } from "./kp/subLords";
 import { buildPlanarHouseSystem } from "./planarHouseSystem";
-import { calculateArabicLots } from "./arabicLotsCalculator";
+import { 
+  isNight, 
+  calculateCanonicalArabicLots, 
+  getCanonicalDignityScore,
+  calculateTopocentricHouse 
+} from "./astrologyCore";
 import {
   upachayaGrowthLayer,
   viaCombustaLayer,
@@ -33,6 +37,7 @@ import {
   regulusAlgolOverrides,
   nodeLayer,
 } from "./clusterKnowledgeLayers";
+import { kpDecisionLayer } from "./kpEngine";
 
 // ─────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -111,6 +116,7 @@ export interface ClusterConfig {
   sideBHouses: number[];
   sideALabel: string;
   sideBLabel: string;
+  fixedDomeMode?: boolean; // Enable stationary Earth / topocentric houses
 }
 
 export interface LayerBreakdown {
@@ -142,14 +148,21 @@ function getHouseType(house: number): HouseType {
 }
 
 function getBasePoints(house: number): number {
-  // Symmetric point scale: angular houses (cardinal angles) are worth more.
-  // Angular (1,4,7,10): 4 pts | Succedent (2,5,8,11): 3 pts | Cadent (3,6,9,12): 2 pts
-  // This reflects traditional astro hierarchy: angle > succedent > cadent
-  const houseType = getHouseType(house);
-  switch (houseType) {
-    case "angular": return 4;
-    case "succedent": return 3;
-    case "cadent": return 2;
+  // Balanced point scale prioritizing victory houses (1, 6, 11)
+  switch (house) {
+    case 1: return 8; // The Rising Side
+    case 6: return 7; // The House of Victory
+    case 11: return 6; // The House of Gains
+    case 10: return 5; // The Peak
+    case 7: return 5; // The Setting Side
+    case 4: return 4; // The Bottom
+    case 5: return 4; // Speculative gains
+    case 9: return 3; // Fortune
+    case 3: return 3; // Communication
+    case 12: return 2; // Losses (cadent)
+    case 2: return 2; // Assets
+    case 8: return 2; // Adversity
+    default: return 2;
   }
 }
 
@@ -173,45 +186,7 @@ function whichSide(house: number, config: ClusterConfig): "A" | "B" | "neutral" 
 /**
  * Assign house numbers to Arabic Lots based on their longitude
  */
-export function assignHousesToLots(lots: any[], houseCusps: Record<number, { sign: string; degree: number }>): ArabicLot[] {
-  return lots.map((lot) => {
-    const lotLon = lot.longitude || 0;
-    let house = 1;
-
-    // Find which house the lot falls in
-    for (let i = 0; i < 12; i++) {
-      const cusp = houseCusps[i + 1];
-      const nextCusp = houseCusps[(i + 1) % 12 === 0 ? 12 : (i + 1) % 12 + 1];
-
-      if (cusp && nextCusp) {
-        const cuspLon = SIGN_ORDER.indexOf(cusp.sign) * 30 + cusp.degree;
-        const nextCuspLon = SIGN_ORDER.indexOf(nextCusp.sign) * 30 + nextCusp.degree;
-
-        if (cuspLon <= nextCuspLon) {
-          if (lotLon >= cuspLon && lotLon < nextCuspLon) {
-            house = i + 1;
-            break;
-          }
-        } else {
-          if (lotLon >= cuspLon || lotLon < nextCuspLon) {
-            house = i + 1;
-            break;
-          }
-        }
-      }
-    }
-
-    return {
-      name: lot.name,
-      house,
-      sign: lot.sign,
-      degree: lot.degree,
-      longitude: lot.longitude,
-      meaning: lot.meaning,
-      formula: lot.formula,
-    };
-  });
-}
+// Removed assignHousesToLots in favor of astrologyCore.assignLotToHouse
 
 function getDignityStatus(placement: SportsHoraryPlacement): DignityStatus {
   const planet = placement.planet;
@@ -225,13 +200,7 @@ function getDignityStatus(placement: SportsHoraryPlacement): DignityStatus {
 }
 
 function dignityScore(placement: SportsHoraryPlacement): number {
-  const status = getDignityStatus(placement);
-  switch (status) {
-    case "exalted": return 2;
-    case "own": return 1;
-    case "neutral": return 0;
-    case "debilitated": return -2;
-  }
+  return getCanonicalDignityScore(placement.planet, placement.sign).score;
 }
 
 function nakshatraScore(nakshatraName: string): number {
@@ -267,6 +236,36 @@ function temperamentVolatility(nakshatraName: string): number {
 // ─────────────────────────────────────────────────────────────────────────
 
 export function calculateFullPrediction(chart: ChartData, config: ClusterConfig): PredictionResult {
+  // ──── PRE-FLIGHT: FIXED DOME / STATIONARY EARTH OVERRIDE
+  if (config.fixedDomeMode) {
+    // Re-assign each planet's HOUSE based on its azimuth (observer-relative —
+    // this is legitimate, houses rotate with the sky as seen from a given
+    // place/time). Do NOT touch sign or degree here: those come only from
+    // the planet's ecliptic longitude on the fixed firmament grid and must
+    // never be recalculated from azimuth. A planet's sign never drifts with
+    // time of day or observer location — only its house does.
+    chart.planetsInHouses = chart.planetsInHouses.map(p => {
+      if (p.azimuth !== undefined) {
+        const topo = calculateTopocentricHouse(p.azimuth);
+        return { ...p, house: topo.house };
+      }
+      return p;
+    });
+
+    // Re-assign house lords based on fixed 30-degree azimuth segments
+    // In a fixed dome, House 1 is always 0-30 deg Azimuth, etc.
+    chart.houseLords = chart.houseLords.map(l => {
+      const placement = chart.planetsInHouses.find(p => p.planet === l.lordPlanet);
+      if (placement) {
+        return { ...l, house: placement.house, placement };
+      }
+      return l;
+    });
+
+    // Fix house cusps to 30-degree increments for Arabic Lot assignment
+    chart.houses = Array.from({ length: 12 }, (_, i) => ({ house: i + 1, degree: i * 30 }));
+  }
+
   const breakdown: LayerBreakdown[] = [];
 
   // ──── LAYER 1: TERRITORIAL SCORING (Canonical Rules)
@@ -301,42 +300,15 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     const frictionResult = getSignNakshatraFriction(signLord, nakshatraLord);
     const frictionScore = (frictionResult.multiplier - 1) * 2; // Convert 0.9-1.1x to -0.2 to +0.2
 
-    // KP Sub-Lord & Star-Lord Modifiers: Krishnamurti Paddhati three-tier signification
-    // Layer 2: Sub-lord ruler (planet ruling the exact ecliptic degree in 270 divisions)
-    const subLordData = getSubLord(lord.placement.eclipticLon);
-    const houseType = getHouseType(occupiedHouse);
-
-    // Layer 3: Star-lord (planet ruling the nakshatra of the sub-lord planet)
-    // Find the sub-lord planet's position in the chart to get its nakshatra
-    const subLordPlanetName = subLordData.lord;
-    const subLordPlacement = chart.planetsInHouses.find(p => p.name === subLordPlanetName);
-    const starLord = subLordPlacement ? getNakshatraLord(subLordPlacement.nakshatra) : nakshatraLord;
-
-    // KP harmonic alignment: sub-lord and star-lord both match nakshatra lord = strongest alignment
-    const kpAlignmentLevels = {
-      triple: { angular: 2.0, succedent: 1.5, cadent: 1.0 }, // Sub-lord, star-lord, AND nak-lord all match
-      double: { angular: 1.5, succedent: 1.0, cadent: 0.5 }, // Sub-lord OR star-lord matches nak-lord
-      single: { angular: -1.5, succedent: -1.0, cadent: -0.5 }, // Neither sub-lord nor star-lord match
-    };
-
-    let kpScore = 0;
-    if (subLordData.lord === nakshatraLord && starLord === nakshatraLord) {
-      kpScore = kpAlignmentLevels.triple[houseType]; // All three aligned
-    } else if (subLordData.lord === nakshatraLord || starLord === nakshatraLord) {
-      kpScore = kpAlignmentLevels.double[houseType]; // Sub-lord OR star-lord aligned
-    } else {
-      kpScore = kpAlignmentLevels.single[houseType]; // Neither aligned
-    }
-
-    // Additive scoring: base + placement + all modifiers including full KP chain
-    const controllingGain = basePoints + placementBonus + dScore + nScore + frictionScore + kpScore;
+    // Additive scoring: base + placement + all modifiers
+    const controllingGain = basePoints + placementBonus + dScore + nScore + frictionScore;
 
     if (occupiedSide === "A") {
       sideATotal += controllingGain;
 
       if (ruledSide === "B") {
         // Side B lord is displaced into Side A territory
-        sideBTotal -= basePoints; // Side B loses BASE POINTS (no multipliers)
+        sideBTotal -= (basePoints * 1.5); // INCREASED PENALTY: Displaced lords lose more to prioritize territory foundation
         displaceCount.B.add(lord.lordPlanet);
       }
     } else {
@@ -344,7 +316,7 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
 
       if (ruledSide === "A") {
         // Side A lord is displaced into Side B territory
-        sideATotal -= basePoints; // Side A loses BASE POINTS (no multipliers)
+        sideATotal -= (basePoints * 1.5); // INCREASED PENALTY: Displaced lords lose more to prioritize territory foundation
         displaceCount.A.add(lord.lordPlanet);
       }
     }
@@ -365,9 +337,23 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     sideBPoints: sideBTotal,
   });
 
-  // ──── LAYER 2: REMOVED
-  // Per canonical rules: only house lords are scored. Non-lord planets are not part of the system.
-  // This eliminates noise from unclaimed planets and keeps scoring pure to territorial control.
+  // ──── LAYER 2: LUNAR FLOW (Moon's Territorial Presence)
+  let sideAMoon = 0;
+  let sideBMoon = 0;
+  const moonPlacement = chart.planetsInHouses.find(p => p.planet === "Moon");
+  if (moonPlacement) {
+    const moonSide = whichSide(moonPlacement.house, config);
+    const isAngular = [1, 4, 7, 10].includes(moonPlacement.house);
+    const moonPoints = isAngular ? 8 : 5; // The Moon is a heavy hitter for momentum
+    
+    if (moonSide === "A") sideAMoon = moonPoints;
+    else if (moonSide === "B") sideBMoon = moonPoints;
+  }
+  breakdown.push({
+    layer: "Lunar Flow (Territorial Presence)",
+    sideAPoints: sideAMoon,
+    sideBPoints: sideBMoon,
+  });
 
   // ──── LAYER 3: FIXED STAR AMPLIFICATIONS (Separate layer)
   let sideAFixedStars = 0;
@@ -410,16 +396,15 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     const side = whichSide(lot.house, config);
     if (side === "neutral") continue;
 
-    const basePoints = getBasePoints(lot.house);
-    const placementBonus = getPlacementBonus(lot.house);
-    const points = basePoints + placementBonus;
+    // REDUCED WEIGHT: Lots are now supporting signals (flat 1-2 points)
+    // instead of full house-weighted points, to keep Territory as the foundation.
+    const houseType = getHouseType(lot.house);
+    const points = houseType === "angular" ? 2 : 1;
 
     if (ADVERSITY_LOTS.has(lot.name)) {
-      // Adversity lots penalize the side that owns the house
       if (side === "A") sideALots -= points;
       else sideBLots -= points;
     } else {
-      // Benefic lots reward
       if (side === "A") sideALots += points;
       else sideBLots += points;
     }
@@ -464,6 +449,7 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
   const translation = translationOfLightLayer(chart, config);
   const harmoniousFriction = harmoniousFrictionLayer(chart, config);
   const nodes = nodeLayer(chart, config);
+  const kp = kpDecisionLayer(chart, config);
   const overrides = regulusAlgolOverrides(chart, config);
   // Regulus/Algol intentionally contribute NO extra points here — they're
   // already scored via Fixed Stars (Layer 3) at royal-tier amplification.
@@ -477,21 +463,45 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     { layer: mutualReception.layer, sideAPoints: mutualReception.sideAPoints, sideBPoints: mutualReception.sideBPoints },
     { layer: translation.layer, sideAPoints: translation.sideAPoints, sideBPoints: translation.sideBPoints },
     { layer: harmoniousFriction.layer, sideAPoints: harmoniousFriction.sideAPoints, sideBPoints: harmoniousFriction.sideBPoints },
-    { layer: nodes.layer, sideAPoints: nodes.sideAPoints, sideBPoints: nodes.sideBPoints }
+    { layer: nodes.layer, sideAPoints: nodes.sideAPoints, sideBPoints: nodes.sideBPoints },
+    { layer: kp.layer, sideAPoints: kp.sideAPoints, sideBPoints: kp.sideBPoints }
   );
 
-  const clusterLayersA =
-    upachaya.sideAPoints + viaCombusta.sideAPoints + besiegement.sideAPoints +
-    mutualReception.sideAPoints + translation.sideAPoints + harmoniousFriction.sideAPoints +
+  // ──── FINAL PEER-TO-PEER COMBINATION
+  // Territory layer (sideATotal/sideBTotal) and KP layer (kp.sideAPoints/kp.sideBPoints) 
+  // are now equal peers in the final verdict.
+  
+  const sideABreakdown = 
+    sideATotal +              // Peer 1: Territorial
+    kp.sideAPoints +          // Peer 2: KP Stellar
+    sideAFixedStars + 
+    sideALots + 
+    (aspectTotal / 2) + 
+    (moonAdjustment / 2) + 
+    sideAMoon +
+    upachaya.sideAPoints + 
+    viaCombusta.sideAPoints + 
+    besiegement.sideAPoints +
+    mutualReception.sideAPoints + 
+    translation.sideAPoints + 
+    harmoniousFriction.sideAPoints +
     nodes.sideAPoints;
-  const clusterLayersB =
-    upachaya.sideBPoints + viaCombusta.sideBPoints + besiegement.sideBPoints +
-    mutualReception.sideBPoints + translation.sideBPoints + harmoniousFriction.sideBPoints +
-    nodes.sideBPoints;
 
-  // ──── TOTAL & CONFIDENCE
-  const sideABreakdown = sideATotal + sideAFixedStars + sideALots + (aspectTotal / 2) + (moonAdjustment / 2) + clusterLayersA;
-  const sideBBreakdown = sideBTotal + sideBFixedStars + sideBLots + (-aspectTotal / 2) + (moonAdjustment / 2) + clusterLayersB;
+  const sideBBreakdown = 
+    sideBTotal +              // Peer 1: Territorial
+    kp.sideBPoints +          // Peer 2: KP Stellar
+    sideBFixedStars + 
+    sideBLots + 
+    (-aspectTotal / 2) + 
+    (moonAdjustment / 2) + 
+    sideBMoon +
+    upachaya.sideBPoints + 
+    viaCombusta.sideBPoints + 
+    besiegement.sideBPoints +
+    mutualReception.sideBPoints + 
+    translation.sideBPoints + 
+    harmoniousFriction.sideBPoints +
+    nodes.sideBPoints;
 
   const TOO_CLOSE_THRESHOLD = 2;
   const margin = sideABreakdown - sideBBreakdown;
