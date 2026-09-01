@@ -1,27 +1,24 @@
 /**
- * ARCANA STATE — Topocentric Ephemeris Engine
+ * ARCANA STATE — Fixed-Dome Ephemeris Engine
  *
  * Two-layer architecture as per the Snow Globe brief:
- *  Math Layer  → Swiss-equivalent topocentric positions (astronomy-engine)
- *  Visual Layer → Alt/Az output for the parabolic dome renderer
+ *  Math Layer  → raw fixed-dome positions from a permanent zero-tilt plane
+  * Visual Layer  → optional observer-relative Alt/Az output for the renderer;
+ *                  these fields never rotate the fixed dome sectors
+
  *
- * All positions are TOPOCENTRIC (observer on Earth's surface),
- * not geocentric. Full parallax correction applied, especially for the Moon.
+ * Active dome positions are projections of geocentric vectors onto a
+ * permanent zero-tilt plane. Observer-relative sky fields are not used to
+ * rotate the dome sectors.
  *
- * ZODIAC MODEL: Pure ecliptic longitude, zero precession/ayanamsa correction. Tropical and sidereal are the same frame here — there is no drift between them, so no ayanamsa is ever applied.
- * The dome's 0° Aries point is fixed — it does not drift against the
- * physical sky over time. This is intentional and should not be "fixed"
- * by adding an ayanamsa later; that would reintroduce a precession model
- * this engine is deliberately built without.
+ * ZODIAC MODEL: Permanent raw fixed-dome longitude. A body's geocentric
+ * J2000 vector is projected directly onto the dome's zero-tilt X/Y plane.
+ * No precession, nutation, obliquity, ayanamsa, or date-varying ecliptic
+ * rotation is applied. The dome's 0° Aries point and 30° sectors are fixed.
  *
- * HOUSE SYSTEM: Whole Sign. The raw geometric Ascendant degree is calculated
- * as before (no ayanamsa), but house boundaries are NOT set at that exact
- * degree — they are set at the 0° boundary of the Ascendant's sign. That
- * entire sign becomes House 1, the next sign House 2, and so on around the
- * wheel. No sign is ever split across two houses ("intercepted") and no
- * house ever spans two signs. House labels are fixed at the moment of the
- * chart (birth, transit-moment, or horary-moment) and never re-spun after
- * that. This applies uniformly to natal, transit, and horary charts.
+ * HOUSE SYSTEM: Whole-sign local horizon sectors. The dome 0° Aries reference
+ * never moves, while House 1 begins at the sign containing the observer/time-
+ * specific Ascendant; subsequent houses advance by 30°.
  */
 
 import { createRequire } from "module";
@@ -30,13 +27,11 @@ const Astronomy = _require("astronomy-engine");
 const {
   MakeTime,
   Observer,
-  SiderealTime,
-  SunPosition,
-  GeoVector,
-  Ecliptic,
   Equator,
   Horizon,
+  GeoVector,
   Body,
+  SiderealTime,
 } = Astronomy;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -51,9 +46,9 @@ export interface PlanetPosition {
   symbol: string;
   /** Ecliptic longitude in degrees (0–360) — the only zodiac frame this engine uses (tropical and sidereal are identical here, since this model has no precession) */
   eclipticLon: number;
-  /** Right Ascension in degrees (0-360), converted from astronomy-engine's native hours -- for polar/equatorial dome projection rendering */
+  /** Observer-relative right ascension in degrees for optional display only. */
   ra: number;
-  /** Declination in degrees (-90 to +90) -- for polar/equatorial dome projection rendering */
+  /** Observer-relative declination in degrees for optional display only. */
   dec: number;
   /** Zodiac sign */
   sign: string;
@@ -61,9 +56,9 @@ export interface PlanetPosition {
   degreeInSign: number;
   /** Arcminutes within degree (0–59) */
   minutes: number;
-  /** True topocentric altitude above horizon (degrees) */
+  /** Observer-relative topocentric altitude for optional display; not a dome sector input. */
   altitude: number;
-  /** True topocentric azimuth (degrees, 0=N, 90=E) */
+  /** Observer-relative topocentric azimuth for optional display; not a dome sector input. */
   azimuth: number;
   /** Is the planet retrograde? */
   retrograde: boolean;
@@ -145,18 +140,15 @@ function lonToSignDeg(lon: number): {
  * which holds for the lunar nodes.
  */
 function eclipticToEquatorial(eclipticLon: number): { ra: number; dec: number } {
-  const SOLAR_TROPIC_ANGLE = 23.4367;
-  const e = (SOLAR_TROPIC_ANGLE * Math.PI) / 180;
-  const lambda = (eclipticLon * Math.PI) / 180;
+  // The fixed dome has no obliquity: its permanent equator and ecliptic are
+  // coincident, so longitude maps directly to right ascension and declination
+  // remains zero for the idealized dome layer.
+  return { ra: ((eclipticLon % 360) + 360) % 360, dec: 0 };
+}
 
-  const raRad = Math.atan2(Math.sin(lambda) * Math.cos(e), Math.cos(lambda));
-  const decRad = Math.asin(Math.sin(lambda) * Math.sin(e));
-
-  let ra = (raRad * 180) / Math.PI;
-  ra = ((ra % 360) + 360) % 360;
-  const dec = (decRad * 180) / Math.PI;
-
-  return { ra, dec };
+function fixedDomeLongitude(body: Parameters<typeof GeoVector>[0], date: Date): number {
+  const vector = GeoVector(body, MakeTime(date), false);
+  return ((Math.atan2(vector.y, vector.x) * 180) / Math.PI + 360) % 360;
 }
 
 // ─── Ascendant / MC (corrected) ────────────────────────────────────────────────
@@ -169,53 +161,17 @@ function calcHouseCusps(
   date: Date,
   observer: ObserverLocation
 ): HouseCusps {
-  // Greenwich Sidereal Time → Local Sidereal Time → RAMC (degrees)
-  const gst = SiderealTime(MakeTime(date));
-  const lstHours = gst + observer.longitude / 15;
-  const sidereal = ((lstHours % 24) + 24) % 24;
-  const ramc = sidereal * 15;
-
-  // The sun's maximum angular deviation from the celestial equator —
-  // the boundary defined by the Tropic of Cancer (north) and
-  // Tropic of Capricorn (south), where the sun's circling path
-  // reaches its extremes within the dome.
-  const SOLAR_TROPIC_ANGLE = 23.4367;
-  const e = (SOLAR_TROPIC_ANGLE * Math.PI) / 180;
-  const lat = (observer.latitude * Math.PI) / 180;
-  const ramcRad = (ramc * Math.PI) / 180;
-
-  // MC
-  let mcEcliptic =
-    (Math.atan2(Math.sin(ramcRad), Math.cos(ramcRad) * Math.cos(e)) * 180) /
-    Math.PI;
-  mcEcliptic = ((mcEcliptic % 360) + 360) % 360;
-
-  // Ascendant
-  let ascEcliptic =
-    (Math.atan2(
-      -Math.cos(ramcRad),
-      Math.sin(e) * Math.tan(lat) + Math.cos(e) * Math.sin(ramcRad)
-    ) *
-      180) /
-    Math.PI;
-  ascEcliptic = ((ascEcliptic % 360) + 360) % 360;
-
-  // Whole Sign cusps: house 1 = the entire fixed sign containing the
-  // Ascendant degree. Each cusp sits at that sign's 0° boundary (a multiple
-  // of 30°), not at the raw Ascendant degree — Whole Sign uses sign
-  // boundaries, never the exact rising degree, as house cusps.
-  const ascSignIdx = Math.floor((((ascEcliptic % 360) + 360) % 360) / 30);
-  const cusps: number[] = [];
-  for (let i = 0; i < 12; i++) {
-    const signIdx = (ascSignIdx + i) % 12;
-    cusps.push(signIdx * 30);
-  }
-
-  return {
-    cusps,
-    ascendant: ascEcliptic,
-    mc: mcEcliptic,
-  };
+  // The dome reference is fixed, but each observer has a local horizon.
+  // Use local sidereal time to find that horizon's intersection with the
+  // permanent zero-tilt equatorial/ecliptic plane. No obliquity, precession,
+  // nutation, or ayanamsa is applied.
+  const gstHours = SiderealTime(MakeTime(date));
+  const localSiderealDegrees = ((gstHours * 15 + observer.longitude) % 360 + 360) % 360;
+  const ascendant = (localSiderealDegrees + 270) % 360;
+  const mc = localSiderealDegrees;
+  const ascSignIdx = Math.floor(ascendant / 30);
+  const cusps = Array.from({ length: 12 }, (_, index) => ((ascSignIdx + index) % 12) * 30);
+  return { cusps, ascendant, mc };
 }
 
 /**
@@ -258,15 +214,11 @@ export async function calculateChart(
   date: Date,
   observer: ObserverLocation
 ): Promise<EphemerisResult> {
-  const astroObs = new Observer(
-    observer.latitude,
-    observer.longitude,
-    observer.altitude
-  );
+  const astroObserver = new Observer(observer.latitude, observer.longitude, observer.altitude);
   const houses = calcHouseCusps(date, observer);
   const wholeSignHouses = generateWholeSignHouses(houses.ascendant);
 
-  const bodyList: Array<{ name: string; body: Astronomy.Body }> = [
+  const bodyList: Array<{ name: string; body: Parameters<typeof GeoVector>[0] }> = [
     { name: "Sun", body: Astronomy.Body.Sun },
     { name: "Moon", body: Astronomy.Body.Moon },
     { name: "Mercury", body: Astronomy.Body.Mercury },
@@ -283,35 +235,17 @@ export async function calculateChart(
 
   for (const { name, body } of bodyList) {
     try {
-      let eclipticLon: number;
-      if (body === Astronomy.Body.Sun) {
-        const sp = SunPosition(MakeTime(date));
-        eclipticLon = sp.elon;
-      } else {
-        const vec = GeoVector(body, MakeTime(date), true);
-        const ecl = Ecliptic(vec);
-        eclipticLon = ecl.elon;
-      }
+      const eclipticLon = fixedDomeLongitude(body, date);
 
       const { sign, degree, minutes } = lonToSignDeg(eclipticLon);
 
-      const equatorial = Equator(body, MakeTime(date), astroObs, true, true);
-      const horizon = Horizon(
-        MakeTime(date),
-        astroObs,
-        equatorial.ra,
-        equatorial.dec,
-        "normal"
-      );
+      // These are optional observer-relative display fields only. They are not
+      // fed back into the fixed-dome longitude, sector, or house calculation.
+      const equatorial = Equator(body, MakeTime(date), astroObserver, true, true);
+      const horizon = Horizon(MakeTime(date), astroObserver, equatorial.ra, equatorial.dec, "normal");
 
       const yesterday = new Date(date.getTime() - 86400000);
-      let eclipticYesterday: number;
-      if (body === Astronomy.Body.Sun) {
-        eclipticYesterday = SunPosition(MakeTime(yesterday)).elon;
-      } else {
-        const vecY = GeoVector(body, MakeTime(yesterday), true);
-        eclipticYesterday = Ecliptic(vecY).elon;
-      }
+      const eclipticYesterday = fixedDomeLongitude(body, yesterday);
       let retrograde = false;
       if (body !== Astronomy.Body.Sun && body !== Astronomy.Body.Moon) {
         let diff = eclipticLon - eclipticYesterday;
