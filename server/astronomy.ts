@@ -2,9 +2,11 @@ import sweph from "sweph";
 import tzLookup from "tz-lookup";
 import { FIXED_STARS, formatLongitude, normalizeLongitude, overlay, type Overlay } from "../shared/hybrid";
 
-export type ChartInput = { location: string; latitude: number; longitude: number; timezone: string; date: string; time: string };
+export type ChartInput = { location: string; latitude: number; longitude: number; timezone: string; date: string; time: string; transitLocation?: string; transitLatitude?: number; transitLongitude?: number; transitTimezone?: string };
 export type ChartRow = { name: string; longitude: number; display: string; house: number; retrograde?: boolean; overlay: Overlay };
-export type ChartResult = { input: ChartInput; utc: string; julianDay: number; ascendant: ChartRow; houses: number[]; movingBodies: ChartRow[]; frozenStars: ChartRow[]; validation: { passed: boolean; notes: string[] } };
+export type TransitContact = { natalName: string; aspect: "conjunction" | "sextile" | "square" | "trine" | "opposition"; orb: number };
+export type TransitRow = ChartRow & { natalContacts: TransitContact[] };
+export type ChartResult = { input: ChartInput; utc: string; julianDay: number; ascendant: ChartRow; houses: number[]; movingBodies: ChartRow[]; frozenStars: ChartRow[]; transitDate: string; transits: TransitRow[]; validation: { passed: boolean; notes: string[] } };
 
 function parseLocalToUtc(date: string, time: string, timezone: string) {
   const [y, m, d] = date.split("-").map(Number); const [hh, mm] = time.split(":").map(Number);
@@ -26,6 +28,7 @@ function safeCalc(jd: number, planet: number) {
   return { longitude: normalizeLongitude(Number(data[0])), speed: Number(data[3] ?? 0) };
 }
 function houseFor(longitude: number, cusps: number[]) { const L = normalizeLongitude(longitude); for (let i = 0; i < 12; i++) { const start = normalizeLongitude(cusps[i]); const end = normalizeLongitude(cusps[(i + 1) % 12]); const inside = start < end ? L >= start && L < end : L >= start || L < end; if (inside) return i + 1; } return 1; }
+function aspectBetween(a: number, b: number): { aspect: TransitContact["aspect"]; orb: number } | null { const separation = Math.abs(((a - b + 180) % 360) - 180); const targets: Array<[number, TransitContact["aspect"]]> = [[0, "conjunction"], [60, "sextile"], [90, "square"], [120, "trine"], [180, "opposition"]]; const best = targets.map(([target, aspect]) => ({ aspect, orb: Math.abs(separation - target) })).sort((x, y) => x.orb - y.orb)[0]; return best && best.orb <= 3 ? best : null; }
 
 export async function calculateChart(input: ChartInput): Promise<ChartResult> {
   const utc = parseLocalToUtc(input.date, input.time, input.timezone); const y = utc.getUTCFullYear(); const m = utc.getUTCMonth() + 1; const d = utc.getUTCDate(); const hour = utc.getUTCHours() + utc.getUTCMinutes() / 60;
@@ -44,7 +47,11 @@ export async function calculateChart(input: ChartInput): Promise<ChartResult> {
   const isDallas = input.date === "1986-11-20" && input.location.toLowerCase().includes("dallas");
   const withinArcminute = ["Sun", "Moon", "Antares", "Hamal"].every(key => delta(actual[key as keyof typeof actual], reference[key as keyof typeof reference]) <= 1 / 60) && delta(actual.Ascendant, reference.Ascendant) <= 2 / 60;
   const validation = isDallas ? { passed: withinArcminute, notes: withinArcminute ? ["Dallas reference profile verified; the published Ascendant is rounded to the nearest minute, so it uses a two-arcminute display-reference tolerance.", "Frozen stars remain precession-locked; Antares and Hamal use the prescribed constants."] : ["Dallas profile calculated, but one or more reference placements exceeded the one-arcminute tolerance."] } : { passed: false, notes: ["Reference validation runs automatically for the documented Dallas profile."] };
-  return { input, utc: utc.toISOString(), julianDay: jd, ascendant: ascRow, houses: cusps, movingBodies, frozenStars, validation };
+  const transitLatitude = input.transitLatitude ?? input.latitude; const transitLongitude = input.transitLongitude ?? input.longitude; const transitTimezone = input.transitTimezone ?? input.timezone; const transitNow = new Date(); const transitParts = new Intl.DateTimeFormat("en-CA", { timeZone: transitTimezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(transitNow); const transitValues = Object.fromEntries(transitParts.filter(part => part.type !== "literal").map(part => [part.type, part.value])); const transitWallDate = `${transitValues.year}-${transitValues.month}-${transitValues.day}`; const transitWallTime = `${transitValues.hour}:${transitValues.minute}`; const transitUtc = parseLocalToUtc(transitWallDate, transitWallTime, transitTimezone); const transitJd = Number((sweph as any).julday(transitUtc.getUTCFullYear(), transitUtc.getUTCMonth() + 1, transitUtc.getUTCDate(), transitUtc.getUTCHours() + transitUtc.getUTCMinutes() / 60 + transitUtc.getUTCSeconds() / 3600, 1));
+  const transitHouseResult: any = (sweph as any).houses_ex(transitJd, 0, transitLatitude, transitLongitude, "T"); const transitCusps: number[] = (transitHouseResult?.data?.houses ?? transitHouseResult?.houses ?? []).slice(0, 12).map(Number);
+  const natalTargets = [...movingBodies, ascRow];
+  const transits: TransitRow[] = planetNames.map((name, i) => { const p = safeCalc(transitJd, i); const contacts = natalTargets.flatMap(natal => { const found = aspectBetween(p.longitude, natal.longitude); return found ? [{ natalName: natal.name, ...found }] : []; }); return { name, longitude: p.longitude, display: `${formatLongitude(p.longitude)}${p.speed < 0 ? " ®" : ""}`, house: houseFor(p.longitude, transitCusps.length === 12 ? transitCusps : cusps), retrograde: p.speed < 0, overlay: overlay(p.longitude), natalContacts: contacts }; });
+  return { input, utc: utc.toISOString(), julianDay: jd, ascendant: ascRow, houses: cusps, movingBodies, frozenStars, transitDate: transitUtc.toISOString(), transits, validation };
 }
 
 export async function geocodeLocation(query: string) {
