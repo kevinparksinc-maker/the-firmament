@@ -6,7 +6,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { calculateChart, geocodeLocation } from "./astronomy";
 import { followUp, generateInterpretation } from "./interpretation";
 
-const chartInput = z.object({ location: z.string().min(2), latitude: z.number(), longitude: z.number(), timezone: z.string().min(2), date: z.string(), time: z.string() });
+const chartInput = z.object({ location: z.string().min(2), latitude: z.number(), longitude: z.number(), timezone: z.string().min(2), date: z.string(), time: z.string(), transitLocation: z.string().optional(), transitLatitude: z.number().optional(), transitLongitude: z.number().optional(), transitTimezone: z.string().optional(), transitDate: z.string().optional(), transitTime: z.string().optional() });
 const chartResultInput = z.object({ chart: z.any() });
 export const appRouter = router({
   system: systemRouter,
@@ -16,8 +16,8 @@ export const appRouter = router({
     calculate: publicProcedure.input(chartInput).mutation(({ input }) => calculateChart(input)),
   }),
   interpretation: router({
-    generate: publicProcedure.input(chartResultInput).mutation(({ input }) => generateInterpretation(input.chart)),
-    followUp: publicProcedure.input(z.object({ chart: z.any(), interpretation: z.object({ intelligence: z.string(), reading: z.string() }), history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })), question: z.string().min(1) })).mutation(({ input }) => followUp(input.chart, input.interpretation, input.history, input.question)),
+    generate: publicProcedure.input(chartResultInput.extend({ mode: z.enum(["natal", "transit", "combined"]).default("combined") })).mutation(({ input }) => generateInterpretation(input.chart, input.mode)),
+    followUp: publicProcedure.input(z.object({ chart: z.any(), interpretation: z.object({ intelligence: z.string(), reading: z.string() }), history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })), question: z.string().min(1), mode: z.enum(["natal", "transit", "combined"]).default("combined") })).mutation(({ input }) => followUp(input.chart, input.interpretation, input.history, input.question, input.mode)),
   }),
 });
 export type AppRouter = typeof appRouter;
