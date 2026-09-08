@@ -63,9 +63,37 @@ export type InvokeResult = {
 };
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey)
-    throw new Error("BUILT_IN_FORGE_API_KEY is not configured");
+  if (!ENV.forgeApiKey && !process.env.OPENAI_API_KEY)
+    throw new Error("No AI provider is configured");
 };
+
+async function invokeOpenAICompatible(params: InvokeParams): Promise<InvokeResult> {
+  const baseUrl = (process.env.OPENAI_API_BASE || "https://api.openai.com/v1").replace(/\/$/, "");
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("No AI provider is configured");
+
+  const messages = params.messages.map((message) => ({
+    role: message.role === "tool" || message.role === "function" ? "user" : message.role,
+    content: ensureArray(message.content).map(toText).join("\n"),
+  }));
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || "gpt-5-mini",
+      messages,
+      max_tokens: params.max_tokens ?? params.maxTokens ?? 4000,
+    }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI-compatible API error: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  return (await response.json()) as InvokeResult;
+}
 const ensureArray = (c: MessageContent | MessageContent[]): MessageContent[] =>
   Array.isArray(c) ? c : [c];
 const toText = (part: MessageContent): string => {
@@ -76,6 +104,7 @@ const toText = (part: MessageContent): string => {
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertApiKey();
+  if (!ENV.forgeApiKey) return invokeOpenAICompatible(params);
   const { messages } = params;
 
   const systemParts = messages

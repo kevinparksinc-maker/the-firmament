@@ -22,8 +22,9 @@ import {
   type SportsHoraryPlacement,
   assignHousesToLots,
 } from "./masterPredictionEngine";
-import { getNakshatraAt } from "./nakshatra";
+import { getNakshatra } from "../shared/fixed-background";
 import { calculateArabicLots } from "./arabicLotsCalculator";
+import { FIXED_STARS, getArabicMansion, findFixedStarConjunctions } from "../shared/fixed-background";
 
 type Chart = Record<string, PlanetPlacement>;
 
@@ -32,15 +33,20 @@ function toSportsHoraryPlacement(
   eclipticLon: number,
   placement: PlanetPlacement
 ): SportsHoraryPlacement {
-  const nakshatra = getNakshatraAt(eclipticLon);
+  const nakshatra = getNakshatra(eclipticLon);
+  const arabicMansion = getArabicMansion(eclipticLon);
+  const fixedStarConjunctions = findFixedStarConjunctions(eclipticLon, 1.5);
   return {
     planet: planetName,
-    house: placement.house,
+    house: placement.house ?? 1,
     sign: placement.sign,
     degree: placement.degree,
     eclipticLon,
     isRetrograde: placement.rx || false,
-    nakshatra: nakshatra.nakshatra.name,
+    nakshatra: nakshatra.name,
+    arabicMansion: arabicMansion.name,
+    arabicMansionIndex: arabicMansion.index,
+    fixedStarConjunctions,
   };
 }
 
@@ -122,6 +128,9 @@ export function buildChartData(chart: Chart, ascendant?: number): ChartData {
   const planetsInHouses: ChartData["planetsInHouses"] = [];
   const planetLookup: Record<string, SportsHoraryPlacement> = {};
   const cusps = ascendant !== undefined ? buildEqualHouseCusps(ascendant) : undefined;
+  const houses = cusps
+    ? Object.entries(cusps).map(([house, cusp]) => ({ house: Number(house), sign: cusp.sign, degree: cusp.degree }))
+    : [];
 
   for (const [planetName, placement] of Object.entries(chart)) {
     const eclipticLon = placement.eclipticLon ?? (SIGN_ORDER.indexOf(placement.sign) * 30 + placement.degree);
@@ -172,8 +181,9 @@ export function buildChartData(chart: Chart, ascendant?: number): ChartData {
     const sunHouse = planetLookup["Sun"]?.house;
     const isNight = sunHouse !== undefined ? sunHouse <= 6 : false;
     const rawLots = calculateArabicLots(chart, ascendant, isNight);
-    const cusps = buildEqualHouseCusps(ascendant);
-    lots = assignHousesToLots(rawLots, cusps);
+    const cuspRecord = buildEqualHouseCusps(ascendant);
+    const cuspLongitudes = Object.values(cuspRecord).map((cusp) => SIGN_ORDER.indexOf(cusp.sign) * 30 + cusp.degree);
+    lots = assignHousesToLots(rawLots, cuspLongitudes);
   }
 
   // Real Moon phase from the chart instead of a hardcoded stub.
@@ -186,17 +196,29 @@ export function buildChartData(chart: Chart, ascendant?: number): ChartData {
     moonTone?.includes("Full Moon") ? "full" :
     moonTone?.includes("Waning") ? "waning" : "waxing";
 
+  const fixedStars = FIXED_STARS.flatMap((star) => {
+    const conjunctPlanet = planetsInHouses.find((planet) => {
+      const diff = Math.abs(((planet.eclipticLon - star.longitude + 180) % 360) - 180);
+      return diff <= 1.5;
+    });
+    if (!conjunctPlanet) return [];
+    const orb = Math.abs(((conjunctPlanet.eclipticLon - star.longitude + 180) % 360) - 180);
+    const nature = ["Antares", "Fomalhaut", "Algol"].includes(star.name) ? "malefic" : "benefic";
+    return [{ starName: star.name, conjunctPlanet: conjunctPlanet.planet, orb, nature } as const];
+  });
+
   return {
+    houses,
     houseLords,
     houseAudit,
     planetsInHouses,
     lots,
-    fixedStars: [],
+    fixedStars,
     aspects: computeAspects(planetsInHouses),
     moon: {
       phase: moonPhase,
       isVoidOfCourse: false,
-      nakshatra: chart.Moon ? getNakshatraAt(SIGN_ORDER.indexOf(chart.Moon.sign) * 30 + chart.Moon.degree).nakshatra.name : "Ashwini",
+      nakshatra: chart.Moon ? getNakshatra(SIGN_ORDER.indexOf(chart.Moon.sign) * 30 + chart.Moon.degree).name : "Ashwini",
     },
   };
 }
@@ -214,10 +236,25 @@ export async function buildSportsHoraryChartViaLLM(
   return buildChartData(chart, ascendant);
 }
 
+export function formatSportsCelestialOverlay(chartData: ChartData): string {
+  const placements = chartData.planetsInHouses
+    .map((p) => `${p.planet}: ${p.degree.toFixed(2)}° ${p.sign}, house ${p.house} | Vedic Nakshatra: ${p.nakshatra} | Arabic Mansion: ${p.arabicMansion} (#${p.arabicMansionIndex ?? "?"}) | Fixed-star conjunctions: ${p.fixedStarConjunctions?.length ? p.fixedStarConjunctions.join(", ") : "none within 1.5°"}`)
+    .join("\\n");
+  const fixedMap = FIXED_STARS.map((star) => {
+    const conjunctions = chartData.planetsInHouses
+      .filter((p) => Math.abs(((p.eclipticLon - star.longitude + 180) % 360) - 180) <= 1.5)
+      .map((p) => p.planet);
+    const royal = ["Aldebaran", "Regulus", "Antares", "Fomalhaut"].includes(star.name) ? " [Royal Star]" : "";
+    return `${star.name}${royal}: ${star.degree}°${String(star.minutes).padStart(2, "0")}′ ${star.sign} | conjunct planets: ${conjunctions.length ? conjunctions.join(", ") : "none within 1.5°"}`;
+  }).join("\\n");
+  return `### CELESTIAL OVERLAY — FIXED 360° BACKGROUND\\n${placements}\\n\\nFixed-star map:\\n${fixedMap}`;
+}
+
 function buildReadingPrompt(
   input: { question: string; favoriteName?: string; challengerName?: string },
   prediction: ReturnType<typeof calculateFullPrediction>,
   breakdown: string,
+  celestialOverlay: string,
 ): string {
   const fav = input.favoriteName || "Favorite";
   const chall = input.challengerName || "Challenger";
@@ -248,7 +285,11 @@ ACTUAL ENGINE COMPUTED DATA (reference these exact values in your narration):
 SCORING BREAKDOWN (cite these in your reading):
 ${breakdown}
 
+${celestialOverlay}
+
 MANDATORY INSTRUCTIONS:
+6. **Explicitly map the lunar layers.** Name the Vedic nakshatra and Arabic mansion for the Moon and the relevant territorial lords.
+7. **Explicitly map fixed stars.** Name any conjunctions and identify the relevant frozen star anchors from the map above; do not omit this section.
 1. **NEVER say "dead even" if margin is NOT zero.** If margin is ${margin}, explicitly state the gap.
 2. **Reference the actual totals.** Example: "${fav} accumulated ${favTotal.toFixed(1)} points across the cluster, while ${chall} registered ${challTotal.toFixed(1)} — a swing of ${margin.toFixed(1)} in favor of ${favTotal > challTotal ? fav : chall}."
 3. **If lots are scored, reference them.** Don't say "both hands empty" — say which lots landed where and what side they favor.
@@ -312,22 +353,29 @@ export async function sportsHoraryLayer(input: {
     .map(layer => `• ${layer.layer}: A=${layer.sideAPoints} B=${layer.sideBPoints}`)
     .join("\n");
 
-  const systemPrompt = buildReadingPrompt(input, prediction, breakdown);
+  const celestialOverlay = formatSportsCelestialOverlay(chartData);
+  const systemPrompt = buildReadingPrompt(input, prediction, breakdown, celestialOverlay);
 
   const messages: Message[] = [
     ...(input.history || []),
     { role: "user", content: input.question },
   ];
 
-  const response = await invokeLLM({
-    messages: [{ role: "system", content: systemPrompt }, ...messages],
-    max_tokens: 2500,
-  });
-
   const verdict = prediction.predictedWinner === "A" ? "Favorite" : prediction.predictedWinner === "B" ? "Challenger" : "Even";
+  let answer: string;
+  try {
+    const response = await invokeLLM({
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      max_tokens: 2500,
+    });
+    answer = `${(response.choices[0].message.content as string).trim()}\n\n${celestialOverlay}`;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "reading service unavailable";
+    answer = `Computed sports verdict: ${verdict}. Favorite/Side A scored ${prediction.sideATotal.toFixed(2)}; Challenger/Side B scored ${prediction.sideBTotal.toFixed(2)}; margin ${Math.abs(prediction.margin).toFixed(2)}. The narrative reading service is unavailable (${reason}), so this result is based on the deterministic scoring layers below.\\n\\n${breakdown}\\n\\n${celestialOverlay}`;
+  }
 
   return {
-    answer: (response.choices[0].message.content as string).trim(),
+    answer,
     score: {
       score: prediction.sideATotal - prediction.sideBTotal,
       verdict,

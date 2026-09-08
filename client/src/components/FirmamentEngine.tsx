@@ -195,7 +195,7 @@ const FIXED_STARS = [
   // TIER 1 — ROYAL STARS
   {
     name: "Aldebaran",
-    sidDegree: 45.0,
+    sidDegree: 45.05,
     nature: "Mars",
     magnitude: "1st",
     archetype: "The Warrior",
@@ -209,7 +209,7 @@ const FIXED_STARS = [
   },
   {
     name: "Regulus",
-    sidDegree: 135.0,
+    sidDegree: 125.083333,
     nature: "Mars/Jupiter",
     magnitude: "1st",
     archetype: "The King",
@@ -223,7 +223,7 @@ const FIXED_STARS = [
   },
   {
     name: "Antares",
-    sidDegree: 225.0,
+    sidDegree: 225.016667,
     nature: "Mars/Jupiter",
     magnitude: "1st",
     archetype: "The Transformer",
@@ -237,7 +237,7 @@ const FIXED_STARS = [
   },
   {
     name: "Fomalhaut",
-    sidDegree: 315.0,
+    sidDegree: 309.116667,
     nature: "Venus/Mercury",
     magnitude: "1st",
     archetype: "The Visionary",

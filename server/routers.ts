@@ -28,6 +28,13 @@ import { getDecanFlavor } from "./decan";
 import { isNight, calculateCanonicalArabicLots } from "./astrologyCore";
 import { getPlanetInHouse } from "./planetInHouse";
 import { getSubLord } from "./kp/subLords";
+import {
+  FIXED_STARS,
+  ROYAL_STARS,
+  getArabicMansion,
+  findFixedStarConjunctions,
+} from "../shared/fixed-background";
+import { parseInput } from "./astroEngine";
 
 // ─── Core Cosmology Framework ─────────────────────────────────────────────────
 
@@ -71,7 +78,7 @@ const ZODIAC_SIGNS = [
 function enrichChartData(
   planets: Record<
     string,
-    { sign: string; degree: number; house?: number; absolute?: number }
+    { sign: string; degree: number; house?: number; absolute?: number; eclipticLon?: number }
   >,
   fullPlanets?: any[],
   ascendant?: number
@@ -89,6 +96,8 @@ function enrichChartData(
     if (abs == null) continue;
 
     const { nakshatra, pada } = getNakshatraAt(abs);
+    const arabicMansion = getArabicMansion(abs);
+    const fixedStarMatches = findFixedStarConjunctions(abs, 1.5);
     const decan = getDecanFlavor(p.sign, p.degree);
     const house = p.house ? `, ${p.house}th house` : "";
 
@@ -99,7 +108,7 @@ function enrichChartData(
     const kpText = ` | KP Sub-lord: ${kp.lord}`;
 
     lines.push(
-      `${name}: ${p.degree}° ${p.sign}${house} | Nakshatra: ${nakshatra.name} pada ${pada} | Decan: ${decan}${kpText}${houseText}`
+      `${name}: ${p.degree}° ${p.sign}${house} | Vedic Nakshatra: ${nakshatra.name} pada ${pada} | Arabic Mansion: ${arabicMansion.name} (#${arabicMansion.index}) | Fixed-star conjunctions: ${fixedStarMatches.length ? fixedStarMatches.join(", ") : "none within 1.5°"} | Decan: ${decan}${kpText}${houseText}`
     );
   }
 
@@ -120,6 +129,19 @@ function enrichChartData(
 
   const conjunctions = detectFixedStarConjunctions(placementsForStars);
   const starText = formatStarConjunctions(conjunctions);
+  const fixedStarMap = FIXED_STARS.map((star) => {
+    const royal = ROYAL_STARS.find((candidate) => candidate.name === star.name);
+    const occupyingPlanets = Object.entries(planets)
+      .filter(([, p]) => {
+        const abs = p.eclipticLon ?? (() => {
+          const i = ZODIAC_SIGNS.indexOf(p.sign);
+          return i >= 0 ? i * 30 + p.degree : null;
+        })();
+        return abs != null && Math.abs(((abs - star.longitude + 180) % 360) - 180) <= 1.5;
+      })
+      .map(([name]) => name);
+    return `${star.name}${royal ? ` [Royal Star — ${royal.direction}]` : ""}: ${star.degree}°${String(star.minutes).padStart(2, "0")}′ ${star.sign} | conjunct planets: ${occupyingPlanets.length ? occupyingPlanets.join(", ") : "none within 1.5°"}`;
+  }).join("\n");
 
   // Calculate Arabic Lots (if full planets and ascendant provided)
   let lotsText = "";
@@ -135,7 +157,8 @@ function enrichChartData(
     const sunHouse = sunPlacement?.house ?? 1;
     const night = isNight(sunHouse);
 
-    const houseCusps = Array.from({ length: 12 }, (_, i) => i * 30);
+    const ascendantSign = Math.floor((((ascendant % 360) + 360) % 360) / 30);
+    const houseCusps = Array.from({ length: 12 }, (_, i) => ((ascendantSign + i) % 12) * 30);
     const lots = calculateCanonicalArabicLots(planetsMap, ascendant, night, houseCusps);
     lotsText = lots
       .map(
@@ -147,10 +170,24 @@ function enrichChartData(
 
   return (
     lines.join("\n") +
-    "\n\nFIXED STAR CONJUNCTIONS:\n" +
+    "\n\nVEDIC NAKSHATRAS + ARABIC LUNAR MANSIONS:\n" +
+    "Each planet above is mapped on the fixed 360° wheel.\n" +
+    "\nFIXED STAR CONJUNCTIONS (1.5° orb):\n" +
     starText +
+    "\n\nFIXED STAR MAP (frozen background):\n" +
+    fixedStarMap +
     (lotsText ? "\n\nARABIC LOTS:\n" + lotsText : "")
   );
+}
+
+function buildOverlayForInterpretation(text: string | undefined, kind: "natal" | "transit"): string {
+  if (!text?.trim()) return "";
+  try {
+    const parsed = parseInput(text, kind).parsed;
+    return Object.keys(parsed).length ? enrichChartData(parsed) : "";
+  } catch {
+    return "";
+  }
 }
 
 // ─── OCR Router ───────────────────────────────────────────────────────────────
@@ -249,18 +286,20 @@ const aiRouter = router({
         fixedStarConjunctions,
       } = input;
 
-      const starSection =
+            const starSection =
         fixedStarConjunctions &&
         fixedStarConjunctions !== "No exact fixed star conjunctions detected."
           ? `\nFIXED STAR CONJUNCTIONS DETECTED:\n${fixedStarConjunctions}\n`
           : "";
-
+      const natalOverlay = buildOverlayForInterpretation(placements, "natal");
+      const transitOverlay = buildOverlayForInterpretation(transitPlacements || (mode === "transit" ? placements : undefined), "transit");
+      const overlayInstructions = `\nMANDATORY CELESTIAL OVERLAY:\nThe following is the authoritative computed map for this chart. Explicitly name the Vedic nakshatra and pada, Arabic lunar mansion number/name, and any fixed-star conjunctions in the reading. Also use the complete frozen fixed-star map to identify nearby anchors; do not omit this layer.\n`;
       let userPrompt = "";
 
       if (mode === "natal") {
-        userPrompt = `Here is the natal chart:
-
+                userPrompt = `Here is the natal chart:
 ${placements}
+${natalOverlay}${overlayInstructions}
 ${starSection}
 ${context ? `\nPersonal context from the person: ${context}\n` : ""}
 
@@ -293,9 +332,9 @@ What is the overall story of this chart? What are the main themes — the tensio
 
 Write in flowing paragraphs. Be personal, specific, and honest. This person is reading their chart to understand their life — give them something real, grounded in their actual placements, not a template.`;
       } else if (mode === "transit") {
-        userPrompt = `Here are the current planetary positions in the sky:
-
+                userPrompt = `Here are the current planetary positions in the sky:
 ${placements}
+${transitOverlay}${overlayInstructions}
 ${starSection}
 ${context ? `\nContext: ${context}\n` : ""}
 
@@ -311,11 +350,12 @@ What themes are active? What should people be aware of, lean into, or watch out 
 What is the larger story the sky is telling right now?`;
       } else {
         // Full natal + transit
-        userPrompt = `Here is the natal chart:
+                userPrompt = `Here is the natal chart:
 ${placements}
-
+${natalOverlay}${overlayInstructions}
 Current sky positions:
 ${transitPlacements || ""}
+${transitOverlay}${overlayInstructions}
 ${starSection}
 ${context ? `\nQUESTION FROM THE PERSON — answer this directly in your reading: ${context}\n` : ""}
 
@@ -394,10 +434,9 @@ const ephemerisRouter = router({
       const desc = (tropicalAsc + 180) % 360;
       const ic = (mc + 180) % 360;
 
-      const houseCusps = [];
-      for (let i = 0; i < 12; i++) {
-        houseCusps.push((tropicalAsc + i * 30) % 360);
-      }
+      // Whole Sign cusps begin at 0° of each sign, anchored to the
+      // Ascendant's sign. They are not exact-Ascendant 30° increments.
+      const houseCusps = result.houses.cusps;
 
       const readingText = formatChartForReading(result);
       const enrichedText = enrichChartData(
@@ -425,7 +464,7 @@ const ephemerisRouter = router({
           mc: mc,
         },
         angles: { asc: tropicalAsc, desc, mc, ic },
-        ayanamsa: result.ayanamsa,
+        fixedBackground: result.fixedBackground,
         readingText,
         enrichedText,
       };
@@ -515,18 +554,16 @@ const natalPlacementRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
-      });
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: `${COSMOLOGY_PREAMBLE}\n\nINTERPRETATION CONTRACT:\nUse the chart's tropical planetary positions against the fixed, non-drifting stellar background. Treat the 27 Vedic nakshatras and 28 Arabic lunar mansions as hard-coded overlays on the fixed 360° wheel. Use fixed-star and Royal-Star conjunctions when supplied. Do not apply a global 24° ayanamsa shift.` },
+          { role: "user", content: input.prompt },
+        ],
         max_tokens: 4000,
-        messages: [{ role: "user", content: input.prompt }],
       });
-      const text = response.content
-        .map((b: any) => (b.type === "text" ? b.text : ""))
-        .join("");
-      return { reading: text };
+      const raw = response.choices?.[0]?.message?.content ?? "";
+      const text = typeof raw === "string" ? raw : "";
+      return { reading: text.trim() };
     }),
 
   getLensReading: publicProcedure

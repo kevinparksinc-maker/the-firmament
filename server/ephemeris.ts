@@ -2,21 +2,20 @@
  * ARCANA STATE — Fixed-Dome Ephemeris Engine
  *
  * Two-layer architecture as per the Snow Globe brief:
- *  Math Layer  → raw fixed-dome positions from a permanent zero-tilt plane
+ *  Math Layer  → raw fixed-background positions from a permanent 360° wheel
   * Visual Layer  → optional observer-relative Alt/Az output for the renderer;
  *                  these fields never rotate the fixed dome sectors
 
  *
- * Active dome positions are projections of geocentric vectors onto a
- * permanent zero-tilt plane. Observer-relative sky fields are not used to
- * rotate the dome sectors.
+ * Active positions are measured against a permanent 0° Aries–360° fixed
+ * background. Observer-relative sky fields do not rotate the fixed sectors.
  *
- * ZODIAC MODEL: Permanent raw fixed-dome longitude. A body's geocentric
- * J2000 vector is projected directly onto the dome's zero-tilt X/Y plane.
- * No precession, nutation, obliquity, ayanamsa, or date-varying ecliptic
- * rotation is applied. The dome's 0° Aries point and 30° sectors are fixed.
+ * ZODIAC MODEL: A body's geocentric vector is projected onto the fixed wheel.
+ * No runtime precession or ayanamsa is applied. The fixed wheel's 0° Aries
+ * origin, 30° signs, 27 nakshatras, 28 Arabic mansions, and Royal Star anchors
+ * remain stationary.
  *
- * HOUSE SYSTEM: Whole-sign local horizon sectors. The dome 0° Aries reference
+ * HOUSE SYSTEM: Whole-sign local horizon sectors. The fixed 0° Aries reference
  * never moves, while House 1 begins at the sign containing the observer/time-
  * specific Ascendant; subsequent houses advance by 30°.
  */
@@ -32,7 +31,18 @@ const {
   GeoVector,
   Body,
   SiderealTime,
+  Ecliptic,
 } = Astronomy;
+import {
+  FIRMAMENT_ZODIAC,
+  ROYAL_STARS,
+  getArabicMansion,
+  getFixedBackgroundSign,
+  getNakshatra,
+  findRoyalStarConjunctions,
+  normalizeFixedLongitude,
+  fixedStarsForChart,
+} from "../shared/fixed-background";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ObserverLocation {
@@ -64,6 +74,14 @@ export interface PlanetPosition {
   retrograde: boolean;
   /** House number (1–12), whole sign */
   house: number;
+  /** Fixed-background sign and lunar overlays. */
+  fixedSign: string;
+  nakshatra: { index: number; name: string; pada: number };
+  arabicMansion: { index: number; name: string };
+  royalStarConjunctions: string[];
+  /** Seasonal layer: populated for the Sun, absent for other bodies. */
+  seasonalEclipticLon?: number;
+  seasonalDeclination?: number;
 }
 
 export interface HouseCusps {
@@ -86,6 +104,11 @@ export interface EphemerisResult {
   wholeSignHouses: WholeSignHouse[];
   observer: ObserverLocation;
   date: Date;
+  fixedBackground: typeof FIRMAMENT_ZODIAC & {
+    royalStars: typeof ROYAL_STARS;
+    fixedStars: ReturnType<typeof fixedStarsForChart>;
+    seasonalMarkers: { name: string; seasonalLongitude: number; declination: number }[];
+  };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -140,15 +163,30 @@ function lonToSignDeg(lon: number): {
  * which holds for the lunar nodes.
  */
 function eclipticToEquatorial(eclipticLon: number): { ra: number; dec: number } {
-  // The fixed dome has no obliquity: its permanent equator and ecliptic are
-  // coincident, so longitude maps directly to right ascension and declination
-  // remains zero for the idealized dome layer.
+  // Nodes are represented on the fixed wheel. Their observer-relative
+  // equatorial display fields remain a simplified auxiliary representation.
   return { ra: ((eclipticLon % 360) + 360) % 360, dec: 0 };
 }
 
-function fixedDomeLongitude(body: Parameters<typeof GeoVector>[0], date: Date): number {
+function tropicalEclipticLongitude(body: Parameters<typeof GeoVector>[0], date: Date): number {
   const vector = GeoVector(body, MakeTime(date), false);
-  return ((Math.atan2(vector.y, vector.x) * 180) / Math.PI + 360) % 360;
+  return normalizeFixedLongitude(Ecliptic(vector).elon);
+}
+
+function seasonalSolarDeclination(seasonalEclipticLon: number, obliquityDegrees = 23.439291): number {
+  const radians = Math.PI / 180;
+  return Math.asin(
+    Math.sin(obliquityDegrees * radians) * Math.sin(seasonalEclipticLon * radians),
+  ) / radians;
+}
+
+function calculateSeasonalMarkers() {
+  return [
+    { name: "March equinox", seasonalLongitude: 0, declination: 0 },
+    { name: "June solstice", seasonalLongitude: 90, declination: 23.439291 },
+    { name: "September equinox", seasonalLongitude: 180, declination: 0 },
+    { name: "December solstice", seasonalLongitude: 270, declination: -23.439291 },
+  ];
 }
 
 // ─── Ascendant / MC (corrected) ────────────────────────────────────────────────
@@ -161,14 +199,29 @@ function calcHouseCusps(
   date: Date,
   observer: ObserverLocation
 ): HouseCusps {
-  // The dome reference is fixed, but each observer has a local horizon.
-  // Use local sidereal time to find that horizon's intersection with the
-  // permanent zero-tilt equatorial/ecliptic plane. No obliquity, precession,
-  // nutation, or ayanamsa is applied.
+  // The fixed background does not rotate. The local horizon intersects the
+  // ecliptic using local sidereal time, observer latitude, and obliquity.
+  // Runtime precession and ayanamsa are intentionally not applied to the wheel.
   const gstHours = SiderealTime(MakeTime(date));
-  const localSiderealDegrees = ((gstHours * 15 + observer.longitude) % 360 + 360) % 360;
-  const ascendant = (localSiderealDegrees + 270) % 360;
-  const mc = localSiderealDegrees;
+  const ramc = normalizeFixedLongitude(gstHours * 15 + observer.longitude);
+  const radians = Math.PI / 180;
+  const obliquity = 23.439291;
+  const latitude = observer.latitude;
+  const mc = normalizeFixedLongitude(
+    Math.atan2(
+      Math.sin(ramc * radians),
+      Math.cos(ramc * radians) * Math.cos(obliquity * radians),
+    ) / radians,
+  );
+  // The atan2 result uses the opposite branch for this ecliptic convention;
+  // adding 180° selects the eastern horizon intersection.
+  const ascendant = normalizeFixedLongitude(
+    Math.atan2(
+      -Math.cos(ramc * radians),
+      Math.sin(obliquity * radians) * Math.tan(latitude * radians) +
+        Math.cos(obliquity * radians) * Math.sin(ramc * radians),
+    ) / radians + 180,
+  );
   const ascSignIdx = Math.floor(ascendant / 30);
   const cusps = Array.from({ length: 12 }, (_, index) => ((ascSignIdx + index) % 12) * 30);
   return { cusps, ascendant, mc };
@@ -235,9 +288,14 @@ export async function calculateChart(
 
   for (const { name, body } of bodyList) {
     try {
-      const eclipticLon = fixedDomeLongitude(body, date);
+      // Planetary positions remain tropical and date-specific. The fixed-star
+      // background is a separate layer and is never used to shift this value.
+      const eclipticLon = tropicalEclipticLongitude(body, date);
+      const seasonalEclipticLon = name === "Sun" ? eclipticLon : undefined;
 
       const { sign, degree, minutes } = lonToSignDeg(eclipticLon);
+      const nakshatra = getNakshatra(eclipticLon);
+      const arabicMansion = getArabicMansion(eclipticLon);
 
       // These are optional observer-relative display fields only. They are not
       // fed back into the fixed-dome longitude, sector, or house calculation.
@@ -245,7 +303,7 @@ export async function calculateChart(
       const horizon = Horizon(MakeTime(date), astroObserver, equatorial.ra, equatorial.dec, "normal");
 
       const yesterday = new Date(date.getTime() - 86400000);
-      const eclipticYesterday = fixedDomeLongitude(body, yesterday);
+      const eclipticYesterday = tropicalEclipticLongitude(body, yesterday);
       let retrograde = false;
       if (body !== Astronomy.Body.Sun && body !== Astronomy.Body.Moon) {
         let diff = eclipticLon - eclipticYesterday;
@@ -269,6 +327,14 @@ export async function calculateChart(
         azimuth: horizon.azimuth,
         retrograde,
         house,
+        fixedSign: getFixedBackgroundSign(eclipticLon),
+        nakshatra: { index: nakshatra.index, name: nakshatra.name, pada: nakshatra.pada },
+        arabicMansion: { index: arabicMansion.index, name: arabicMansion.name },
+        royalStarConjunctions: findRoyalStarConjunctions(eclipticLon),
+        ...(seasonalEclipticLon === undefined ? {} : {
+          seasonalEclipticLon,
+          seasonalDeclination: seasonalSolarDeclination(seasonalEclipticLon),
+        }),
       });
     } catch (err) {
       console.warn(`[Ephemeris] Failed to calculate ${name}:`, err);
@@ -319,7 +385,19 @@ export async function calculateChart(
     console.warn("[Ephemeris] Failed to calculate nodes:", err);
   }
 
-  return { planets, houses, wholeSignHouses, observer, date };
+  return {
+    planets,
+    houses,
+    wholeSignHouses,
+    observer,
+    date,
+      fixedBackground: {
+        ...FIRMAMENT_ZODIAC,
+        royalStars: ROYAL_STARS,
+        fixedStars: fixedStarsForChart(houses.ascendant),
+        seasonalMarkers: calculateSeasonalMarkers(),
+      },
+  };
 }
 
 // ─── Format for reading engine ─────────────────────────────────────────────────

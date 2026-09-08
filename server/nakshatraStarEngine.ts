@@ -16,6 +16,7 @@
 
 import { NAKSHATRAS } from "./nakshatraData";
 import { getSubLord } from "./kp/subLords";
+import { FIXED_STARS } from "../shared/fixed-background";
 
 // ─────────────────────────────────────────────────────────────────────────
 // NAKSHATRA DIGNITY & LORDS
@@ -129,99 +130,24 @@ export function getNakshatraDignity(nakshatraName: string): number {
 // MAJOR FIXED STARS & CONJUNCTIONS
 // ─────────────────────────────────────────────────────────────────────────
 
-const MAJOR_FIXED_STARS: FixedStarData[] = [
-  // Royal Stars (the four Watchers)
-  {
-    name: "Regulus",
-    longitude: 135.0,     // 15° Leo (fixed-dome anchor)
-    nature: "benefic",
-    magnitude: 1,
-    group: "royal",
-    keywords: ["royalty", "leadership", "success", "power"],
-  },
-  {
-    name: "Aldebaran",
-    longitude: 45.0,      // 15° Taurus (fixed-dome anchor)
-    nature: "benefic",
-    magnitude: 1,
-    group: "royal",
-    keywords: ["prosperity", "courage", "success"],
-  },
-  {
-    name: "Antares",
-    longitude: 225.0,     // 15° Scorpio (fixed-dome anchor)
-    nature: "malefic",
-    magnitude: 1,
-    group: "royal",
-    keywords: ["conflict", "struggle", "intensity"],
-  },
-  {
-    name: "Fomalhaut",
-    longitude: 315.0,     // 15° Aquarius (fixed-dome anchor)
-    nature: "malefic",
-    magnitude: 1,
-    group: "royal",
-    keywords: ["loss", "fame", "downfall"],
-  },
-  // Major Stars
-  {
-    name: "Sirius",
-    longitude: 104.0,     // ~14° Gemini (in sidereal)
-    nature: "benefic",
-    magnitude: 2,
-    group: "major",
-    keywords: ["brilliance", "fame", "intensity"],
-  },
-  {
-    name: "Polaris",
-    longitude: 0.0,       // Pole star - static
-    nature: "benefic",
-    magnitude: 2,
-    group: "major",
-    keywords: ["stability", "protection", "north point"],
-  },
-  {
-    name: "Spica",
-    longitude: 173.833,   // 23°50' Virgo (HORARY_SCORING_RULES.md documented)
-    nature: "benefic",
-    magnitude: 2,
-    group: "major",
-    keywords: ["wisdom", "eloquence", "virtue"],
-  },
-  {
-    name: "Arcturus",
-    longitude: 164.183,   // 14°11' Virgo (HORARY_SCORING_RULES.md documented)
-    nature: "benefic",
-    magnitude: 2,
-    group: "major",
-    keywords: ["leadership", "achievement", "execution", "strategy"],
-  },
-  {
-    name: "Denebola",
-    longitude: 182.0,     // ~2° Virgo (in sidereal)
-    nature: "malefic",
-    magnitude: 3,
-    group: "major",
-    keywords: ["severance", "loss", "hardship"],
-  },
-  // Minor Stars
-  {
-    name: "Algol",
-    longitude: 56.683,    // 26°41' Taurus (HORARY_SCORING_RULES.md documented)
-    nature: "malefic",
-    magnitude: 4,
-    group: "minor",
-    keywords: ["violence", "crisis", "decapitation"],
-  },
-  {
-    name: "Bellatrix",
-    longitude: 162.0,     // ~12° Leo (in sidereal)
-    nature: "malefic",
-    magnitude: 3,
-    group: "minor",
-    keywords: ["aggression", "combativeness"],
-  },
-];
+const STAR_RULES: Record<string, Omit<FixedStarData, "name" | "longitude">> = {
+  Hamal: { nature: "benefic", magnitude: 2, group: "major", keywords: ["initiative", "beginning", "courage"] },
+  Aldebaran: { nature: "benefic", magnitude: 1, group: "royal", keywords: ["prosperity", "courage", "success"] },
+  Algol: { nature: "malefic", magnitude: 4, group: "minor", keywords: ["violence", "crisis", "decapitation"] },
+  Rigel: { nature: "benefic", magnitude: 2, group: "major", keywords: ["mastery", "building", "technical skill"] },
+  Sirius: { nature: "benefic", magnitude: 2, group: "major", keywords: ["brilliance", "fame", "intensity"] },
+  Polaris: { nature: "benefic", magnitude: 2, group: "major", keywords: ["stability", "protection", "north point"] },
+  Regulus: { nature: "benefic", magnitude: 1, group: "royal", keywords: ["royalty", "leadership", "success", "power"] },
+  Spica: { nature: "benefic", magnitude: 2, group: "major", keywords: ["wisdom", "eloquence", "virtue"] },
+  Antares: { nature: "malefic", magnitude: 1, group: "royal", keywords: ["conflict", "struggle", "intensity"] },
+  Fomalhaut: { nature: "malefic", magnitude: 1, group: "royal", keywords: ["loss", "fame", "downfall"] },
+};
+
+const MAJOR_FIXED_STARS: FixedStarData[] = FIXED_STARS.map((star) => ({
+  name: star.name,
+  longitude: star.longitude,
+  ...(STAR_RULES[star.name] ?? { nature: "neutral", magnitude: 3, group: "minor", keywords: [] }),
+}));
 
 /**
  * Find fixed star conjunctions within orb

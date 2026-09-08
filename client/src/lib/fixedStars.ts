@@ -10,7 +10,7 @@
  * TIER 3: Twin Stars (2) - Castor, Pollux
  * TIER 4: Visionary Stars (4) - Vega, Altair, Alphecca, Achernar
  *
- * Perfect 90° Royal Cross: 45°, 135°, 225°, 315°
+ * Royal Star anchor longitudes: 45°, 125°, 225°, 310°.
  */
 
 export interface FixedStar {
@@ -56,9 +56,9 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: "Regulus",
     shortName: "Regulus",
-    sidDegree: 135.0,
+    sidDegree: 125.0,
     sign: "Leo",
-    degree: 15,
+    degree: 5,
     nature: "Mars/Jupiter",
     magnitude: "1st",
     archetype: "The King",
@@ -90,9 +90,9 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: "Fomalhaut",
     shortName: "Fomalhaut",
-    sidDegree: 315.0,
+    sidDegree: 310.0,
     sign: "Aquarius",
-    degree: 15,
+    degree: 10,
     nature: "Venus/Mercury",
     magnitude: "1st",
     archetype: "The Visionary",

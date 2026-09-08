@@ -15,7 +15,7 @@ import {
   SIGN_RULERS,
   SIGN_ORDER,
 } from "./astroEngine";
-import { buildChartData } from "./sportsHoraryReading";
+import { buildChartData, formatSportsCelestialOverlay } from "./sportsHoraryReading";
 import { calculateFullPrediction, type ChartData, type ClusterConfig } from "./masterPredictionEngine";
 import { calculateTerritorialControl, formatTerritorialReport } from "./territorialControlEngine";
 
@@ -51,6 +51,7 @@ function buildReadingPrompt(
   input: SportsHoraryV2Input,
   result: ReturnType<typeof calculateFullPrediction>,
   breakdown: string,
+  celestialOverlay: string,
 ): string {
   const fav = input.favoriteName || "the Favorite";
   const chall = input.challengerName || "the Challenger";
@@ -65,7 +66,7 @@ function buildReadingPrompt(
   const favTotal = result.sideATotal;
   const challTotal = result.sideBTotal;
 
-  return `You are the Firmament sports oracle, reading a horary chart cast for a contest through the sidereal, traditional-Vedic framework (fixed dome sky, Vedic rulers, fixed stars, territorial control).
+  return `You are the Firmament sports oracle, reading a horary chart cast through The Firmament hybrid framework: tropical planetary positions, a fixed non-drifting stellar background, hard-coded 27 Vedic nakshatras and 28 Arabic lunar mansions, fixed-star anchors, and territorial control.
 
 CRITICAL: Do NOT generate template prose. Do NOT say territories are "even" if the data shows a clear advantage.
 
@@ -84,7 +85,11 @@ CONTEST:
 TERRITORIAL SCORING LAYERS (reference these):
 ${breakdown}
 
+${celestialOverlay}
+
 MANDATORY:
+5. Explicitly name the Vedic nakshatra and Arabic mansion for the Moon and relevant territorial lords.
+6. Explicitly name any fixed-star conjunctions and consult the complete frozen star map above.
 1. **Never say "even territory" if margin ≠ 0.** Cite the actual totals: "${fav} holds ${favTotal.toFixed(1)}, ${chall} holds ${challTotal.toFixed(1)} — a gap of ${margin.toFixed(1)}."
 2. **Reference specific lots.** State which lots landed where and their impact, don't generalize.
 3. **Confidence tie-in:** Margin < 5 = "too close"; 5–15 = "slight edge"; > 15 = "strong dominion"
@@ -170,20 +175,28 @@ export async function sportsHoraryV2Layer(
     .map(layer => `  ${layer.layer}: A=${layer.sideAPoints} B=${layer.sideBPoints}`)
     .join("\n");
 
-  const systemPrompt = buildReadingPrompt(input, prediction, breakdown);
+  const celestialOverlay = formatSportsCelestialOverlay(chartData);
+  const systemPrompt = buildReadingPrompt(input, prediction, breakdown, celestialOverlay);
 
   const messages: Message[] = [
     ...(input.history || []),
     { role: "user", content: input.question },
   ];
 
-  const response = await invokeLLM({
-    messages: [{ role: "system", content: systemPrompt }, ...messages],
-    max_tokens: 2500,
-  });
-
+    let answer: string;
+  try {
+    const response = await invokeLLM({
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      max_tokens: 2500,
+    });
+    answer = `${(response.choices[0].message.content as string).trim()}\n\n${celestialOverlay}`;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "reading service unavailable";
+    const verdict = prediction.predictedWinner === "A" ? "Favorite" : prediction.predictedWinner === "B" ? "Challenger" : "Even";
+    answer = `Computed sports verdict: ${verdict}. Side A scored ${prediction.sideATotal.toFixed(2)}; Side B scored ${prediction.sideBTotal.toFixed(2)}; margin ${Math.abs(prediction.margin).toFixed(2)}. The narrative reading service is unavailable (${reason}), so this result is based on the deterministic territorial, lunar-mansion, and fixed-star layers.\n\n${celestialOverlay}`;
+  }
   return {
-    answer: (response.choices[0].message.content as string).trim(),
+    answer,
     verdict: prediction.predictedWinner === "A" ? "Favorite" : prediction.predictedWinner === "B" ? "Challenger" : "Even",
     score: prediction.sideATotal - prediction.sideBTotal,
     flags: [],

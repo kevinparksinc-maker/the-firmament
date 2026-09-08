@@ -39,6 +39,7 @@ import {
   nodeLayer,
 } from "./clusterKnowledgeLayers";
 import { kpDecisionLayer } from "./kpEngine";
+import { getArabicMansion, findFixedStarConjunctions } from "../shared/fixed-background";
 
 // ─────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -55,7 +56,10 @@ export interface SportsHoraryPlacement {
   degree: number;
   eclipticLon: number;
   isRetrograde: boolean;
-  nakshatra?: string; // 27 lunar mansions
+  nakshatra?: string; // 27 Vedic lunar mansions
+  arabicMansion?: string; // 28 Arabic lunar mansions
+  arabicMansionIndex?: number;
+  fixedStarConjunctions?: string[]; // fixed 360° stellar background
 }
 
 export interface HouseLord {
@@ -103,6 +107,7 @@ export interface HouseAuditEntry {
 }
 
 export interface ChartData {
+  houses: Array<{ house: number; sign: string; degree: number }>;
   houseLords: HouseLord[];
   houseAudit?: HouseAuditEntry[];
   planetsInHouses: SportsHoraryPlacement[];
@@ -314,7 +319,34 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     sideBPoints: sideBTotal,
   });
 
-  // ──── LAYER 2: LUNAR FLOW (Moon's Territorial Presence)
+  // ──── LAYER 2: DUAL LUNAR-MANSION TERRITORIAL RESONANCE
+  // Vedic nakshatra scoring is applied to each house lord above. The Arabic
+  // 28-mansion wheel contributes an independent lunar resonance signal here:
+  // exact/adjacent alignment with the chart Moon strengthens the occupied side;
+  // opposition weakens it. This keeps both mansion systems hard-coded to the
+  // same 360° wheel without applying an ayanamsa or drifting reference frame.
+  let sideAArabicMansion = 0;
+  let sideBArabicMansion = 0;
+  const moonMansionIndex = chart.planetsInHouses.find((p) => p.planet === "Moon")?.arabicMansionIndex;
+  if (moonMansionIndex !== undefined) {
+    for (const lord of chart.houseLords) {
+      const occupiedSide = whichSide(lord.placement.house, config);
+      const mansionIndex = lord.placement.arabicMansionIndex;
+      if (occupiedSide === "neutral" || mansionIndex === undefined) continue;
+      const forward = Math.abs(mansionIndex - moonMansionIndex);
+      const distance = Math.min(forward, 28 - forward);
+      const resonance = distance === 0 ? 1.5 : distance === 1 ? 0.75 : distance === 14 ? -1 : 0;
+      if (occupiedSide === "A") sideAArabicMansion += resonance;
+      else sideBArabicMansion += resonance;
+    }
+  }
+  breakdown.push({
+    layer: "Arabic Mansion Territorial Resonance",
+    sideAPoints: sideAArabicMansion,
+    sideBPoints: sideBArabicMansion,
+  });
+
+  // ──── LAYER 3: LUNAR FLOW (Moon's Territorial Presence)
   let sideAMoon = 0;
   let sideBMoon = 0;
   const moonPlacement = chart.planetsInHouses.find(p => p.planet === "Moon");
@@ -456,6 +488,7 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     (aspectTotal / 2) + 
     (moonAdjustment / 2) + 
     sideAMoon +
+    sideAArabicMansion +
     upachaya.sideAPoints + 
     viaCombusta.sideAPoints + 
     besiegement.sideAPoints +
@@ -472,6 +505,7 @@ export function calculateFullPrediction(chart: ChartData, config: ClusterConfig)
     (-aspectTotal / 2) + 
     (moonAdjustment / 2) + 
     sideBMoon +
+    sideBArabicMansion +
     upachaya.sideBPoints + 
     viaCombusta.sideBPoints + 
     besiegement.sideBPoints +
