@@ -59,6 +59,10 @@ async function ask(messages: Message[], maxTokens = 7000) {
     return textOf(response.choices[0]?.message?.content ?? "The interpretation engine returned no text.");
   } catch (error) {
     console.error("[Interpretation] LLM request failed:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (/usage exhausted|quota|credit/i.test(message)) {
+      throw new Error("The chart was calculated successfully, but AI reading capacity is temporarily exhausted. Please try again after the AI service quota resets; your chart data is still available.");
+    }
     throw new Error("The interpretation service could not complete this reading. Please try again; your chart calculation is still available.");
   }
 }
