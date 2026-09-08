@@ -31,6 +31,9 @@ describe("strict fixed-dome contract", () => {
       ["Fomalhaut", expect.closeTo(309.116667, 5)],
     ]);
     expect(FIRMAMENT_ZODIAC.planetaryFrame).toBe("tropical");
+    expect(FIRMAMENT_ZODIAC.visualCenter).toBe("Polaris / North Celestial Pole");
+    expect(FIRMAMENT_ZODIAC.wheelZero).toBe("0° Aries");
+    expect(FIRMAMENT_ZODIAC.wheelZeroScreenAngle).toBe(0);
     expect(FIRMAMENT_ZODIAC.applyPrecessionToFixedStars).toBe(false);
     expect(FIRMAMENT_ZODIAC.applyAyanamsaToPlanets).toBe(false);
 

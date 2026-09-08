@@ -4,6 +4,8 @@
 //   Rule: Background signs are frozen. House spokes rotate from the Ascendant.
 // ============================================================================
 
+import { FIRMAMENT_ZODIAC, ROYAL_STARS } from "../shared/fixed-background";
+
 export interface RenderItem {
   name: string;
   absoluteDegree: number;
@@ -21,6 +23,11 @@ export class FirmamentCanvasRenderer {
   private centerX: number; // Screen center pixel for Polaris (e.g., 500)
   private centerY: number; // Screen center pixel for Polaris (e.g., 500)
   private outerRadius: number; // Full scale of the sky background wheel
+
+  // Polaris is the projection center; 0° Aries is the angular zero on the ring.
+  private wheelAngle(degree: number): number {
+    return ((degree - FIRMAMENT_ZODIAC.wheelZeroScreenAngle) * Math.PI) / 180;
+  }
 
   constructor(canvasContext: CanvasRenderingContext2D, width: number, height: number) {
     this.ctx = canvasContext;
@@ -71,8 +78,8 @@ export class FirmamentCanvasRenderer {
 
     this.ctx.save();
     for (let i = 0; i < 12; i++) {
-      const startAngle = (i * 30 * Math.PI) / 180;
-      const endAngle = ((i + 1) * 30 * Math.PI) / 180;
+      const startAngle = this.wheelAngle(i * 30);
+      const endAngle = this.wheelAngle((i + 1) * 30);
 
       // Draw sector divider spoke from Polaris
       this.ctx.beginPath();
@@ -103,29 +110,24 @@ export class FirmamentCanvasRenderer {
    * PILLARS: Locks the 4 massive Royal Stars directly into their background addresses.
    */
   private drawRoyalStarPillars() {
-    const anchors = [
-      { name: "Aldebaran (E)", deg: 45, color: "#FFB03B" },
-      { name: "Regulus (N)", deg: 135, color: "#41B3A3" },
-      { name: "Antares (W)", deg: 225, color: "#E27D60" },
-      { name: "Fomalhaut (S)", deg: 315, color: "#85DCB0" },
-    ];
+    const colors = ["#FFB03B", "#41B3A3", "#E27D60", "#85DCB0"];
 
     this.ctx.save();
-    anchors.forEach((star) => {
-      const rad = (star.deg * Math.PI) / 180;
+    ROYAL_STARS.forEach((star, index) => {
+      const rad = this.wheelAngle(star.longitude);
       const starX = this.centerX + (this.outerRadius * 0.95) * Math.cos(rad);
       const starY = this.centerY + (this.outerRadius * 0.95) * Math.sin(rad);
 
       // Draw a physical pillar star beacon on the wheel outer rim
       this.ctx.beginPath();
       this.ctx.arc(starX, starY, 5, 0, 2 * Math.PI);
-      this.ctx.fillStyle = star.color;
+      this.ctx.fillStyle = colors[index];
       this.ctx.fill();
 
       // Label text for the Royal Star Anchor
       this.ctx.fillStyle = "#FFFFFF";
       this.ctx.font = "9px monospace";
-      this.ctx.fillText(star.name, starX + 8 * Math.cos(rad), starY + 8 * Math.sin(rad));
+      this.ctx.fillText(`${star.name} (${star.direction[0]})`, starX + 8 * Math.cos(rad), starY + 8 * Math.sin(rad));
     });
     this.ctx.restore();
   }
@@ -138,7 +140,7 @@ export class FirmamentCanvasRenderer {
     for (let i = 0; i < 12; i++) {
       // Turn the house dial exactly 30° out from your Ascendant line
       const houseAngleDeg = (ascendantDegree + i * 30) % 360;
-      const rad = (houseAngleDeg * Math.PI) / 180;
+      const rad = this.wheelAngle(houseAngleDeg);
 
       this.ctx.beginPath();
       this.ctx.moveTo(this.centerX, this.centerY);
@@ -161,7 +163,7 @@ export class FirmamentCanvasRenderer {
       this.ctx.stroke();
 
       // Place House Number Labels along the inner wheel track
-      const labelRad = ((houseAngleDeg + 15) * Math.PI) / 180; // Offset into the middle of house slice
+      const labelRad = this.wheelAngle(houseAngleDeg + 15); // Offset into the middle of house slice
       const lx = this.centerX + (this.outerRadius * 0.65) * Math.cos(labelRad);
       const ly = this.centerY + (this.outerRadius * 0.65) * Math.sin(labelRad);
 
@@ -178,7 +180,7 @@ export class FirmamentCanvasRenderer {
   private drawPlanets(planets: RenderItem[]) {
     this.ctx.save();
     planets.forEach((p) => {
-      const rad = (p.absoluteDegree * Math.PI) / 180;
+      const rad = this.wheelAngle(p.absoluteDegree);
 
       // Map the screen coordinates using the input orbit radius scale
       const px = this.centerX + p.orbitRadius * Math.cos(rad);

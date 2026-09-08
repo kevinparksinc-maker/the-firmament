@@ -13,6 +13,14 @@ client) backed by **MySQL**. Railway is used because it offers managed MySQL
 
 These are pinned in `railway.json`.
 
+## Celestial projection contract
+
+The visual sky map uses **Polaris / the North Celestial Pole as its center**.
+The surrounding fixed 360° wheel begins at **0° Aries** (screen angle 0°),
+and the canonical Royal Stars are plotted at their frozen longitudes. This is a
+projection choice: Polaris is the center of the map, while 0° Aries is the
+angular zero of the outer wheel.
+
 ## Security note
 
 Do not commit `key.env` or any other credential file. The repository previously

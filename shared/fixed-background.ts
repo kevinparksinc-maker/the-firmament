@@ -10,6 +10,10 @@
 
 export const FIRMAMENT_ZODIAC = {
   origin: "0° Aries",
+  visualCenter: "Polaris / North Celestial Pole",
+  wheelZero: "0° Aries",
+  wheelZeroScreenAngle: 0,
+  screenAngleDirection: "clockwise",
   planetaryFrame: "tropical",
   fixedStarFrame: "ancient-fixed",
   applyPrecessionToPlanets: true,
