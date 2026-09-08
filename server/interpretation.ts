@@ -93,6 +93,28 @@ function readerFacingIntelligence(raw: string) {
     return raw.replace(/[{}\[\]\"]/g, "").replace(/,\s*/g, "\n").trim();
   }
 }
+
+function buildChartMap(chart: ChartResult, mode: ReadingMode) {
+  const body = chart.movingBodies;
+  const placements = body.map(row => `- **${row.name}** — ${row.display}, house ${row.house}${row.retrograde ? ", retrograde" : ""}`).join("\n");
+  const contacts = chart.transits.filter(row => row.natalContacts.length).slice(0, 8).map(row => `- **${row.name}** in ${row.display}: ${row.natalContacts.map(contact => `${contact.aspect} ${contact.natalName} (orb ${contact.orb.toFixed(1)}°)`).join(", ")}`).join("\n");
+  const transitMoment = new Date(chart.transitDate).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return [
+    "## Your chart map",
+    "This is the factual foundation of your reading, calculated directly from the chart. The deeper personal chapters are generated separately so one unavailable AI request does not hide the chart itself.",
+    `### The angles`,
+    `- **Ascendant:** ${chart.ascendant.display} — the way you meet life and are first experienced.`,
+    `- **Descendant:** ${chart.descendant.display} — the qualities emphasized through close partnership.`,
+    `- **North Node:** ${chart.northNode.display}, house ${chart.northNode.house} — a direction of growth to explore.`,
+    `- **South Node:** ${chart.southNode.display}, house ${chart.southNode.house} — familiar tendencies to use consciously rather than automatically.`,
+    `### Natal placements`,
+    placements,
+    mode === "natal" ? "### Reading layer\nThis map is prepared for a natal reading: the enduring foundation of the birth chart." : "### Reading layer\nThis map is prepared for the selected layer; the deeper chapters will keep natal patterns and present-moment activation distinct.",
+    `### Selected transit moment\n${transitMoment} at ${chart.input.transitLocation ?? chart.input.location}.`,
+    contacts ? `### Supplied natal contacts\n${contacts}` : "### Supplied natal contacts\nNo close contacts were found within the calculation's configured orb.",
+  ].join("\n\n");
+}
+
 export const READING_CHAPTERS = [
   { id: "identity", title: "Core Identity", subtitle: "The person you are becoming", focus: "identity, temperament, first impressions, self-image, core needs, gifts, and the tension between who you are privately and publicly" },
   { id: "mind-heart", title: "Mind & Emotional Life", subtitle: "How you think, feel, and protect your inner world", focus: "mental habits, communication, emotional needs, vulnerability, fear, anger, shame, regulation, and the protective strategies behind reactions" },
@@ -104,12 +126,7 @@ export const READING_CHAPTERS = [
 export type ReadingChapterId = typeof READING_CHAPTERS[number]["id"];
 
 export async function generateInterpretation(chart: ChartResult, mode: ReadingMode = "combined") {
-  const facts = JSON.stringify(chartFacts(chart));
-  const intelligence = await ask([
-    { role: "system", content: `${COSMOLOGY}\n${MODE_GUIDANCE[mode]}\nReturn concise JSON only with keys: dominantPlanets (string[]), dominantHouses (string[]), dominantSigns (string[]), repeatedThemes (string[]), strongestEvidence (string[]), tensions (string[]), priorityPlacements (string[]), currentTransitThemes (string[]), psychologicalHypotheses (string[]), disconfirmingQuestions (string[]). Rank evidence as primary, supporting, or weak. Each item must cite supplied chart evidence. Use the supplied current transit rows and natal contacts to identify present-tense themes, but do not predict deterministic events. Psychological hypotheses must name the possible need, vulnerability, or protective strategy and must not be presented as diagnosis or fact. Do not add unsupported aspects, conjunctions, or biography.` },
-    { role: "user", content: `Build Chart Intelligence from these calculated facts:\n${facts}` },
-  ], 2500);
-  return { intelligence: readerFacingIntelligence(intelligence), reading: "", generatedAt: new Date().toISOString(), chapters: READING_CHAPTERS.map(chapter => ({ ...chapter, status: "pending" as const })) };
+  return { intelligence: buildChartMap(chart, mode), reading: "", generatedAt: new Date().toISOString(), chapters: READING_CHAPTERS.map(chapter => ({ ...chapter, status: "pending" as const })) };
 }
 
 export async function generateChapter(chart: ChartResult, mode: ReadingMode, intelligence: string, chapterId: ReadingChapterId, completedChapters: string[] = []) {
