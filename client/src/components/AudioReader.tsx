@@ -21,8 +21,14 @@ export function AudioReader({ text, label = "Listen" }: { text: string; label?: 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = "en-US";
-    utterance.rate = 0.92;
-    utterance.pitch = 0.98;
+    const voices = window.speechSynthesis.getVoices();
+    const matureEnglishVoice = voices.find(voice => /en-US|en-GB/i.test(voice.lang) && /david|daniel|alex|george|mark|mature|male/i.test(voice.name))
+      ?? voices.find(voice => /en-US|en-GB/i.test(voice.lang));
+    if (matureEnglishVoice) utterance.voice = matureEnglishVoice;
+    // A grounded, unhurried delivery for the non-identifying guardian narrator.
+    // The browser voice itself varies by device; we do not imitate a named person.
+    utterance.rate = 0.84;
+    utterance.pitch = 0.82;
     utterance.onend = () => setState("idle");
     utterance.onerror = () => setState("idle");
     window.speechSynthesis.speak(utterance);
