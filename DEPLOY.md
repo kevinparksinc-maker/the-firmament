@@ -9,8 +9,17 @@ client) backed by **MySQL**. Railway is used because it offers managed MySQL
 - Build: `pnpm build` → client to `dist/public`, server bundle to `dist/index.js`
 - Start: `pnpm start` → `NODE_ENV=production node dist/index.js`
 - The server binds `process.env.PORT` (Railway injects this). No code change needed.
+- Health check: `GET /health` returns `{"status":"ok"}` for Railway readiness checks.
 
 These are pinned in `railway.json`.
+
+## Security note
+
+Do not commit `key.env` or any other credential file. The repository previously
+contained credential-like files; they have been removed from the working tree and
+are now ignored. Any values that were ever stored in those files should be
+rotated in the provider dashboards before production use, because deleting a file
+from a later commit does not remove it from Git history.
 
 ## One-time setup
 

@@ -17,7 +17,6 @@ import {
   getNakshatraDignity,
   getFixedStarAmplification,
   getNakshatraLordStrength,
-  findFixedStarConjunctions,
 } from "./nakshatraStarEngine";
 import { getSignNakshatraFriction, PlanetName } from "./planetRelationships";
 import { buildPlanarHouseSystem } from "./planarHouseSystem";
