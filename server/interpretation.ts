@@ -59,6 +59,32 @@ async function ask(messages: Message[], maxTokens = 7000) {
   }
 }
 
+function readerFacingIntelligence(raw: string) {
+  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try {
+    const data = JSON.parse(cleaned) as Record<string, unknown>;
+    const section = (title: string, key: string) => {
+      const values = Array.isArray(data[key]) ? data[key].filter(item => typeof item === "string") as string[] : [];
+      return values.length ? `### ${title}\n${values.map(value => `- ${value}`).join("\n")}` : "";
+    };
+    return [
+      "## The shape of your chart",
+      "This is a concise map of the strongest patterns the calculation supports. The longer reading below turns these signals into a personal story.",
+      section("What stands out", "dominantPlanets"),
+      section("Life areas being emphasized", "dominantHouses"),
+      section("Signs and qualities in focus", "dominantSigns"),
+      section("The repeating thread", "repeatedThemes"),
+      section("Strongest evidence", "strongestEvidence"),
+      section("The central tensions", "tensions"),
+      section("Placements to keep in view", "priorityPlacements"),
+      section("What may be active now", "currentTransitThemes"),
+      section("Psychological possibilities to test", "psychologicalHypotheses"),
+      section("Questions for honest recognition", "disconfirmingQuestions"),
+    ].filter(Boolean).join("\n\n");
+  } catch {
+    return raw.replace(/[{}\[\]\"]/g, "").replace(/,\s*/g, "\n").trim();
+  }
+}
 export async function generateInterpretation(chart: ChartResult, mode: ReadingMode = "combined") {
   const facts = JSON.stringify(chartFacts(chart));
   const intelligence = await ask([
@@ -71,7 +97,7 @@ export async function generateInterpretation(chart: ChartResult, mode: ReadingMo
     { role: "user", content: `Calculated chart facts (source of truth):\n${facts}\n\nChart Intelligence (intermediate reasoning object):\n${intelligence}\n\nNow write the complete life-story reading. Synthesize repeated evidence into a coherent developmental narrative with scenes and transitions. Go deeper into motives and defenses only where multiple supplied factors support the hypothesis; otherwise narrate it as a tentative possibility. Avoid sounding like a checklist or a clinical assessment.` },
   ], 11000);
 
-  return { intelligence, reading, generatedAt: new Date().toISOString() };
+  return { intelligence: readerFacingIntelligence(intelligence), reading, generatedAt: new Date().toISOString() };
 }
 
 export async function followUp(chart: ChartResult, interpretation: { intelligence: string; reading: string }, history: Array<{ role: "user" | "assistant"; content: string }>, question: string, mode: ReadingMode = "combined") {
